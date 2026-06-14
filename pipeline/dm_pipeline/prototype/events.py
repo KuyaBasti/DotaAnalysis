@@ -16,6 +16,7 @@ from typing import Any
 class EventType(str, Enum):
     GAME_START = "game_start"
     ECONOMY = "economy"
+    LANING = "laning"
     FIGHT = "fight"
     GAME_OVER = "game_over"
 
