@@ -1,0 +1,34 @@
+{
+  "blink": {
+    "id": 1,
+    "dname": "Blink Dagger",
+    "cost": 2250,
+    "cd": 15,
+    "mc": false,
+    "components": null
+  },
+  "power_treads": {
+    "id": 63,
+    "dname": "Power Treads",
+    "cost": 1400,
+    "cd": false,
+    "mc": false,
+    "components": ["boots", "gloves", "belt_of_strength"]
+  },
+  "black_king_bar": {
+    "id": 116,
+    "dname": "Black King Bar",
+    "cost": 4050,
+    "cd": 75,
+    "mc": 0,
+    "components": ["mithril_hammer", "ogre_axe", "bkb"]
+  },
+  "ward_dispenser": {
+    "id": 218,
+    "dname": null,
+    "cost": null,
+    "cd": false,
+    "mc": false,
+    "components": null
+  }
+}
