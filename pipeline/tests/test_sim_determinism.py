@@ -16,13 +16,15 @@ import pytest
 from dm_pipeline.prototype.scenario import Scenario
 from dm_pipeline.prototype.sim_loop import MAX_TIME, simulate
 
+# Heroes carry the fields the sim reads: roles (economy), attack_type + base_stats
+# (laning). Stats differ across teams so the laning path is exercised here too.
 HEROES = {
-    "carry_a": {"display_name": "Carry A", "roles": ["carry"]},
-    "carry_b": {"display_name": "Carry B", "roles": ["carry"]},
-    "supp_a": {"display_name": "Supp A", "roles": ["support"]},
-    "supp_b": {"display_name": "Supp B", "roles": ["support"]},
-    "mid_a": {"display_name": "Mid A", "roles": ["nuker"]},
-    "mid_b": {"display_name": "Mid B", "roles": ["nuker"]},
+    "carry_a": {"display_name": "Carry A", "roles": ["carry"], "attack_type": "melee", "base_stats": {"str": 22, "agi": 20, "int": 16}},
+    "carry_b": {"display_name": "Carry B", "roles": ["carry"], "attack_type": "ranged", "base_stats": {"str": 18, "agi": 24, "int": 18}},
+    "supp_a": {"display_name": "Supp A", "roles": ["support"], "attack_type": "ranged", "base_stats": {"str": 18, "agi": 16, "int": 20}},
+    "supp_b": {"display_name": "Supp B", "roles": ["support"], "attack_type": "melee", "base_stats": {"str": 20, "agi": 18, "int": 18}},
+    "mid_a": {"display_name": "Mid A", "roles": ["nuker"], "attack_type": "ranged", "base_stats": {"str": 19, "agi": 17, "int": 22}},
+    "mid_b": {"display_name": "Mid B", "roles": ["nuker"], "attack_type": "melee", "base_stats": {"str": 21, "agi": 19, "int": 19}},
 }
 SCENARIO = Scenario(
     patch_id="test",
