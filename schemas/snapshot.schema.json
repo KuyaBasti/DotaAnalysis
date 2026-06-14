@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://draftmaster.dev/schemas/snapshot.schema.json",
   "title": "PatchSnapshot",
-  "description": "Immutable, versioned bundle of all game data for a single Dota 2 patch. The simulation engine loads exactly one of these per run and never calls a live API. v0 scope: heroes only.",
+  "description": "Immutable, versioned bundle of all game data for a single Dota 2 patch. The simulation engine loads exactly one of these per run and never calls a live API. v0 scope: heroes and items.",
   "type": "object",
   "required": ["patch_id", "heroes"],
   "additionalProperties": false,
@@ -27,6 +27,11 @@
       "description": "Every hero available in this patch.",
       "minItems": 1,
       "items": { "$ref": "#/definitions/hero" }
+    },
+    "items": {
+      "type": "array",
+      "description": "Every purchasable item in this patch.",
+      "items": { "$ref": "#/definitions/item" }
     }
   },
   "definitions": {
@@ -101,6 +106,42 @@
         "str": { "type": "number" },
         "agi": { "type": "number" },
         "int": { "type": "number" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["key", "display_name", "cost"],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Short item identifier, e.g. \"black_king_bar\".",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cost": {
+          "type": ["integer", "null"],
+          "description": "Total gold cost; null for items without a purchase cost.",
+          "minimum": 0
+        },
+        "cooldown": {
+          "type": ["number", "null"],
+          "description": "Active-ability cooldown in seconds; null if the item has none.",
+          "minimum": 0
+        },
+        "mana_cost": {
+          "type": ["number", "null"],
+          "description": "Mana cost of the item's active; null if none.",
+          "minimum": 0
+        },
+        "components": {
+          "type": ["array", "null"],
+          "description": "Component item keys this builds from; null for a base item.",
+          "items": { "type": "string" }
+        }
       }
     }
   }
