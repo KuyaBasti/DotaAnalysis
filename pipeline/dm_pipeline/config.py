@@ -18,15 +18,18 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 SCHEMA_DIR: Path = REPO_ROOT / "schemas"
 SNAPSHOT_SCHEMA_PATH: Path = SCHEMA_DIR / "snapshot.schema.json"
 
-# data/ is git-ignored: raw API dumps and built snapshots are derived artifacts.
+# data/ is git-ignored: raw API dumps, built snapshots, and harvested matches
+# are all derived artifacts.
 DATA_DIR: Path = REPO_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 SNAPSHOT_OUT_DIR: Path = DATA_DIR / "snapshots"
+MATCHES_DIR: Path = DATA_DIR / "matches"
 
 # --- External data sources --------------------------------------------------
-# OpenDota exposes pre-parsed, JSON-friendly game constants for the current
-# patch. See https://docs.opendota.com/ (constants endpoints).
-OPENDOTA_CONSTANTS_URL: str = "https://api.opendota.com/api/constants"
+OPENDOTA_API_URL: str = "https://api.opendota.com/api"
+# Constants (game data) live under the same API. Free tier (verified): 60
+# calls/minute, ~2000 calls/day -- enough to bank thousands of matches/day.
+OPENDOTA_CONSTANTS_URL: str = f"{OPENDOTA_API_URL}/constants"
 
 # --- Defaults ---------------------------------------------------------------
 DEFAULT_PATCH_ID: str = "7.39c"
