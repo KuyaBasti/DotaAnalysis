@@ -1,0 +1,22 @@
+{
+  "id": "7.39c-seed42",
+  "patch_id": "7.39c",
+  "seed": 42,
+  "radiant": ["juggernaut"],
+  "dire": ["lich"],
+  "summary": {
+    "winner": "dire",
+    "duration_seconds": 1260,
+    "radiant_net_worth": 7338.2,
+    "dire_net_worth": 35748.8
+  },
+  "timeline": [
+    { "t": 0, "type": "game_start", "payload": { "seed": 42 } },
+    {
+      "t": 30,
+      "type": "economy",
+      "payload": { "radiant_net_worth": 322.8, "dire_net_worth": 330.0 }
+    },
+    { "t": 1260, "type": "game_over", "payload": { "winner": "dire" } }
+  ]
+}

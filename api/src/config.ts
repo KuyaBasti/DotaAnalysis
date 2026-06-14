@@ -10,6 +10,7 @@ export interface Config {
   host: string;
   port: number;
   snapshotDir: string;
+  simDir: string;
 }
 
 export function loadConfig(): Config {
@@ -18,5 +19,6 @@ export function loadConfig(): Config {
     port: Number(process.env.PORT ?? 3000),
     snapshotDir:
       process.env.DM_SNAPSHOT_DIR ?? path.join(repoRoot, "data", "snapshots"),
+    simDir: process.env.DM_SIM_DIR ?? path.join(repoRoot, "data", "sims"),
   };
 }

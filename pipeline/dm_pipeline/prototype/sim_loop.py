@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from dm_pipeline import config
 from dm_pipeline.prototype.economy import farm_priority, hero_gold_gain
 from dm_pipeline.prototype.events import Event, EventType
 from dm_pipeline.prototype.fight_v0 import resolve_fight
@@ -123,6 +124,29 @@ def run_scenario(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]
     return simulate(scenario, load_heroes(scenario.patch_id), seed=seed)
 
 
+def sim_result(
+    scenario: Scenario, timeline: Timeline, state: GameState, *, seed: int
+) -> dict[str, Any]:
+    """A JSON-serializable summary + timeline for one simulated match.
+
+    This is the shape the API serves and the web viewer renders.
+    """
+    return {
+        "id": f"{scenario.patch_id}-seed{seed}",
+        "patch_id": scenario.patch_id,
+        "seed": seed,
+        "radiant": scenario.radiant,
+        "dire": scenario.dire,
+        "summary": {
+            "winner": state.winner,
+            "duration_seconds": state.t,
+            "radiant_net_worth": round(state.radiant.net_worth, 1),
+            "dire_net_worth": round(state.dire.net_worth, 1),
+        },
+        "timeline": timeline.to_list(),
+    }
+
+
 def _build_team(
     name: str, keys: list[str], heroes: dict[str, dict[str, Any]]
 ) -> TeamState:
@@ -153,6 +177,8 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
             payload={
                 "radiant_gain": round(radiant_gain, 1),
                 "dire_gain": round(dire_gain, 1),
+                "radiant_net_worth": round(state.radiant.net_worth, 1),
+                "dire_net_worth": round(state.dire.net_worth, 1),
             },
         )
     )
@@ -248,11 +274,22 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="print the full event timeline as JSON",
     )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="write the match result to data/sims/sim.<id>.json for the API",
+    )
     args = parser.parse_args(argv)
 
     timeline, state = run_scenario(_DEMO_SCENARIO, seed=args.seed)
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
+    if args.export:
+        result = sim_result(_DEMO_SCENARIO, timeline, state, seed=args.seed)
+        out_path = config.SIM_OUT_DIR / f"sim.{result['id']}.json"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(result, indent=2, sort_keys=True))
+        print(f"exported {out_path}")
     print(
         f"seed {args.seed}: {state.winner} wins at "
         f"{state.t // 60}:{state.t % 60:02d} — "

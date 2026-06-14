@@ -2,7 +2,11 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 
 const config = loadConfig();
-const app = buildApp({ snapshotDir: config.snapshotDir, logger: true });
+const app = buildApp({
+  snapshotDir: config.snapshotDir,
+  simDir: config.simDir,
+  logger: true,
+});
 
 app
   .listen({ host: config.host, port: config.port })

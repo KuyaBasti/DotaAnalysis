@@ -9,7 +9,7 @@ const fixturesDir = path.join(
 );
 
 function makeApp() {
-  return buildApp({ snapshotDir: fixturesDir });
+  return buildApp({ snapshotDir: fixturesDir, simDir: fixturesDir });
 }
 
 describe("patch data api", () => {
