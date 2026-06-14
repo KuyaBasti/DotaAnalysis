@@ -1,0 +1,1 @@
+-- schemas/migrations/0006_harvest_index.sql — placeholder

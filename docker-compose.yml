@@ -1,0 +1,3 @@
+# Local dev stack — placeholder
+# services: Postgres, Redis, MinIO (S3-compatible)
+services: {}
