@@ -1,10 +1,10 @@
 """Deterministic discrete-event simulation (prototype).
 
 Stage 3, now scenario-driven: the loop simulates a match between two real drafts
-(heroes resolved from a snapshot), with a per-hero economy that varies by role.
-Fights are still an uncalibrated placeholder; the laning/fight models replace
-them next. A bad complete loop beats a perfect fragment — you can only calibrate
-a closed loop.
+(heroes resolved from a snapshot). A per-hero economy varies by role, a laning
+model gives the stronger early-game draft a head start, and an analytic resolver
+decides fights from the net-worth state. Numbers are uncalibrated — a bad
+complete loop beats a perfect fragment; you can only calibrate a closed loop.
 
 The load-bearing property remains determinism: same scenario + same seed produce
 a byte-identical timeline (see tests/test_sim_determinism.py).
@@ -18,6 +18,11 @@ from typing import Any
 from dm_pipeline.prototype.economy import farm_priority, hero_gold_gain
 from dm_pipeline.prototype.events import Event, EventType
 from dm_pipeline.prototype.fight_v0 import resolve_fight
+from dm_pipeline.prototype.laning import (
+    LANING_END_SECONDS,
+    laning_gold_split,
+    team_lane_power,
+)
 from dm_pipeline.prototype.rng import SeededRng
 from dm_pipeline.prototype.scenario import Scenario, load_heroes
 from dm_pipeline.prototype.timeline import Timeline
@@ -41,6 +46,7 @@ class HeroState:
 class TeamState:
     name: str
     heroes: list[HeroState] = field(default_factory=list)
+    lane_power: float = 0.0
 
     @property
     def net_worth(self) -> float:
@@ -89,6 +95,7 @@ def simulate(
     while not state.game_over and state.t < MAX_TIME:
         state.t += TICK_SECONDS
         _economy_tick(state, rng, timeline)
+        _laning_tick(state, timeline)
         _maybe_fight(state, rng, timeline)
         _check_win(state)
 
@@ -120,10 +127,12 @@ def _build_team(
     name: str, keys: list[str], heroes: dict[str, dict[str, Any]]
 ) -> TeamState:
     states: list[HeroState] = []
+    hero_dicts: list[dict[str, Any]] = []
     for key in keys:
         hero = heroes.get(key)
         if hero is None:
             raise ValueError(f"unknown hero key: {key!r}")
+        hero_dicts.append(hero)
         states.append(
             HeroState(
                 key=key,
@@ -131,7 +140,7 @@ def _build_team(
                 farm_priority=farm_priority(hero.get("roles", [])),
             )
         )
-    return TeamState(name, states)
+    return TeamState(name, states, lane_power=team_lane_power(hero_dicts))
 
 
 def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
@@ -156,6 +165,29 @@ def _team_economy(team: TeamState, rng: SeededRng) -> float:
         hero.net_worth += gain
         total += gain
     return total
+
+
+def _laning_tick(state: GameState, timeline: Timeline) -> None:
+    """During the laning phase, the stronger-laning team accrues a gold edge."""
+    if state.t > LANING_END_SECONDS:
+        return
+    radiant_bonus, dire_bonus = laning_gold_split(
+        state.radiant.lane_power, state.dire.lane_power
+    )
+    if radiant_bonus == 0.0 and dire_bonus == 0.0:
+        return
+    _distribute(state.radiant, radiant_bonus)
+    _distribute(state.dire, dire_bonus)
+    timeline.emit(
+        Event(
+            t=state.t,
+            type=EventType.LANING,
+            payload={
+                "radiant_bonus": round(radiant_bonus, 1),
+                "dire_bonus": round(dire_bonus, 1),
+            },
+        )
+    )
 
 
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
