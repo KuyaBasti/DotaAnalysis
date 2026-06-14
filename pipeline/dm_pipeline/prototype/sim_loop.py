@@ -1,55 +1,91 @@
-"""Deterministic discrete-event simulation skeleton (prototype).
+"""Deterministic discrete-event simulation (prototype).
 
-This is Stage 3's "structural frame, floor 1": a game clock, the single seeded
-RNG, a timeline emitter, and a win condition — the smallest *complete* loop that
-runs start-to-finish and ends with a winner. The economy/fight numbers here are
-a deliberate, uncalibrated placeholder; real economy, laning, and fight models
-replace them in later verticals. A bad complete loop beats a perfect fragment —
-you can only calibrate a closed loop.
+Stage 3, now scenario-driven: the loop simulates a match between two real drafts
+(heroes resolved from a snapshot), with a per-hero economy that varies by role.
+Fights are still an uncalibrated placeholder; the laning/fight models replace
+them next. A bad complete loop beats a perfect fragment — you can only calibrate
+a closed loop.
 
-The load-bearing property of this floor is determinism: the same seed produces a
-byte-identical timeline, forever (see tests/test_sim_determinism.py).
+The load-bearing property remains determinism: same scenario + same seed produce
+a byte-identical timeline (see tests/test_sim_determinism.py).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
+from dm_pipeline.prototype.economy import farm_priority, hero_gold_gain
 from dm_pipeline.prototype.events import Event, EventType
 from dm_pipeline.prototype.rng import SeededRng
+from dm_pipeline.prototype.scenario import Scenario, load_heroes
 from dm_pipeline.prototype.timeline import Timeline
 
 TICK_SECONDS = 30
 MAX_TIME = 60 * 60  # 60-minute hard cap
-WIN_NETWORTH_LEAD = 25_000  # lead at which the trailing ancient falls
+WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient falls
 
-# Placeholder economy/fight tuning — NOT calibrated (see module docstring).
-_GOLD_PER_TICK = (180.0, 320.0)  # per-team gold earned each macro tick
+# Placeholder fight tuning — NOT calibrated.
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick
 _FIGHT_SWING = (1500.0, 5000.0)  # net-worth swing to the fight's winner
 
 
 @dataclass
-class TeamState:
-    name: str
+class HeroState:
+    key: str
+    display_name: str
+    farm_priority: float
     net_worth: float = 0.0
 
 
 @dataclass
+class TeamState:
+    name: str
+    heroes: list[HeroState] = field(default_factory=list)
+
+    @property
+    def net_worth(self) -> float:
+        return sum(h.net_worth for h in self.heroes)
+
+
+@dataclass
 class GameState:
+    radiant: TeamState
+    dire: TeamState
     t: int = 0
-    radiant: TeamState = field(default_factory=lambda: TeamState("radiant"))
-    dire: TeamState = field(default_factory=lambda: TeamState("dire"))
     game_over: bool = False
     winner: str | None = None
 
 
-def simulate(seed: int) -> tuple[Timeline, GameState]:
-    """Run one full match. Returns its event timeline and final game state."""
+def simulate(
+    scenario: Scenario,
+    heroes: dict[str, dict[str, Any]],
+    *,
+    seed: int,
+) -> tuple[Timeline, GameState]:
+    """Run one full match for a scenario. Returns timeline and final state.
+
+    ``heroes`` is the patch's hero data keyed by hero key (see
+    ``scenario.load_heroes``); passing it in keeps simulate() testable offline.
+    """
     rng = SeededRng(seed)
-    state = GameState()
+    state = GameState(
+        radiant=_build_team("radiant", scenario.radiant, heroes),
+        dire=_build_team("dire", scenario.dire, heroes),
+    )
     timeline = Timeline()
-    timeline.emit(Event(t=0, type=EventType.GAME_START, payload={"seed": seed}))
+    timeline.emit(
+        Event(
+            t=0,
+            type=EventType.GAME_START,
+            payload={
+                "seed": seed,
+                "patch_id": scenario.patch_id,
+                "radiant": scenario.radiant,
+                "dire": scenario.dire,
+            },
+        )
+    )
 
     while not state.game_over and state.t < MAX_TIME:
         state.t += TICK_SECONDS
@@ -76,11 +112,32 @@ def simulate(seed: int) -> tuple[Timeline, GameState]:
     return timeline, state
 
 
+def run_scenario(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
+    """Convenience: load the scenario's patch heroes from disk, then simulate."""
+    return simulate(scenario, load_heroes(scenario.patch_id), seed=seed)
+
+
+def _build_team(
+    name: str, keys: list[str], heroes: dict[str, dict[str, Any]]
+) -> TeamState:
+    states: list[HeroState] = []
+    for key in keys:
+        hero = heroes.get(key)
+        if hero is None:
+            raise ValueError(f"unknown hero key: {key!r}")
+        states.append(
+            HeroState(
+                key=key,
+                display_name=hero["display_name"],
+                farm_priority=farm_priority(hero.get("roles", [])),
+            )
+        )
+    return TeamState(name, states)
+
+
 def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
-    radiant_gain = rng.uniform(*_GOLD_PER_TICK)
-    dire_gain = rng.uniform(*_GOLD_PER_TICK)
-    state.radiant.net_worth += radiant_gain
-    state.dire.net_worth += dire_gain
+    radiant_gain = _team_economy(state.radiant, rng)
+    dire_gain = _team_economy(state.dire, rng)
     timeline.emit(
         Event(
             t=state.t,
@@ -93,6 +150,15 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     )
 
 
+def _team_economy(team: TeamState, rng: SeededRng) -> float:
+    total = 0.0
+    for hero in team.heroes:
+        gain = hero_gold_gain(rng, hero.farm_priority)
+        hero.net_worth += gain
+        total += gain
+    return total
+
+
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     if not rng.chance(_FIGHT_CHANCE):
         return
@@ -103,8 +169,8 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
         if winner == "radiant"
         else (state.dire, state.radiant)
     )
-    won.net_worth += swing
-    lost.net_worth -= swing * 0.5
+    _distribute(won, swing)
+    _distribute(lost, -swing * 0.5)
     timeline.emit(
         Event(
             t=state.t,
@@ -114,11 +180,27 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     )
 
 
+def _distribute(team: TeamState, amount: float) -> None:
+    if not team.heroes:
+        return
+    share = amount / len(team.heroes)
+    for hero in team.heroes:
+        hero.net_worth += share
+
+
 def _check_win(state: GameState) -> None:
     lead = state.radiant.net_worth - state.dire.net_worth
     if abs(lead) >= WIN_NETWORTH_LEAD:
         state.game_over = True
         state.winner = "radiant" if lead > 0 else "dire"
+
+
+# A demo scenario of standard heroes (keys must exist in the loaded snapshot).
+_DEMO_SCENARIO = Scenario(
+    patch_id="7.39c",
+    radiant=["juggernaut", "crystal_maiden", "axe", "invoker", "lion"],
+    dire=["phantom_assassin", "lich", "tidehunter", "storm_spirit", "witch_doctor"],
+)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -134,12 +216,15 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    timeline, state = simulate(args.seed)
+    timeline, state = run_scenario(_DEMO_SCENARIO, seed=args.seed)
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
     print(
         f"seed {args.seed}: {state.winner} wins at "
-        f"{state.t // 60}:{state.t % 60:02d} ({len(timeline.events)} events)"
+        f"{state.t // 60}:{state.t % 60:02d} — "
+        f"radiant {round(state.radiant.net_worth):,} vs "
+        f"dire {round(state.dire.net_worth):,} "
+        f"({len(timeline.events)} events)"
     )
 
 
