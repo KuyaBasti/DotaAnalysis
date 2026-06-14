@@ -1,0 +1,28 @@
+{
+  "patch_id": "7.39c",
+  "source": "opendota-constants",
+  "generated_at": "2026-06-14T00:00:00+00:00",
+  "heroes": [
+    {
+      "key": "juggernaut",
+      "display_name": "Juggernaut",
+      "primary_attr": "agi",
+      "attack_type": "melee",
+      "roles": ["carry", "pusher", "escape"],
+      "base_stats": { "str": 20, "agi": 34, "int": 14 },
+      "stat_gain": { "str": 2.2, "agi": 1.4, "int": 1.8 },
+      "attack": { "min": 24, "max": 30 },
+      "move_speed": 305
+    }
+  ],
+  "items": [
+    {
+      "key": "black_king_bar",
+      "display_name": "Black King Bar",
+      "cost": 4050,
+      "cooldown": 75,
+      "mana_cost": 0,
+      "components": ["mithril_hammer", "ogre_axe"]
+    }
+  ]
+}
