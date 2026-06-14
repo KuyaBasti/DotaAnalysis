@@ -22,23 +22,38 @@ def build_snapshot(
     *,
     patch_id: str,
     source: str = "opendota-constants",
+    raw_items: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Assemble a PatchSnapshot dict from OpenDota's id-keyed heroes payload.
+    """Assemble a PatchSnapshot dict from OpenDota constants payloads.
 
     Args:
         raw_heroes: OpenDota ``constants/heroes`` payload (id -> hero object).
         patch_id: The patch this snapshot represents, e.g. "7.39c".
         source: Provenance tag recorded in the snapshot.
+        raw_items: Optional OpenDota ``constants/items`` payload (name -> item
+            object). When provided, an ``items`` array is added to the snapshot.
     """
     heroes = [_map_hero(raw) for raw in raw_heroes.values()]
     heroes.sort(key=lambda h: h["key"])
 
-    return {
+    snapshot: dict[str, Any] = {
         "patch_id": patch_id,
         "source": source,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "heroes": heroes,
     }
+
+    if raw_items is not None:
+        # Skip entries without a display name (recipes/placeholders carry none).
+        items = [
+            _map_item(key, raw)
+            for key, raw in raw_items.items()
+            if raw.get("dname")
+        ]
+        items.sort(key=lambda i: i["key"])
+        snapshot["items"] = items
+
+    return snapshot
 
 
 def _map_hero(raw: dict[str, Any]) -> dict[str, Any]:
@@ -68,3 +83,25 @@ def _map_hero(raw: dict[str, Any]) -> dict[str, Any]:
         },
         "move_speed": raw["move_speed"],
     }
+
+
+def _map_item(key: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """Map one OpenDota item object to our normalized item shape."""
+    return {
+        "key": key,
+        "display_name": raw["dname"],
+        "cost": raw.get("cost"),
+        "cooldown": _num_or_none(raw.get("cd")),
+        "mana_cost": _num_or_none(raw.get("mc")),
+        "components": raw.get("components"),
+    }
+
+
+def _num_or_none(value: Any) -> float | int | None:
+    """OpenDota encodes "no cooldown/mana" as ``false``; normalize that to None."""
+    # bool is a subclass of int, so reject it before the numeric check.
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    return None
