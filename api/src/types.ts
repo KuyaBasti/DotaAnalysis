@@ -39,3 +39,28 @@ export interface PatchSnapshot {
   heroes: Hero[];
   items?: Item[];
 }
+
+// --- Simulation results (written by the prototype sim, served at /sims) ------
+
+export interface TimelineEvent {
+  t: number;
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+export interface SimSummary {
+  winner: string;
+  duration_seconds: number;
+  radiant_net_worth: number;
+  dire_net_worth: number;
+}
+
+export interface SimResult {
+  id: string;
+  patch_id: string;
+  seed: number;
+  radiant: string[];
+  dire: string[];
+  summary: SimSummary;
+  timeline: TimelineEvent[];
+}
