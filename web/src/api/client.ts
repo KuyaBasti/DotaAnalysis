@@ -1,4 +1,9 @@
-import type { HeroesResponse, PatchesResponse } from "../types";
+import type {
+  HeroesResponse,
+  PatchesResponse,
+  SimResult,
+  SimsResponse,
+} from "../types";
 
 // Empty base => same-origin (dev server proxies to the API). Override with
 // VITE_API_BASE when pointing at a deployed API.
@@ -18,4 +23,12 @@ export function listPatches(): Promise<PatchesResponse> {
 
 export function getHeroes(patchId: string): Promise<HeroesResponse> {
   return getJSON<HeroesResponse>(`/patches/${patchId}/heroes`);
+}
+
+export function listSims(): Promise<SimsResponse> {
+  return getJSON<SimsResponse>("/sims");
+}
+
+export function getSim(id: string): Promise<SimResult> {
+  return getJSON<SimResult>(`/sims/${id}`);
 }
