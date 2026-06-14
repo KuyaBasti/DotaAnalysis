@@ -24,6 +24,7 @@ DATA_DIR: Path = REPO_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"
 SNAPSHOT_OUT_DIR: Path = DATA_DIR / "snapshots"
 MATCHES_DIR: Path = DATA_DIR / "matches"
+SIM_OUT_DIR: Path = DATA_DIR / "sims"
 
 # --- External data sources --------------------------------------------------
 OPENDOTA_API_URL: str = "https://api.opendota.com/api"
