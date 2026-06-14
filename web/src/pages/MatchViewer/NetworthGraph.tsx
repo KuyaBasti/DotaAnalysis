@@ -1,1 +1,76 @@
-// web/src/pages/MatchViewer/NetworthGraph.tsx — placeholder
+import type { TimelineEvent } from "../../types";
+
+export interface NetworthPoint {
+  t: number;
+  radiant: number;
+  dire: number;
+}
+
+// Pure, testable: pull the per-tick net-worth series out of economy events.
+export function networthSeries(timeline: TimelineEvent[]): NetworthPoint[] {
+  return timeline
+    .filter((e) => e.type === "economy")
+    .map((e) => ({
+      t: e.t,
+      radiant: Number(e.payload.radiant_net_worth ?? 0),
+      dire: Number(e.payload.dire_net_worth ?? 0),
+    }));
+}
+
+const W = 600;
+const H = 280;
+const PAD = 36;
+
+function points(
+  series: NetworthPoint[],
+  pick: (p: NetworthPoint) => number,
+  maxT: number,
+  maxNw: number,
+): string {
+  return series
+    .map((p) => {
+      const x = PAD + (maxT === 0 ? 0 : (p.t / maxT) * (W - 2 * PAD));
+      const y = H - PAD - (maxNw === 0 ? 0 : (pick(p) / maxNw) * (H - 2 * PAD));
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+export function NetworthGraph({ timeline }: { timeline: TimelineEvent[] }) {
+  const series = networthSeries(timeline);
+  if (series.length === 0) return <p>No economy data to plot.</p>;
+
+  const maxT = Math.max(...series.map((p) => p.t));
+  const maxNw = Math.max(...series.map((p) => Math.max(p.radiant, p.dire)), 1);
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ width: "100%", border: "1px solid #eee", borderRadius: 8 }}
+    >
+      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#ccc" />
+      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#ccc" />
+      <polyline
+        fill="none"
+        stroke="#2e7d32"
+        strokeWidth="2"
+        points={points(series, (p) => p.radiant, maxT, maxNw)}
+      />
+      <polyline
+        fill="none"
+        stroke="#c62828"
+        strokeWidth="2"
+        points={points(series, (p) => p.dire, maxT, maxNw)}
+      />
+      <text x={W - PAD} y={PAD} textAnchor="end" fontSize="12" fill="#2e7d32">
+        Radiant
+      </text>
+      <text x={W - PAD} y={PAD + 16} textAnchor="end" fontSize="12" fill="#c62828">
+        Dire
+      </text>
+      <text x={PAD} y={PAD - 12} fontSize="11" fill="#888">
+        net worth → {Math.round(maxNw).toLocaleString()}
+      </text>
+    </svg>
+  );
+}
