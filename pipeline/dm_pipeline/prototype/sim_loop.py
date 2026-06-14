@@ -17,6 +17,7 @@ from typing import Any
 
 from dm_pipeline.prototype.economy import farm_priority, hero_gold_gain
 from dm_pipeline.prototype.events import Event, EventType
+from dm_pipeline.prototype.fight_v0 import resolve_fight
 from dm_pipeline.prototype.rng import SeededRng
 from dm_pipeline.prototype.scenario import Scenario, load_heroes
 from dm_pipeline.prototype.timeline import Timeline
@@ -25,9 +26,7 @@ TICK_SECONDS = 30
 MAX_TIME = 60 * 60  # 60-minute hard cap
 WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient falls
 
-# Placeholder fight tuning — NOT calibrated.
-_FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick
-_FIGHT_SWING = (1500.0, 5000.0)  # net-worth swing to the fight's winner
+_FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
 
 
 @dataclass
@@ -162,20 +161,23 @@ def _team_economy(team: TeamState, rng: SeededRng) -> float:
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     if not rng.chance(_FIGHT_CHANCE):
         return
-    swing = rng.uniform(*_FIGHT_SWING)
-    winner = "radiant" if rng.chance(0.5) else "dire"
+    outcome = resolve_fight(state.radiant.net_worth, state.dire.net_worth, rng)
     won, lost = (
         (state.radiant, state.dire)
-        if winner == "radiant"
+        if outcome.winner == "radiant"
         else (state.dire, state.radiant)
     )
-    _distribute(won, swing)
-    _distribute(lost, -swing * 0.5)
+    _distribute(won, outcome.swing)
+    _distribute(lost, -outcome.swing * 0.5)
     timeline.emit(
         Event(
             t=state.t,
             type=EventType.FIGHT,
-            payload={"winner": winner, "swing": round(swing, 1)},
+            payload={
+                "winner": outcome.winner,
+                "swing": round(outcome.swing, 1),
+                "radiant_win_prob": round(outcome.radiant_win_prob, 3),
+            },
         )
     )
 
