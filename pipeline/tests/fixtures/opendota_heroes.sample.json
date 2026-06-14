@@ -1,0 +1,53 @@
+{
+  "8": {
+    "id": 8,
+    "name": "npc_dota_hero_juggernaut",
+    "localized_name": "Juggernaut",
+    "primary_attr": "agi",
+    "attack_type": "Melee",
+    "roles": ["Carry", "Pusher", "Escape"],
+    "base_str": 20,
+    "base_agi": 34,
+    "base_int": 14,
+    "str_gain": 2.2,
+    "agi_gain": 1.4,
+    "int_gain": 1.8,
+    "base_attack_min": 24,
+    "base_attack_max": 30,
+    "move_speed": 305
+  },
+  "5": {
+    "id": 5,
+    "name": "npc_dota_hero_crystal_maiden",
+    "localized_name": "Crystal Maiden",
+    "primary_attr": "int",
+    "attack_type": "Ranged",
+    "roles": ["Support", "Disabler", "Nuker"],
+    "base_str": 18,
+    "base_agi": 16,
+    "base_int": 18,
+    "str_gain": 2.2,
+    "agi_gain": 1.6,
+    "int_gain": 3.3,
+    "base_attack_min": 21,
+    "base_attack_max": 27,
+    "move_speed": 280
+  },
+  "102": {
+    "id": 102,
+    "name": "npc_dota_hero_abaddon",
+    "localized_name": "Abaddon",
+    "primary_attr": "all",
+    "attack_type": "Melee",
+    "roles": ["Carry", "Support", "Durable"],
+    "base_str": 22,
+    "base_agi": 23,
+    "base_int": 18,
+    "str_gain": 2.6,
+    "agi_gain": 1.5,
+    "int_gain": 2.0,
+    "base_attack_min": 33,
+    "base_attack_max": 43,
+    "move_speed": 325
+  }
+}

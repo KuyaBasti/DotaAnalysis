@@ -1,6 +1,107 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "snapshot",
+  "$id": "https://draftmaster.dev/schemas/snapshot.schema.json",
+  "title": "PatchSnapshot",
+  "description": "Immutable, versioned bundle of all game data for a single Dota 2 patch. The simulation engine loads exactly one of these per run and never calls a live API. v0 scope: heroes only.",
   "type": "object",
-  "properties": {}
+  "required": ["patch_id", "heroes"],
+  "additionalProperties": false,
+  "properties": {
+    "patch_id": {
+      "type": "string",
+      "description": "Patch version string, e.g. \"7.39c\". The version axis threaded through every component; never hardcode \"current patch\" anywhere else.",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "description": "Provenance of the raw data this snapshot was built from.",
+      "enum": ["opendota-constants", "vpk", "curated"]
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp marking when this snapshot was built.",
+      "format": "date-time"
+    },
+    "heroes": {
+      "type": "array",
+      "description": "Every hero available in this patch.",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/hero" }
+    }
+  },
+  "definitions": {
+    "hero": {
+      "type": "object",
+      "required": [
+        "key",
+        "display_name",
+        "primary_attr",
+        "attack_type",
+        "base_stats",
+        "stat_gain",
+        "attack",
+        "move_speed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Stable short identifier with the npc_dota_hero_ prefix stripped, e.g. \"juggernaut\".",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primary_attr": {
+          "type": "string",
+          "description": "Primary attribute. \"all\" denotes a Universal hero.",
+          "enum": ["str", "agi", "int", "all"]
+        },
+        "attack_type": {
+          "type": "string",
+          "enum": ["melee", "ranged"]
+        },
+        "roles": {
+          "type": "array",
+          "description": "Lowercased role tags, e.g. [\"carry\", \"pusher\", \"escape\"].",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "base_stats": {
+          "description": "Base attribute values at level 1.",
+          "$ref": "#/definitions/attr_triple"
+        },
+        "stat_gain": {
+          "description": "Per-level attribute growth.",
+          "$ref": "#/definitions/attr_triple"
+        },
+        "attack": {
+          "type": "object",
+          "description": "Base attack damage range before attribute bonuses.",
+          "required": ["min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number", "minimum": 0 },
+            "max": { "type": "number", "minimum": 0 }
+          }
+        },
+        "move_speed": {
+          "type": "number",
+          "description": "Base movement speed.",
+          "minimum": 0
+        }
+      }
+    },
+    "attr_triple": {
+      "type": "object",
+      "required": ["str", "agi", "int"],
+      "additionalProperties": false,
+      "properties": {
+        "str": { "type": "number" },
+        "agi": { "type": "number" },
+        "int": { "type": "number" }
+      }
+    }
+  }
 }
