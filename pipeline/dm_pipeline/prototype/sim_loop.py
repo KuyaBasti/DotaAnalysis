@@ -33,6 +33,7 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient falls
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
+_DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
 
 
 @dataclass
@@ -68,6 +69,7 @@ def simulate(
     heroes: dict[str, dict[str, Any]],
     *,
     seed: int,
+    draft_prior: float | None = None,
 ) -> tuple[Timeline, GameState]:
     """Run one full match for a scenario. Returns timeline and final state.
 
@@ -92,6 +94,9 @@ def simulate(
             },
         )
     )
+
+    if draft_prior is not None:
+        _apply_draft_prior(state, draft_prior, timeline)
 
     while not state.game_over and state.t < MAX_TIME:
         state.t += TICK_SECONDS
@@ -122,6 +127,25 @@ def simulate(
 def run_scenario(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
     """Convenience: load the scenario's patch heroes from disk, then simulate."""
     return simulate(scenario, load_heroes(scenario.patch_id), seed=seed)
+
+
+def run_with_model(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
+    """Like run_scenario, but seed a draft prior from the trained win-prob model.
+
+    Maps the scenario's hero keys to ids (via the snapshot), asks the model for
+    P(radiant wins), and feeds that to the sim as a starting advantage.
+    """
+    from dm_pipeline.models.win_probability.predict import (
+        load_win_prob_model,
+        predict_draft,
+    )
+
+    heroes = load_heroes(scenario.patch_id)
+    bundle = load_win_prob_model()
+    radiant_ids = [heroes[key]["id"] for key in scenario.radiant]
+    dire_ids = [heroes[key]["id"] for key in scenario.dire]
+    prior = predict_draft(bundle, radiant_ids, dire_ids)
+    return simulate(scenario, heroes, seed=seed, draft_prior=prior)
 
 
 def sim_result(
@@ -248,6 +272,28 @@ def _distribute(team: TeamState, amount: float) -> None:
         hero.net_worth += share
 
 
+def _apply_draft_prior(
+    state: GameState, radiant_win_prob: float, timeline: Timeline
+) -> None:
+    """Seed a starting net-worth edge from the draft model's prediction.
+
+    p=0.5 => no edge; p>0.5 => radiant starts ahead, p<0.5 => dire does. The
+    existing economy/fight dynamics then carry the lead forward.
+    """
+    lead = _DRAFT_PRIOR_NETWORTH * (2.0 * radiant_win_prob - 1.0)
+    _distribute(state.radiant, lead)
+    timeline.emit(
+        Event(
+            t=0,
+            type=EventType.DRAFT_PRIOR,
+            payload={
+                "radiant_win_prob": round(radiant_win_prob, 3),
+                "radiant_lead": round(lead, 1),
+            },
+        )
+    )
+
+
 def _check_win(state: GameState) -> None:
     lead = state.radiant.net_worth - state.dire.net_worth
     if abs(lead) >= WIN_NETWORTH_LEAD:
@@ -279,9 +325,17 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="write the match result to data/sims/sim.<id>.json for the API",
     )
+    parser.add_argument(
+        "--model",
+        action="store_true",
+        help="seed a draft prior from the trained win-probability model",
+    )
     args = parser.parse_args(argv)
 
-    timeline, state = run_scenario(_DEMO_SCENARIO, seed=args.seed)
+    if args.model:
+        timeline, state = run_with_model(_DEMO_SCENARIO, seed=args.seed)
+    else:
+        timeline, state = run_scenario(_DEMO_SCENARIO, seed=args.seed)
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
     if args.export:
