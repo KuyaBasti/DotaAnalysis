@@ -26,6 +26,7 @@ SNAPSHOT_OUT_DIR: Path = DATA_DIR / "snapshots"
 MATCHES_DIR: Path = DATA_DIR / "matches"
 SIM_OUT_DIR: Path = DATA_DIR / "sims"
 FEATURES_DIR: Path = DATA_DIR / "features"
+MODELS_DIR: Path = DATA_DIR / "models"
 
 # --- External data sources --------------------------------------------------
 OPENDOTA_API_URL: str = "https://api.opendota.com/api"
