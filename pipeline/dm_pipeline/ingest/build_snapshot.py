@@ -62,6 +62,7 @@ def _map_hero(raw: dict[str, Any]) -> dict[str, Any]:
     key = name[len(_HERO_KEY_PREFIX):] if name.startswith(_HERO_KEY_PREFIX) else name
 
     return {
+        "id": raw["id"],
         "key": key,
         "display_name": raw["localized_name"],
         "primary_attr": raw["primary_attr"],
