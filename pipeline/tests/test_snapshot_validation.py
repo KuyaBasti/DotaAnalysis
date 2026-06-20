@@ -40,6 +40,7 @@ def test_juggernaut_maps_correctly() -> None:
     snapshot = build_snapshot(_load_raw(), patch_id="7.39c")
     jugg = next(h for h in snapshot["heroes"] if h["key"] == "juggernaut")
 
+    assert jugg["id"] == 8
     assert jugg["display_name"] == "Juggernaut"
     assert jugg["primary_attr"] == "agi"
     assert jugg["attack_type"] == "melee"  # normalized from "Melee"

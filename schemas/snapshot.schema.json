@@ -38,6 +38,7 @@
     "hero": {
       "type": "object",
       "required": [
+        "id",
         "key",
         "display_name",
         "primary_attr",
@@ -49,6 +50,11 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "type": "integer",
+          "description": "OpenDota numeric hero id; the id space the ML models use.",
+          "minimum": 0
+        },
         "key": {
           "type": "string",
           "description": "Stable short identifier with the npc_dota_hero_ prefix stripped, e.g. \"juggernaut\".",

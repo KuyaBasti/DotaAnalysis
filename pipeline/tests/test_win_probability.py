@@ -6,6 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
+from dm_pipeline.models.win_probability.predict import draft_to_vector, predict_draft
 from dm_pipeline.models.win_probability.train import load_draft_matrix, train
 
 
@@ -64,3 +65,18 @@ def test_model_learns_a_predictive_draft(tmp_path) -> None:
     # The draft fully determines the outcome here, so the model should ace it.
     assert result.auc > 0.9
     assert result.n_test > 0
+
+
+def test_draft_to_vector_encoding() -> None:
+    x = draft_to_vector([1, 2], [3, 4], hero_ids=[1, 2, 3, 4, 5])
+    assert x.tolist() == [1.0, 1.0, -1.0, -1.0, 0.0]  # +1 radiant, -1 dire, 0 absent
+
+
+def test_predict_draft_favors_the_winning_hero(tmp_path) -> None:
+    result = train(_make_dataset(tmp_path, n=240))
+    bundle = {"model": result.model, "hero_ids": result.hero_ids}
+
+    # Radiant with the always-winning hero 1 should be favored; without it, not.
+    p_with = predict_draft(bundle, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
+    p_without = predict_draft(bundle, [11, 12, 13, 14, 15], [6, 7, 8, 9, 10])
+    assert p_with > 0.5 > p_without
