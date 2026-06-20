@@ -5,6 +5,7 @@ const config = loadConfig();
 const app = buildApp({
   snapshotDir: config.snapshotDir,
   simDir: config.simDir,
+  modelsDir: config.modelsDir,
   logger: true,
 });
 

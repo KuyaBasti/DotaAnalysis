@@ -9,7 +9,11 @@ const fixturesDir = path.join(
 );
 
 function makeApp() {
-  return buildApp({ snapshotDir: fixturesDir, simDir: fixturesDir });
+  return buildApp({
+    snapshotDir: fixturesDir,
+    simDir: fixturesDir,
+    modelsDir: fixturesDir,
+  });
 }
 
 describe("simulations api", () => {
