@@ -12,6 +12,7 @@ export interface AttrTriple {
 }
 
 export interface Hero {
+  id: number;
   key: string;
   display_name: string;
   primary_attr: "str" | "agi" | "int" | "all";
@@ -63,4 +64,17 @@ export interface SimResult {
   dire: string[];
   summary: SimSummary;
   timeline: TimelineEvent[];
+}
+
+// --- Draft evaluation (win-prob model, no full sim) --------------------------
+
+export interface DraftEvalRequest {
+  radiant: string[]; // hero keys
+  dire: string[];
+  patch_id?: string;
+}
+
+export interface DraftEvalResponse {
+  patch_id: string;
+  radiant_win_probability: number;
 }
