@@ -113,6 +113,16 @@ def save_model(
     (out_dir / "win_probability.metrics.json").write_text(
         json.dumps(metrics, indent=2)
     )
+
+    # Servable coefficients: a consumer can score a draft directly as
+    # sigmoid(intercept + weights . draft) without loading sklearn (the API does
+    # exactly this for instant draft evaluation).
+    coefficients = {
+        "hero_ids": result.hero_ids,
+        "weights": [round(float(w), 6) for w in result.model.coef_[0]],
+        "intercept": round(float(result.model.intercept_[0]), 6),
+    }
+    (out_dir / "win_probability.coef.json").write_text(json.dumps(coefficients))
     return metrics
 
 
