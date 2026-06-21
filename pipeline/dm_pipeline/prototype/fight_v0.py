@@ -30,18 +30,29 @@ class FightOutcome:
 
 
 def radiant_win_probability(
-    radiant_net_worth: float, dire_net_worth: float
+    radiant_net_worth: float,
+    dire_net_worth: float,
+    strength_edge: float = 0.0,
 ) -> float:
-    """Logistic on the net-worth gap; even net worth => 0.5."""
-    diff = radiant_net_worth - dire_net_worth
+    """Logistic on the net-worth gap plus a draft-strength edge.
+
+    ``strength_edge`` is the stronger draft's advantage expressed in net-worth-
+    equivalent gold, so a better draft is favored in a fight even at even gold.
+    Even net worth and even drafts => 0.5.
+    """
+    diff = (radiant_net_worth - dire_net_worth) + strength_edge
     return 1.0 / (1.0 + math.exp(-diff / _PROB_SCALE))
 
 
 def resolve_fight(
-    radiant_net_worth: float, dire_net_worth: float, rng: SeededRng
+    radiant_net_worth: float,
+    dire_net_worth: float,
+    rng: SeededRng,
+    *,
+    strength_edge: float = 0.0,
 ) -> FightOutcome:
-    """Sample a teamfight outcome from the current net-worth state."""
-    p = radiant_win_probability(radiant_net_worth, dire_net_worth)
+    """Sample a teamfight outcome from net-worth state and draft strength."""
+    p = radiant_win_probability(radiant_net_worth, dire_net_worth, strength_edge)
     winner = "radiant" if rng.chance(p) else "dire"
     swing = rng.uniform(*_FIGHT_SWING)
     return FightOutcome(winner=winner, swing=swing, radiant_win_prob=p)
