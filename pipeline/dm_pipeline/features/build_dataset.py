@@ -118,6 +118,45 @@ def hero_win_rates(
     return pl.DataFrame(relation.fetchall(), schema=relation.columns, orient="row")
 
 
+def hero_strength_ratings(
+    features_dir: Path | str | None = None,
+    *,
+    prior_games: int = 50,
+    scale: float = 2.0,
+) -> dict[int, float]:
+    """Per-hero strength multiplier (~1.0) from shrunk real win rates.
+
+    Each hero's win rate is shrunk toward 0.5 with a prior (so low-sample heroes
+    are ~neutral), then mapped to a multiplier: strong heroes (win rate > 0.5)
+    farm a bit more, weak heroes a bit less. This is how real data enters the
+    engine's economy.
+    """
+    import duckdb
+
+    features_dir = (
+        Path(features_dir) if features_dir is not None else config.FEATURES_DIR
+    )
+    matches = features_dir / "matches.parquet"
+    heroes = features_dir / "match_heroes.parquet"
+    rows = duckdb.sql(
+        f"""
+        SELECT
+            h.hero_id,
+            COUNT(*) AS games,
+            SUM(CASE WHEN (h.team = 'radiant') = m.radiant_win THEN 1 ELSE 0 END) AS wins
+        FROM read_parquet('{heroes}') AS h
+        JOIN read_parquet('{matches}') AS m USING (match_id)
+        GROUP BY h.hero_id
+        """
+    ).fetchall()
+
+    ratings: dict[int, float] = {}
+    for hero_id, games, wins in rows:
+        shrunk = (wins + prior_games * 0.5) / (games + prior_games)
+        ratings[int(hero_id)] = 1.0 + scale * (shrunk - 0.5)
+    return ratings
+
+
 def main(argv: list[str] | None = None) -> None:
     import argparse
 
