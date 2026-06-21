@@ -21,3 +21,11 @@ def test_higher_priority_earns_more_for_the_same_draw() -> None:
     carry = hero_gold_gain(SeededRng(1), farm_priority(["carry"]))
     support = hero_gold_gain(SeededRng(1), farm_priority(["support"]))
     assert carry > support
+
+
+def test_strength_scales_gold() -> None:
+    import pytest
+
+    base = hero_gold_gain(SeededRng(1), 1.0, 1.0)
+    strong = hero_gold_gain(SeededRng(1), 1.0, 1.5)
+    assert strong == pytest.approx(base * 1.5)
