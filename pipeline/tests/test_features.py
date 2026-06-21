@@ -8,6 +8,7 @@ from pathlib import Path
 from dm_pipeline.features.build_dataset import (
     build_dataset,
     extract_rows,
+    hero_strength_ratings,
     hero_win_rates,
 )
 
@@ -68,3 +69,17 @@ def test_build_and_hero_win_rates(tmp_path) -> None:
     }
     assert rates[1] == 1.0  # always on the winning side
     assert rates[6] == 0.0  # always on the losing side
+
+
+def test_hero_strength_ratings(tmp_path) -> None:
+    md = tmp_path / "matches"
+    fd = tmp_path / "features"
+    # hero 1 always wins (radiant), hero 6 always loses (dire).
+    for i in range(40):
+        _write_match(md, 1000 + i, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True)
+    build_dataset(matches_dir=md, out_dir=fd)
+
+    ratings = hero_strength_ratings(fd)
+    assert ratings[1] > 1.0  # strong hero farms more
+    assert ratings[6] < 1.0  # weak hero farms less
+    assert 0.5 < ratings[1] < 1.5  # shrinkage keeps it bounded

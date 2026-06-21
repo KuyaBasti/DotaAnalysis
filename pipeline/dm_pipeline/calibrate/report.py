@@ -12,6 +12,7 @@ import json
 from dm_pipeline import config
 from dm_pipeline.calibrate.compare import calibration_metrics
 from dm_pipeline.calibrate.run_corpus import run_sim_predictions
+from dm_pipeline.features.build_dataset import hero_strength_ratings
 from dm_pipeline.prototype.scenario import load_heroes
 
 
@@ -24,19 +25,31 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--patch-id", default=config.DEFAULT_PATCH_ID)
     parser.add_argument("--sample", type=int, default=200, help="real drafts to sim")
     parser.add_argument("--seeds", type=int, default=5, help="sims per draft")
+    parser.add_argument(
+        "--no-ratings",
+        action="store_true",
+        help="disable data-derived hero strength (measure the bare engine)",
+    )
     args = parser.parse_args(argv)
 
     heroes = load_heroes(args.patch_id)
+    ratings = None if args.no_ratings else hero_strength_ratings(config.FEATURES_DIR)
     predictions = run_sim_predictions(
         config.FEATURES_DIR,
         heroes,
         patch_id=args.patch_id,
         sample_size=args.sample,
         seeds=args.seeds,
+        ratings=ratings,
     )
     metrics = calibration_metrics(predictions)
 
-    report = {"patch_id": args.patch_id, "seeds_per_draft": args.seeds, **metrics}
+    report = {
+        "patch_id": args.patch_id,
+        "seeds_per_draft": args.seeds,
+        "hero_strength": not args.no_ratings,
+        **metrics,
+    }
     config.CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
     out_path = config.CALIBRATION_DIR / f"report.{args.patch_id}.json"
     out_path.write_text(json.dumps(report, indent=2))

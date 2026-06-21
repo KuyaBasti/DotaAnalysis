@@ -45,6 +45,7 @@ def run_sim_predictions(
     sample_size: int = 200,
     seeds: int = 5,
     rng_seed: int = 0,
+    ratings: dict[int, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Sim a sample of real drafts. Returns per-match sim win rate vs. reality.
 
@@ -71,7 +72,7 @@ def run_sim_predictions(
 
         scenario = Scenario(patch_id=patch_id, radiant=radiant, dire=dire)  # type: ignore[arg-type]
         radiant_wins = sum(
-            simulate(scenario, heroes, seed=s)[1].winner == "radiant"
+            simulate(scenario, heroes, seed=s, ratings=ratings)[1].winner == "radiant"
             for s in range(seeds)
         )
         predictions.append(

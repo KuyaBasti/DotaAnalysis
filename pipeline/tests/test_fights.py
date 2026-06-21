@@ -19,6 +19,13 @@ def test_leader_is_favored_and_probabilities_are_symmetric() -> None:
     assert ahead + behind == pytest.approx(1.0)
 
 
+def test_strength_edge_favors_the_stronger_draft() -> None:
+    even = radiant_win_probability(20_000, 20_000)
+    radiant_stronger = radiant_win_probability(20_000, 20_000, strength_edge=8_000)
+    dire_stronger = radiant_win_probability(20_000, 20_000, strength_edge=-8_000)
+    assert dire_stronger < even == 0.5 < radiant_stronger
+
+
 def test_huge_lead_essentially_guarantees_the_win() -> None:
     outcome = resolve_fight(200_000, 0, SeededRng(123))
     assert outcome.winner == "radiant"

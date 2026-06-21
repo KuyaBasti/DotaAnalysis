@@ -32,6 +32,12 @@ def farm_priority(roles: Iterable[str]) -> float:
     return _DEFAULT_PRIORITY
 
 
-def hero_gold_gain(rng: SeededRng, priority: float) -> float:
-    """Gold a single hero earns this tick, scaled by its farm priority."""
-    return rng.uniform(*_GOLD_PER_TICK_HERO) * priority
+def hero_gold_gain(
+    rng: SeededRng, priority: float, strength: float = 1.0
+) -> float:
+    """Gold a single hero earns this tick, scaled by farm priority and strength.
+
+    ``strength`` is a data-derived multiplier (~1.0): stronger heroes (higher
+    real win rate) farm more, so a stronger draft out-economies a weaker one.
+    """
+    return rng.uniform(*_GOLD_PER_TICK_HERO) * priority * strength
