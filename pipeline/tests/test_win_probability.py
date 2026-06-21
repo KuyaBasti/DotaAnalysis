@@ -7,7 +7,11 @@ from pathlib import Path
 import polars as pl
 
 from dm_pipeline.models.win_probability.predict import draft_to_vector, predict_draft
-from dm_pipeline.models.win_probability.train import load_draft_matrix, train
+from dm_pipeline.models.win_probability.train import (
+    load_draft_matrix,
+    save_model,
+    train,
+)
 
 
 def _make_dataset(tmp_path: Path, n: int = 200) -> Path:
@@ -80,3 +84,26 @@ def test_predict_draft_favors_the_winning_hero(tmp_path) -> None:
     p_with = predict_draft(bundle, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10])
     p_without = predict_draft(bundle, [11, 12, 13, 14, 15], [6, 7, 8, 9, 10])
     assert p_with > 0.5 > p_without
+
+
+def test_exported_coefficients_match_predict_proba(tmp_path) -> None:
+    import json
+    import math
+
+    result = train(_make_dataset(tmp_path, n=240))
+    save_model(result, out_dir=tmp_path)
+    coef = json.loads((tmp_path / "win_probability.coef.json").read_text())
+
+    radiant, dire = [1, 2, 3, 4, 5], [6, 7, 8, 9, 10]
+    index = {hero_id: j for j, hero_id in enumerate(coef["hero_ids"])}
+    score = coef["intercept"]
+    for hero_id in radiant:
+        if hero_id in index:
+            score += coef["weights"][index[hero_id]]
+    for hero_id in dire:
+        if hero_id in index:
+            score -= coef["weights"][index[hero_id]]
+    from_coef = 1.0 / (1.0 + math.exp(-score))
+
+    bundle = {"model": result.model, "hero_ids": result.hero_ids}
+    assert abs(from_coef - predict_draft(bundle, radiant, dire)) < 1e-3

@@ -4,6 +4,7 @@
   "generated_at": "2026-06-14T00:00:00+00:00",
   "heroes": [
     {
+      "id": 8,
       "key": "juggernaut",
       "display_name": "Juggernaut",
       "primary_attr": "agi",
@@ -13,6 +14,30 @@
       "stat_gain": { "str": 2.2, "agi": 1.4, "int": 1.8 },
       "attack": { "min": 24, "max": 30 },
       "move_speed": 305
+    },
+    {
+      "id": 5,
+      "key": "crystal_maiden",
+      "display_name": "Crystal Maiden",
+      "primary_attr": "int",
+      "attack_type": "ranged",
+      "roles": ["support", "disabler", "nuker"],
+      "base_stats": { "str": 18, "agi": 16, "int": 18 },
+      "stat_gain": { "str": 2.2, "agi": 1.6, "int": 3.3 },
+      "attack": { "min": 21, "max": 27 },
+      "move_speed": 280
+    },
+    {
+      "id": 31,
+      "key": "lich",
+      "display_name": "Lich",
+      "primary_attr": "int",
+      "attack_type": "ranged",
+      "roles": ["support", "nuker"],
+      "base_stats": { "str": 18, "agi": 15, "int": 20 },
+      "stat_gain": { "str": 1.8, "agi": 1.5, "int": 3.4 },
+      "attack": { "min": 19, "max": 25 },
+      "move_speed": 290
     }
   ],
   "items": [
