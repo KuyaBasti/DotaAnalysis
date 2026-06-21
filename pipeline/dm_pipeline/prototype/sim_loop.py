@@ -34,6 +34,7 @@ WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient 
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
+_STRENGTH_TO_NETWORTH = 8000.0  # net-worth-equivalent value of one point of draft strength in fights
 
 
 @dataclass
@@ -41,6 +42,7 @@ class HeroState:
     key: str
     display_name: str
     farm_priority: float
+    strength: float = 1.0  # data-derived multiplier (~1.0); 1.0 = neutral
     net_worth: float = 0.0
 
 
@@ -53,6 +55,11 @@ class TeamState:
     @property
     def net_worth(self) -> float:
         return sum(h.net_worth for h in self.heroes)
+
+    @property
+    def strength_edge(self) -> float:
+        """Summed hero strength above neutral (0 for an average draft)."""
+        return sum(h.strength - 1.0 for h in self.heroes)
 
 
 @dataclass
@@ -70,6 +77,7 @@ def simulate(
     *,
     seed: int,
     draft_prior: float | None = None,
+    ratings: dict[int, float] | None = None,
 ) -> tuple[Timeline, GameState]:
     """Run one full match for a scenario. Returns timeline and final state.
 
@@ -78,8 +86,8 @@ def simulate(
     """
     rng = SeededRng(seed)
     state = GameState(
-        radiant=_build_team("radiant", scenario.radiant, heroes),
-        dire=_build_team("dire", scenario.dire, heroes),
+        radiant=_build_team("radiant", scenario.radiant, heroes, ratings),
+        dire=_build_team("dire", scenario.dire, heroes, ratings),
     )
     timeline = Timeline()
     timeline.emit(
@@ -124,9 +132,13 @@ def simulate(
     return timeline, state
 
 
-def run_scenario(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
+def run_scenario(
+    scenario: Scenario, *, seed: int, ratings: dict[int, float] | None = None
+) -> tuple[Timeline, GameState]:
     """Convenience: load the scenario's patch heroes from disk, then simulate."""
-    return simulate(scenario, load_heroes(scenario.patch_id), seed=seed)
+    return simulate(
+        scenario, load_heroes(scenario.patch_id), seed=seed, ratings=ratings
+    )
 
 
 def run_with_model(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
@@ -172,8 +184,12 @@ def sim_result(
 
 
 def _build_team(
-    name: str, keys: list[str], heroes: dict[str, dict[str, Any]]
+    name: str,
+    keys: list[str],
+    heroes: dict[str, dict[str, Any]],
+    ratings: dict[int, float] | None = None,
 ) -> TeamState:
+    ratings = ratings or {}
     states: list[HeroState] = []
     hero_dicts: list[dict[str, Any]] = []
     for key in keys:
@@ -186,6 +202,7 @@ def _build_team(
                 key=key,
                 display_name=hero["display_name"],
                 farm_priority=farm_priority(hero.get("roles", [])),
+                strength=ratings.get(hero.get("id"), 1.0),
             )
         )
     return TeamState(name, states, lane_power=team_lane_power(hero_dicts))
@@ -211,7 +228,7 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
 def _team_economy(team: TeamState, rng: SeededRng) -> float:
     total = 0.0
     for hero in team.heroes:
-        gain = hero_gold_gain(rng, hero.farm_priority)
+        gain = hero_gold_gain(rng, hero.farm_priority, hero.strength)
         hero.net_worth += gain
         total += gain
     return total
@@ -243,7 +260,15 @@ def _laning_tick(state: GameState, timeline: Timeline) -> None:
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     if not rng.chance(_FIGHT_CHANCE):
         return
-    outcome = resolve_fight(state.radiant.net_worth, state.dire.net_worth, rng)
+    strength_edge = _STRENGTH_TO_NETWORTH * (
+        state.radiant.strength_edge - state.dire.strength_edge
+    )
+    outcome = resolve_fight(
+        state.radiant.net_worth,
+        state.dire.net_worth,
+        rng,
+        strength_edge=strength_edge,
+    )
     won, lost = (
         (state.radiant, state.dire)
         if outcome.winner == "radiant"
