@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { DraftStudio } from "./pages/DraftStudio";
 import { MatchViewer } from "./pages/MatchViewer";
 import { PatchExplorer } from "./pages/PatchExplorer";
 
-type View = "match" | "patches";
+type View = "draft" | "match" | "patches";
 
 export function App() {
-  const [view, setView] = useState<View>("match");
+  const [view, setView] = useState<View>("draft");
 
   const tab = (id: View, label: string) => (
     <button
@@ -34,10 +35,17 @@ export function App() {
     >
       <h1>DraftMaster</h1>
       <nav style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
+        {tab("draft", "Draft Studio")}
         {tab("match", "Match Viewer")}
         {tab("patches", "Patch Explorer")}
       </nav>
-      {view === "match" ? <MatchViewer /> : <PatchExplorer />}
+      {view === "draft" ? (
+        <DraftStudio />
+      ) : view === "match" ? (
+        <MatchViewer />
+      ) : (
+        <PatchExplorer />
+      )}
     </main>
   );
 }
