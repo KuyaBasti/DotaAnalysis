@@ -1,4 +1,5 @@
 import type {
+  DraftEvalResponse,
   HeroesResponse,
   PatchesResponse,
   SimResult,
@@ -11,6 +12,18 @@ const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText} for ${path}`);
+  }
+  return (await res.json()) as T;
+}
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText} for ${path}`);
   }
@@ -31,4 +44,16 @@ export function listSims(): Promise<SimsResponse> {
 
 export function getSim(id: string): Promise<SimResult> {
   return getJSON<SimResult>(`/sims/${id}`);
+}
+
+export function evaluateDraft(
+  radiant: string[],
+  dire: string[],
+  patchId?: string,
+): Promise<DraftEvalResponse> {
+  return postJSON<DraftEvalResponse>("/analysis/draft", {
+    radiant,
+    dire,
+    patch_id: patchId,
+  });
 }
