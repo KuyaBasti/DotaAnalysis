@@ -34,7 +34,7 @@ WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient 
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
-_STRENGTH_TO_NETWORTH = 8000.0  # net-worth-equivalent value of one point of draft strength in fights
+_STRENGTH_TO_NETWORTH = 16000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
 
 @dataclass

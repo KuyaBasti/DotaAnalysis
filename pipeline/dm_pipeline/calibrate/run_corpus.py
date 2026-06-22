@@ -71,8 +71,17 @@ def run_sim_predictions(
             continue  # a hero id not present in this patch's snapshot
 
         scenario = Scenario(patch_id=patch_id, radiant=radiant, dire=dire)  # type: ignore[arg-type]
+        # Per-draft seeds: derive each sim's seed from the match id so a single
+        # seed's quirks average out across drafts. (Reusing the same seeds for
+        # every draft made the sim look systematically one-sided.)
         radiant_wins = sum(
-            simulate(scenario, heroes, seed=s, ratings=ratings)[1].winner == "radiant"
+            simulate(
+                scenario,
+                heroes,
+                seed=(match_id * 101 + s) & 0x7FFFFFFF,
+                ratings=ratings,
+            )[1].winner
+            == "radiant"
             for s in range(seeds)
         )
         predictions.append(

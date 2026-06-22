@@ -23,7 +23,12 @@ def main(argv: list[str] | None = None) -> None:
         description="Score the prototype sim against the real match corpus.",
     )
     parser.add_argument("--patch-id", default=config.DEFAULT_PATCH_ID)
-    parser.add_argument("--sample", type=int, default=200, help="real drafts to sim")
+    parser.add_argument(
+        "--sample",
+        type=int,
+        default=600,
+        help="real drafts to sim (bigger = less noisy estimate)",
+    )
     parser.add_argument("--seeds", type=int, default=5, help="sims per draft")
     parser.add_argument(
         "--no-ratings",
