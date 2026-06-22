@@ -46,3 +46,10 @@ export interface SimResult {
 export interface SimsResponse {
   sims: string[];
 }
+
+// --- Draft evaluation (win-prob model, no full sim) -------------------------
+
+export interface DraftEvalResponse {
+  patch_id: string;
+  radiant_win_probability: number;
+}
