@@ -6,8 +6,12 @@ from pathlib import Path
 
 import polars as pl
 
-from dm_pipeline.calibrate.compare import calibration_metrics
-from dm_pipeline.calibrate.run_corpus import run_sim_predictions
+from dm_pipeline.calibrate.compare import (
+    calibration_metrics,
+    duration_comparison,
+    hero_winrate_correlation,
+)
+from dm_pipeline.calibrate.run_corpus import run_sim_corpus, run_sim_predictions
 
 # Minimal heroes (key -> record with the fields the sim + id-mapping need).
 HEROES = {
@@ -48,7 +52,10 @@ def test_calibration_metrics_empty() -> None:
 def _write_features(tmp_path: Path) -> Path:
     fd = tmp_path / "features"
     fd.mkdir(parents=True)
-    matches = [{"match_id": i, "radiant_win": i % 2 == 0} for i in range(8)]
+    matches = [
+        {"match_id": i, "radiant_win": i % 2 == 0, "duration": 1200 + i * 60}
+        for i in range(8)
+    ]
     hero_rows = []
     for i in range(8):
         for h in [1, 2, 3, 4, 5]:
@@ -74,3 +81,42 @@ def test_run_sim_predictions_shape(tmp_path) -> None:
     m = calibration_metrics(preds)
     assert 0.0 <= m["accuracy"] <= 1.0
     assert 0.0 <= m["brier"] <= 1.0
+
+
+def test_run_sim_corpus_rich_records(tmp_path) -> None:
+    fd = _write_features(tmp_path)
+    records = run_sim_corpus(fd, HEROES, patch_id="test", sample_size=5, seeds=3)
+
+    assert 0 < len(records) <= 5
+    rec = records[0]
+    assert {"radiant_ids", "dire_ids", "actual_duration", "sim_durations"} <= rec.keys()
+    assert len(rec["sim_durations"]) == 3
+
+
+def test_hero_winrate_correlation_perfect() -> None:
+    # hero 1 always on the winning side, hero 2 always losing; sim agrees exactly.
+    records = [
+        {
+            "radiant_ids": [1],
+            "dire_ids": [2],
+            "actual_radiant_win": True,
+            "actual_duration": 1200,
+            "sim_radiant_winrate": 1.0,
+            "sim_durations": [1200],
+        }
+        for _ in range(30)
+    ]
+    out = hero_winrate_correlation(records, min_games=10)
+    assert out["r"] == 1.0
+    assert out["n_heroes"] == 2
+
+
+def test_duration_comparison() -> None:
+    records = [
+        {"actual_duration": 1200, "sim_durations": [600, 600]},
+        {"actual_duration": 2400, "sim_durations": [1800, 1800]},
+    ]
+    d = duration_comparison(records)
+    assert d["real_mean_min"] == 30.0
+    assert d["sim_mean_min"] == 20.0
+    assert d["gap_min"] == -10.0

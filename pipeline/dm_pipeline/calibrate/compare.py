@@ -43,3 +43,50 @@ def calibration_metrics(
         "accuracy": round(correct / n, 4),
         "brier": round(brier / n, 4),  # 0 = perfect, 0.25 = always guess 0.5
     }
+
+
+def hero_winrate_correlation(
+    records: list[dict[str, Any]], *, min_games: int = 20
+) -> dict[str, Any]:
+    """Correlation of per-hero *simulated* win rate vs. *real* win rate.
+
+    The Stage-3 exit criterion (target r > 0.8): does the sim reproduce which
+    heroes win, not just who wins a given game? Real and sim win rates are both
+    computed over the sampled drafts so the comparison is apples-to-apples.
+    """
+    import numpy as np
+
+    real: dict[int, list[float]] = {}  # hero_id -> [wins, games]
+    sim: dict[int, list[float]] = {}
+    for rec in records:
+        radiant_won = rec["actual_radiant_win"]
+        sim_radiant = rec["sim_radiant_winrate"]
+        for hero_id in rec["radiant_ids"]:
+            r = real.setdefault(hero_id, [0.0, 0.0]); r[0] += radiant_won; r[1] += 1
+            s = sim.setdefault(hero_id, [0.0, 0.0]); s[0] += sim_radiant; s[1] += 1
+        for hero_id in rec["dire_ids"]:
+            r = real.setdefault(hero_id, [0.0, 0.0]); r[0] += not radiant_won; r[1] += 1
+            s = sim.setdefault(hero_id, [0.0, 0.0]); s[0] += 1 - sim_radiant; s[1] += 1
+
+    heroes = [h for h in real if real[h][1] >= min_games]
+    if len(heroes) < 2:
+        return {"r": None, "n_heroes": len(heroes)}
+    real_wr = [real[h][0] / real[h][1] for h in heroes]
+    sim_wr = [sim[h][0] / sim[h][1] for h in heroes]
+    r = float(np.corrcoef(real_wr, sim_wr)[0, 1])
+    return {"r": round(r, 4), "n_heroes": len(heroes)}
+
+
+def duration_comparison(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Mean real vs. sim game duration (minutes). Stage-3 target: within ~3 min."""
+    if not records:
+        return {"n": 0}
+    real = [rec["actual_duration"] for rec in records]
+    sim = [d for rec in records for d in rec["sim_durations"]]
+    real_mean = sum(real) / len(real)
+    sim_mean = sum(sim) / len(sim)
+    return {
+        "real_mean_min": round(real_mean / 60, 1),
+        "sim_mean_min": round(sim_mean / 60, 1),
+        "gap_min": round((sim_mean - real_mean) / 60, 1),
+    }
