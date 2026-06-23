@@ -1,8 +1,12 @@
 """Generate a calibration report: sim vs. reality over the real corpus.
 
-Loads the patch heroes + feature dataset, sims a sample of real drafts, scores
-the sim's predictions against actual outcomes, and writes/prints the report.
-The Stage-3 exit criterion lives here: how close is the sim to reality?
+Sims a sample of real drafts and scores the sim three ways:
+  - win accuracy / Brier (does it pick the winner?),
+  - per-hero win-rate correlation r (does it reproduce *which heroes win*?),
+  - game-duration gap (do matches last about as long as real ones?).
+
+The latter two are the engine's real targets (the Stage-3 exit criteria) —
+win accuracy is capped by draft-only info, but realism is what the sim is for.
 """
 
 from __future__ import annotations
@@ -10,8 +14,12 @@ from __future__ import annotations
 import json
 
 from dm_pipeline import config
-from dm_pipeline.calibrate.compare import calibration_metrics
-from dm_pipeline.calibrate.run_corpus import run_sim_predictions
+from dm_pipeline.calibrate.compare import (
+    calibration_metrics,
+    duration_comparison,
+    hero_winrate_correlation,
+)
+from dm_pipeline.calibrate.run_corpus import run_sim_corpus
 from dm_pipeline.features.build_dataset import hero_strength_ratings
 from dm_pipeline.prototype.scenario import load_heroes
 
@@ -39,7 +47,7 @@ def main(argv: list[str] | None = None) -> None:
 
     heroes = load_heroes(args.patch_id)
     ratings = None if args.no_ratings else hero_strength_ratings(config.FEATURES_DIR)
-    predictions = run_sim_predictions(
+    records = run_sim_corpus(
         config.FEATURES_DIR,
         heroes,
         patch_id=args.patch_id,
@@ -47,13 +55,18 @@ def main(argv: list[str] | None = None) -> None:
         seeds=args.seeds,
         ratings=ratings,
     )
-    metrics = calibration_metrics(predictions)
+
+    win = calibration_metrics(records)
+    hero_corr = hero_winrate_correlation(records)
+    duration = duration_comparison(records)
 
     report = {
         "patch_id": args.patch_id,
         "seeds_per_draft": args.seeds,
         "hero_strength": not args.no_ratings,
-        **metrics,
+        "win": win,
+        "hero_winrate_correlation": hero_corr,
+        "duration": duration,
     }
     config.CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
     out_path = config.CALIBRATION_DIR / f"report.{args.patch_id}.json"
@@ -61,12 +74,18 @@ def main(argv: list[str] | None = None) -> None:
 
     print(json.dumps(report, indent=2))
     print(f"\nwrote {out_path}")
-    if metrics.get("n", 0):
-        edge = metrics["accuracy"] - max(metrics["base_rate"], 1 - metrics["base_rate"])
+    if win.get("n", 0):
+        favorite = max(win["base_rate"], 1 - win["base_rate"])
         print(
-            f"sim accuracy {metrics['accuracy']:.3f} vs. always-pick-favorite "
-            f"{max(metrics['base_rate'], 1 - metrics['base_rate']):.3f} "
-            f"(edge {edge:+.3f}); Brier {metrics['brier']:.3f}"
+            f"\nwin:      acc {win['accuracy']:.3f} vs favorite {favorite:.3f} "
+            f"(edge {win['accuracy'] - favorite:+.3f}), Brier {win['brier']:.3f}"
+        )
+        r = hero_corr.get("r")
+        print(
+            f"realism:  per-hero win-rate r = "
+            f"{r if r is None else f'{r:.3f}'} (target >0.8, n={hero_corr['n_heroes']} heroes); "
+            f"duration sim {duration['sim_mean_min']}m vs real "
+            f"{duration['real_mean_min']}m (gap {duration['gap_min']:+}m)"
         )
 
 
