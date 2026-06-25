@@ -2,9 +2,10 @@
 
 Stage 3, now scenario-driven: the loop simulates a match between two real drafts
 (heroes resolved from a snapshot). A per-hero economy varies by role, a laning
-model gives the stronger early-game draft a head start, and an analytic resolver
-decides fights from the net-worth state. Numbers are uncalibrated — a bad
-complete loop beats a perfect fragment; you can only calibrate a closed loop.
+model gives the stronger draft an early head start, an analytic resolver decides
+fights, and an objectives model turns the net-worth lead into towers, barracks,
+and finally the Ancient — so the match ends like a real one. Numbers are
+uncalibrated — a bad complete loop beats a perfect fragment.
 
 The load-bearing property remains determinism: same scenario + same seed produce
 a byte-identical timeline (see tests/test_sim_determinism.py).
@@ -30,7 +31,13 @@ from dm_pipeline.prototype.timeline import Timeline
 
 TICK_SECONDS = 30
 MAX_TIME = 60 * 60  # 60-minute hard cap
-WIN_NETWORTH_LEAD = 25_000  # team net-worth lead at which the trailing ancient falls
+
+# Objectives: the team ahead pushes and destroys enemy structures in order; the
+# Ancient is the last one and ends the game.
+_OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
+_STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
+_OBJECTIVE_BASE_CHANCE = 0.22  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m)
+_OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
@@ -51,6 +58,7 @@ class TeamState:
     name: str
     heroes: list[HeroState] = field(default_factory=list)
     lane_power: float = 0.0
+    objectives: int = 0  # enemy structures destroyed; len(_STRUCTURES) = Ancient down
 
     @property
     def net_worth(self) -> float:
@@ -111,11 +119,14 @@ def simulate(
         _economy_tick(state, rng, timeline)
         _laning_tick(state, timeline)
         _maybe_fight(state, rng, timeline)
-        _check_win(state)
+        _objectives_tick(state, rng, timeline)
 
-    if state.winner is None:  # reached the time cap with no decisive lead
-        lead = state.radiant.net_worth - state.dire.net_worth
-        state.winner = "radiant" if lead >= 0 else "dire"
+    if state.winner is None:  # time cap, no Ancient fell — decide on objectives, then net worth
+        radiant, dire = state.radiant, state.dire
+        if radiant.objectives != dire.objectives:
+            state.winner = "radiant" if radiant.objectives > dire.objectives else "dire"
+        else:
+            state.winner = "radiant" if radiant.net_worth >= dire.net_worth else "dire"
         state.game_over = True
 
     timeline.emit(
@@ -178,6 +189,8 @@ def sim_result(
             "duration_seconds": state.t,
             "radiant_net_worth": round(state.radiant.net_worth, 1),
             "dire_net_worth": round(state.dire.net_worth, 1),
+            "radiant_objectives": state.radiant.objectives,
+            "dire_objectives": state.dire.objectives,
         },
         "timeline": timeline.to_list(),
     }
@@ -319,11 +332,41 @@ def _apply_draft_prior(
     )
 
 
-def _check_win(state: GameState) -> None:
+def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
+    """The team ahead in net worth pushes and takes enemy structures over time.
+
+    Chance scales with the net-worth lead; destroying the Ancient ends the game.
+    Towers are too tanky to fall in the first several minutes.
+    """
+    if state.t < _OBJECTIVE_START_SECONDS:
+        return
     lead = state.radiant.net_worth - state.dire.net_worth
-    if abs(lead) >= WIN_NETWORTH_LEAD:
+    if lead == 0:
+        return
+    leader = state.radiant if lead > 0 else state.dire
+    if leader.objectives >= len(_STRUCTURES):
+        return
+
+    chance = _OBJECTIVE_BASE_CHANCE * min(1.0, abs(lead) / _OBJECTIVE_LEAD_FULL)
+    if not rng.chance(chance):
+        return
+
+    structure = _STRUCTURES[leader.objectives]
+    leader.objectives += 1
+    timeline.emit(
+        Event(
+            t=state.t,
+            type=EventType.OBJECTIVE,
+            payload={
+                "team": leader.name,
+                "structure": structure,
+                "destroyed": leader.objectives,  # enemy structures down so far
+            },
+        )
+    )
+    if leader.objectives >= len(_STRUCTURES):  # the Ancient fell
         state.game_over = True
-        state.winner = "radiant" if lead > 0 else "dire"
+        state.winner = leader.name
 
 
 # A demo scenario of standard heroes (keys must exist in the loaded snapshot).
@@ -372,8 +415,8 @@ def main(argv: list[str] | None = None) -> None:
     print(
         f"seed {args.seed}: {state.winner} wins at "
         f"{state.t // 60}:{state.t % 60:02d} — "
-        f"radiant {round(state.radiant.net_worth):,} vs "
-        f"dire {round(state.dire.net_worth):,} "
+        f"radiant {round(state.radiant.net_worth):,} ({state.radiant.objectives} structures) vs "
+        f"dire {round(state.dire.net_worth):,} ({state.dire.objectives}) "
         f"({len(timeline.events)} events)"
     )
 
