@@ -19,6 +19,7 @@ class EventType(str, Enum):
     ECONOMY = "economy"
     LANING = "laning"
     FIGHT = "fight"
+    ROSHAN = "roshan"
     OBJECTIVE = "objective"
     GAME_OVER = "game_over"
 
