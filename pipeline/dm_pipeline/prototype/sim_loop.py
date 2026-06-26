@@ -3,9 +3,10 @@
 Stage 3, now scenario-driven: the loop simulates a match between two real drafts
 (heroes resolved from a snapshot). A per-hero economy varies by role, a laning
 model gives the stronger draft an early head start, an analytic resolver decides
-fights, and an objectives model turns the net-worth lead into towers, barracks,
-and finally the Ancient — so the match ends like a real one. Numbers are
-uncalibrated — a bad complete loop beats a perfect fragment.
+fights (naming who falls), the leading team contests Roshan for the Aegis, and an
+objectives model turns the net-worth lead into towers, barracks, and finally the
+Ancient — so the match ends like a real one. Numbers are uncalibrated — a bad
+complete loop beats a perfect fragment.
 
 The load-bearing property remains determinism: same scenario + same seed produce
 a byte-identical timeline (see tests/test_sim_determinism.py).
@@ -36,8 +37,14 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 # Ancient is the last one and ends the game.
 _OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
 _STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
-_OBJECTIVE_BASE_CHANCE = 0.22  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m)
+_OBJECTIVE_BASE_CHANCE = 0.20  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m, accounting for Roshan gold)
 _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
+
+# Roshan: the leading team contests it when up; the Aegis is a real net-worth swing.
+_ROSHAN_FIRST_SECONDS = 10 * 60  # worth contesting from ~10 min
+_ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill
+_ROSHAN_CHANCE = 0.15  # per-tick chance the leader takes an available Roshan
+_ROSHAN_REWARD = 2500.0  # net-worth value of the Aegis + bounty
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
@@ -77,6 +84,7 @@ class GameState:
     t: int = 0
     game_over: bool = False
     winner: str | None = None
+    roshan_available_at: int = _ROSHAN_FIRST_SECONDS  # game-time the next Roshan can be taken
 
 
 def simulate(
@@ -119,6 +127,7 @@ def simulate(
         _economy_tick(state, rng, timeline)
         _laning_tick(state, timeline)
         _maybe_fight(state, rng, timeline)
+        _roshan_tick(state, rng, timeline)
         _objectives_tick(state, rng, timeline)
 
     if state.winner is None:  # time cap, no Ancient fell — decide on objectives, then net worth
@@ -289,6 +298,21 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     )
     _distribute(won, outcome.swing)
     _distribute(lost, -outcome.swing * 0.5)
+
+    # Narrative casualties: the losing side takes the brunt, the winner maybe one.
+    loser_dead = (
+        rng.sample(lost.heroes, rng.randint(1, min(3, len(lost.heroes))))
+        if lost.heroes
+        else []
+    )
+    winner_dead = rng.sample(won.heroes, 1) if won.heroes and rng.chance(0.35) else []
+    if outcome.winner == "radiant":
+        radiant_deaths = [h.display_name for h in winner_dead]
+        dire_deaths = [h.display_name for h in loser_dead]
+    else:
+        radiant_deaths = [h.display_name for h in loser_dead]
+        dire_deaths = [h.display_name for h in winner_dead]
+
     timeline.emit(
         Event(
             t=state.t,
@@ -297,6 +321,8 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
                 "winner": outcome.winner,
                 "swing": round(outcome.swing, 1),
                 "radiant_win_prob": round(outcome.radiant_win_prob, 3),
+                "radiant_deaths": radiant_deaths,
+                "dire_deaths": dire_deaths,
             },
         )
     )
@@ -328,6 +354,30 @@ def _apply_draft_prior(
                 "radiant_win_prob": round(radiant_win_prob, 3),
                 "radiant_lead": round(lead, 1),
             },
+        )
+    )
+
+
+def _roshan_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
+    """The leading team contests Roshan when it's up; the Aegis is a real swing.
+
+    Roshan is worth taking from ~10 min and respawns ~9 min after each kill. The
+    net-worth leader claims it (chance per tick) and banks the Aegis + bounty.
+    """
+    if state.t < state.roshan_available_at:
+        return
+    lead = state.radiant.net_worth - state.dire.net_worth
+    if lead == 0 or not rng.chance(_ROSHAN_CHANCE):
+        return
+
+    leader = state.radiant if lead > 0 else state.dire
+    _distribute(leader, _ROSHAN_REWARD)
+    state.roshan_available_at = state.t + _ROSHAN_RESPAWN_SECONDS
+    timeline.emit(
+        Event(
+            t=state.t,
+            type=EventType.ROSHAN,
+            payload={"team": leader.name, "reward": round(_ROSHAN_REWARD, 1)},
         )
     )
 
