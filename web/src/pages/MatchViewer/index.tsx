@@ -4,7 +4,8 @@ import type { SimResult } from "../../types";
 import { EventLog } from "./EventLog";
 import { NetworthGraph } from "./NetworthGraph";
 import { PlaybackControls } from "./PlaybackControls";
-import { mmss, scoreAt, structuresAt } from "./playback";
+import { WinProbGraph } from "./WinProbGraph";
+import { mmss, scoreAt, structuresAt, winProbAt } from "./playback";
 import { usePlayback } from "./usePlayback";
 
 export function MatchViewer() {
@@ -98,6 +99,9 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const structures = structuresAt(sim.timeline, pb.clock);
   const total = Math.max(score.radiant + score.dire, 1);
   const radiantPct = (score.radiant / total) * 100;
+  const winProb = winProbAt(sim.timeline, pb.clock);
+  const favored = winProb >= 0.5 ? "Radiant" : "Dire";
+  const favoredPct = Math.round((winProb >= 0.5 ? winProb : 1 - winProb) * 100);
 
   return (
     <>
@@ -124,9 +128,14 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
         }}
       >
         <ScoreSide name="Radiant" side="radiant" nw={score.radiant} razed={structures.radiant} align="left" />
-        <span style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.4rem", fontWeight: 600 }}>
-          {mmss(pb.clock)}
-        </span>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.4rem", fontWeight: 600 }}>
+            {mmss(pb.clock)}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: COLOR(favored.toLowerCase()) }}>
+            {favored} {favoredPct}%
+          </div>
+        </div>
         <ScoreSide name="Dire" side="dire" nw={score.dire} razed={structures.dire} align="right" />
       </div>
       <div
@@ -146,6 +155,9 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
       <PlaybackControls pb={pb} duration={duration} />
 
       <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
+
+      <h3>Win probability</h3>
+      <WinProbGraph timeline={sim.timeline} upTo={pb.clock} />
 
       <h3>Match feed</h3>
       <EventLog timeline={sim.timeline} upTo={pb.clock} />
