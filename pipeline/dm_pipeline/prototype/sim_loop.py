@@ -37,7 +37,7 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 # Ancient is the last one and ends the game.
 _OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
 _STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
-_OBJECTIVE_BASE_CHANCE = 0.20  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m, accounting for Roshan gold)
+_OBJECTIVE_BASE_CHANCE = 0.15  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m, accounting for Roshan gold)
 _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
 
 # Roshan: the leading team contests it when up; the Aegis is a real net-worth swing.
@@ -421,7 +421,7 @@ def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> No
 
 # A demo scenario of standard heroes (keys must exist in the loaded snapshot).
 _DEMO_SCENARIO = Scenario(
-    patch_id="7.39c",
+    patch_id="7.41d",
     radiant=["juggernaut", "crystal_maiden", "axe", "invoker", "lion"],
     dire=["phantom_assassin", "lich", "tidehunter", "storm_spirit", "witch_doctor"],
 )

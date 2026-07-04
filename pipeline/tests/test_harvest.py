@@ -16,6 +16,11 @@ from dm_pipeline.harvest.daemon import harvest_public_matches
 from dm_pipeline.harvest.opendota import OpenDotaClient
 
 
+def _ranked(match_id: int, **extra: Any) -> dict[str, Any]:
+    """A minimal ranked publicMatches record (the only kind the collector keeps)."""
+    return {"match_id": match_id, "game_mode": 22, "lobby_type": 7, **extra}
+
+
 def test_client_parses_public_matches() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/publicMatches")
@@ -48,7 +53,7 @@ class _StubClient:
 
 
 def test_harvest_stores_each_match(tmp_path) -> None:
-    client = _StubClient([{"match_id": 10}, {"match_id": 11}])
+    client = _StubClient([_ranked(10), _ranked(11)])
     stored = harvest_public_matches(client, tmp_path, max_matches=2)
 
     assert stored == 2
@@ -57,7 +62,7 @@ def test_harvest_stores_each_match(tmp_path) -> None:
 
 
 def test_harvest_respects_max_matches(tmp_path) -> None:
-    client = _StubClient([{"match_id": i} for i in range(100)])
+    client = _StubClient([_ranked(i) for i in range(100)])
     stored = harvest_public_matches(client, tmp_path, max_matches=3)
     assert stored == 3
     assert len(list(tmp_path.glob("*.json"))) == 3
@@ -65,12 +70,25 @@ def test_harvest_respects_max_matches(tmp_path) -> None:
 
 def test_harvest_skips_already_stored(tmp_path) -> None:
     (tmp_path / "10.json").write_text("{}")
-    client = _StubClient([{"match_id": 10}, {"match_id": 11}])
+    client = _StubClient([_ranked(10), _ranked(11)])
     stored = harvest_public_matches(client, tmp_path, max_matches=5)
     assert stored == 1  # 10 already present, only 11 is new
 
 
 def test_harvest_fetches_details_when_requested(tmp_path) -> None:
-    client = _StubClient([{"match_id": 10}])
+    client = _StubClient([_ranked(10)])
     harvest_public_matches(client, tmp_path, max_matches=1, fetch_details=True)
     assert json.loads((tmp_path / "10.json").read_text())["detail"] is True
+
+
+def test_harvest_skips_non_ranked(tmp_path) -> None:
+    turbo = {"match_id": 20, "game_mode": 23, "lobby_type": 0}
+    unranked_ad = {"match_id": 21, "game_mode": 22, "lobby_type": 0}
+    client = _StubClient([turbo, unranked_ad, _ranked(22)])
+
+    stored = harvest_public_matches(client, tmp_path, max_matches=5)
+
+    assert stored == 1  # only the ranked match is banked
+    assert not (tmp_path / "20.json").exists()
+    assert not (tmp_path / "21.json").exists()
+    assert (tmp_path / "22.json").exists()

@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from dm_pipeline import config
+from dm_pipeline.features.build_dataset import is_ranked
 from dm_pipeline.harvest.opendota import OpenDotaClient
 
 
@@ -23,7 +24,11 @@ def harvest_public_matches(
     max_matches: int = 100,
     fetch_details: bool = False,
 ) -> int:
-    """Bank up to ``max_matches`` new public matches. Returns how many were stored.
+    """Bank up to ``max_matches`` new ranked matches. Returns how many were stored.
+
+    Ranked All Draft only (see ``features.build_dataset.is_ranked``) — the
+    publicMatches stream is ~10% ranked, so the collector pages deeper to fill
+    its quota rather than banking Turbo/unranked records this project won't use.
 
     With ``fetch_details``, each match is enriched via /matches/{id} (more API
     calls, parsed fields when available); otherwise the lightweight publicMatches
@@ -41,6 +46,8 @@ def harvest_public_matches(
         for match in batch:
             match_id = match["match_id"]
             cursor = match_id  # page backwards from the oldest id seen
+            if not is_ranked(match):
+                continue  # skip before storing (and before any detail fetch)
             path = store_dir / f"{match_id}.json"
             if path.exists():
                 continue  # resumable: don't re-fetch what we already have
