@@ -8,6 +8,8 @@ import { mmss, scoreAt, structuresAt } from "./playback";
 import { usePlayback } from "./usePlayback";
 
 export function MatchViewer() {
+  const [simIds, setSimIds] = useState<string[]>([]);
+  const [simId, setSimId] = useState<string | null>(null);
   const [sim, setSim] = useState<SimResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -17,13 +19,34 @@ export function MatchViewer() {
     (async () => {
       try {
         const { sims } = await listSims();
-        const first = sims[0];
-        if (!first) {
+        if (!sims.length) {
           throw new Error(
             "No simulations yet — run: python -m dm_pipeline.prototype.sim_loop --export",
           );
         }
-        const result = await getSim(first);
+        if (!cancelled) {
+          setSimIds(sims);
+          setSimId(sims[0]);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : String(e));
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (simId === null) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const result = await getSim(simId);
         if (!cancelled) setSim(result);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -34,14 +57,37 @@ export function MatchViewer() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [simId]);
 
-  if (loading) return <p>Loading…</p>;
   if (error) return <p style={{ color: "crimson" }}>Error: {error}</p>;
-  if (!sim) return null;
 
-  // Keyed by id so the player (and its clock) resets when a new sim loads.
-  return <MatchPlayer key={sim.id} sim={sim} />;
+  return (
+    <>
+      {simIds.length > 1 && (
+        <label style={{ display: "block", marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+          Watch match{" "}
+          <select
+            aria-label="Pick a simulated match"
+            value={simId ?? ""}
+            onChange={(e) => setSimId(e.target.value)}
+            style={{ padding: "0.3rem", borderRadius: 6, marginLeft: "0.25rem" }}
+          >
+            {simIds.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {loading ? (
+        <p>Loading…</p>
+      ) : sim ? (
+        // Keyed by id so the player (and its clock) resets when a new sim loads.
+        <MatchPlayer key={sim.id} sim={sim} />
+      ) : null}
+    </>
+  );
 }
 
 function MatchPlayer({ sim }: { sim: SimResult }) {
