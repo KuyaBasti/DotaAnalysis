@@ -3,10 +3,9 @@ import { getSim, listSims } from "../../api/client";
 import type { SimResult } from "../../types";
 import { EventLog } from "./EventLog";
 import { NetworthGraph } from "./NetworthGraph";
-
-function mmss(t: number): string {
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-}
+import { PlaybackControls } from "./PlaybackControls";
+import { mmss, scoreAt, structuresAt } from "./playback";
+import { usePlayback } from "./usePlayback";
 
 export function MatchViewer() {
   const [sim, setSim] = useState<SimResult | null>(null);
@@ -41,30 +40,99 @@ export function MatchViewer() {
   if (error) return <p style={{ color: "crimson" }}>Error: {error}</p>;
   if (!sim) return null;
 
-  const s = sim.summary;
+  // Keyed by id so the player (and its clock) resets when a new sim loads.
+  return <MatchPlayer key={sim.id} sim={sim} />;
+}
+
+function MatchPlayer({ sim }: { sim: SimResult }) {
+  const duration = sim.summary.duration_seconds;
+  const pb = usePlayback(duration);
+
+  const score = scoreAt(sim.timeline, pb.clock);
+  const structures = structuresAt(sim.timeline, pb.clock);
+  const total = Math.max(score.radiant + score.dire, 1);
+  const radiantPct = (score.radiant / total) * 100;
+
   return (
     <>
-      <p>
-        Sim <strong>{sim.id}</strong> —{" "}
-        <strong style={{ textTransform: "capitalize" }}>{s.winner}</strong> wins
-        at {mmss(s.duration_seconds)}
+      <p style={{ margin: "0 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
+        Sim <strong>{sim.id}</strong>
+        {pb.atEnd && (
+          <>
+            {" — "}
+            <strong style={{ textTransform: "capitalize", color: COLOR(sim.summary.winner) }}>
+              {sim.summary.winner}
+            </strong>{" "}
+            wins
+          </>
+        )}
       </p>
-      <p style={{ fontSize: "0.9rem", color: "#555" }}>
-        Final net worth —{" "}
-        <span style={{ color: "#2e7d32" }}>
-          Radiant {Math.round(s.radiant_net_worth).toLocaleString()}
-        </span>{" "}
-        vs{" "}
-        <span style={{ color: "#c62828" }}>
-          Dire {Math.round(s.dire_net_worth).toLocaleString()}
+
+      {/* Live scoreboard: net worth + structures, as of the clock. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <ScoreSide name="Radiant" side="radiant" nw={score.radiant} razed={structures.radiant} align="left" />
+        <span style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.4rem", fontWeight: 600 }}>
+          {mmss(pb.clock)}
         </span>
-      </p>
+        <ScoreSide name="Dire" side="dire" nw={score.dire} razed={structures.dire} align="right" />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          height: 10,
+          borderRadius: 5,
+          overflow: "hidden",
+          margin: "0.4rem 0 0.25rem",
+          background: "#c62828",
+        }}
+        aria-label="Net worth share"
+      >
+        <div style={{ width: `${radiantPct}%`, background: "#2e7d32" }} />
+      </div>
 
-      <h3>Net worth over time</h3>
-      <NetworthGraph timeline={sim.timeline} />
+      <PlaybackControls pb={pb} duration={duration} />
 
-      <h3>Event log</h3>
-      <EventLog timeline={sim.timeline} />
+      <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
+
+      <h3>Match feed</h3>
+      <EventLog timeline={sim.timeline} upTo={pb.clock} />
     </>
+  );
+}
+
+function COLOR(side: string): string {
+  return side === "radiant" ? "#2e7d32" : side === "dire" ? "#c62828" : "#444";
+}
+
+function ScoreSide({
+  name,
+  side,
+  nw,
+  razed,
+  align,
+}: {
+  name: string;
+  side: "radiant" | "dire";
+  nw: number;
+  razed: number;
+  align: "left" | "right";
+}) {
+  return (
+    <div style={{ textAlign: align, minWidth: 150 }}>
+      <div style={{ color: COLOR(side), fontWeight: 500 }}>{name}</div>
+      <div style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.1rem" }}>
+        {Math.round(nw).toLocaleString()}
+      </div>
+      <div style={{ fontSize: "0.75rem", color: "#888" }}>
+        {razed} {razed === 1 ? "structure" : "structures"} razed
+      </div>
+    </div>
   );
 }

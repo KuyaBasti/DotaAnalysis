@@ -36,12 +36,23 @@ function points(
     .join(" ");
 }
 
-export function NetworthGraph({ timeline }: { timeline: TimelineEvent[] }) {
+export function NetworthGraph({
+  timeline,
+  upTo,
+}: {
+  timeline: TimelineEvent[];
+  upTo?: number;
+}) {
   const series = networthSeries(timeline);
   if (series.length === 0) return <p>No economy data to plot.</p>;
 
+  // Axes are scaled to the WHOLE match so they don't jump as playback advances;
+  // only the drawn line is clipped to the current clock.
   const maxT = Math.max(...series.map((p) => p.t));
   const maxNw = Math.max(...series.map((p) => Math.max(p.radiant, p.dire)), 1);
+  const visible = upTo === undefined ? series : series.filter((p) => p.t <= upTo);
+  const headX =
+    upTo === undefined ? null : PAD + (maxT === 0 ? 0 : (upTo / maxT) * (W - 2 * PAD));
 
   return (
     <svg
@@ -50,17 +61,20 @@ export function NetworthGraph({ timeline }: { timeline: TimelineEvent[] }) {
     >
       <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#ccc" />
       <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#ccc" />
+      {headX !== null && (
+        <line x1={headX} y1={PAD} x2={headX} y2={H - PAD} stroke="#bbb" strokeDasharray="3 3" />
+      )}
       <polyline
         fill="none"
         stroke="#2e7d32"
         strokeWidth="2"
-        points={points(series, (p) => p.radiant, maxT, maxNw)}
+        points={points(visible, (p) => p.radiant, maxT, maxNw)}
       />
       <polyline
         fill="none"
         stroke="#c62828"
         strokeWidth="2"
-        points={points(series, (p) => p.dire, maxT, maxNw)}
+        points={points(visible, (p) => p.dire, maxT, maxNw)}
       />
       <text x={W - PAD} y={PAD} textAnchor="end" fontSize="12" fill="#2e7d32">
         Radiant

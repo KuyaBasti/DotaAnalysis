@@ -1,46 +1,62 @@
 import type { TimelineEvent } from "../../types";
+import { describeEvent, mmss } from "./playback";
 
-function mmss(t: number): string {
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-}
+const COLOR: Record<string, string> = {
+  radiant: "#2e7d32",
+  dire: "#c62828",
+};
 
-function describe(e: TimelineEvent): string {
-  const p = e.payload;
-  switch (e.type) {
-    case "game_start":
-      return "Match starts";
-    case "fight":
-      return `${String(p.winner)} won a fight (+${p.swing} net worth, win prob ${p.radiant_win_prob})`;
-    case "game_over":
-      return `${String(p.winner)} wins`;
-    default:
-      return e.type;
+// A live feed of narrative beats, newest first. Per-tick economy/laning noise is
+// dropped; when `upTo` is set, only beats that have happened are shown.
+export function EventLog({
+  timeline,
+  upTo,
+}: {
+  timeline: TimelineEvent[];
+  upTo?: number;
+}) {
+  const beats = timeline
+    .map((e, idx) => ({ e, idx }))
+    .filter(
+      ({ e }) =>
+        e.type !== "economy" &&
+        e.type !== "laning" &&
+        (upTo === undefined || e.t <= upTo),
+    );
+  const feed = [...beats].reverse(); // newest at the top
+
+  if (feed.length === 0) {
+    return <p style={{ color: "#888" }}>Waiting for the match to begin…</p>;
   }
-}
-
-export function EventLog({ timeline }: { timeline: TimelineEvent[] }) {
-  // Drop the per-tick economy/laning noise; show the narrative beats.
-  const beats = timeline.filter(
-    (e) => e.type !== "economy" && e.type !== "laning",
-  );
 
   return (
     <ul
       style={{
         listStyle: "none",
         padding: 0,
+        margin: 0,
         fontFamily: "ui-monospace, monospace",
         fontSize: "0.85rem",
       }}
     >
-      {beats.map((e, i) => (
-        <li
-          key={i}
-          style={{ padding: "3px 0", borderBottom: "1px solid #f0f0f0" }}
-        >
-          <span style={{ color: "#888" }}>{mmss(e.t)}</span> {describe(e)}
-        </li>
-      ))}
+      {feed.map(({ e, idx }, i) => {
+        const { text, side } = describeEvent(e);
+        const isLatest = i === 0;
+        return (
+          <li
+            key={idx}
+            style={{
+              padding: "4px 6px",
+              borderBottom: "1px solid #f0f0f0",
+              background: isLatest ? "#f6f6f4" : "transparent",
+              opacity: isLatest ? 1 : 0.82,
+            }}
+          >
+            <span style={{ color: "#999" }}>{mmss(e.t)}</span>{" "}
+            <span style={{ color: side ? COLOR[side] : "#444" }}>{text}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
