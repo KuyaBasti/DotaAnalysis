@@ -4,6 +4,11 @@ Turns the raw OpenDota /publicMatches JSONs in data/matches/ into two tidy
 Parquet tables -- one row per match, one row per hero per match (normalized) --
 that DuckDB queries in milliseconds. This is the foundation for calibration
 (hero win rates) and the first ML feature set: draft -> win.
+
+Ranked matches only: this is an educational project about succeeding in the
+real game, so Turbo/unranked records are excluded here at the source -- every
+downstream consumer (win rates, strength ratings, training, calibration)
+inherits the filter.
 """
 
 from __future__ import annotations
@@ -16,6 +21,17 @@ from typing import Any
 import polars as pl
 
 from dm_pipeline import config
+
+RANKED_GAME_MODE = 22  # All Draft (the ranked pick mode)
+RANKED_LOBBY_TYPE = 7  # ranked matchmaking
+
+
+def is_ranked(match: dict[str, Any]) -> bool:
+    """True for ranked All Draft matches (the only mode this project studies)."""
+    return (
+        match.get("game_mode") == RANKED_GAME_MODE
+        and match.get("lobby_type") == RANKED_LOBBY_TYPE
+    )
 
 
 def _hero_ids(team: Any) -> list[int]:
@@ -30,14 +46,17 @@ def extract_rows(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Read match JSONs into (match rows, hero rows).
 
-    Drops low-quality records: unfinished games (duration <= 0) and matches
-    missing a full 5v5 of hero ids.
+    Keeps ranked matches only (see ``is_ranked``) and drops low-quality
+    records: unfinished games (duration <= 0) and matches missing a full 5v5
+    of hero ids.
     """
     match_rows: list[dict[str, Any]] = []
     hero_rows: list[dict[str, Any]] = []
 
     for path in sorted(glob.glob(str(Path(matches_dir) / "*.json"))):
         match = json.loads(Path(path).read_text())
+        if not is_ranked(match):
+            continue
         radiant = _hero_ids(match.get("radiant_team"))
         dire = _hero_ids(match.get("dire_team"))
         if match.get("duration", 0) <= 0 or len(radiant) != 5 or len(dire) != 5:
