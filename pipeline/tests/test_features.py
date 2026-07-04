@@ -20,6 +20,8 @@ def _write_match(
     dire: list[int],
     radiant_win: bool,
     duration: int = 1200,
+    game_mode: int = 22,  # ranked All Draft (the project's only mode)
+    lobby_type: int = 7,
 ) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f"{match_id}.json").write_text(
@@ -30,8 +32,8 @@ def _write_match(
                 "dire_team": dire,
                 "radiant_win": radiant_win,
                 "duration": duration,
-                "game_mode": 23,
-                "lobby_type": 0,
+                "game_mode": game_mode,
+                "lobby_type": lobby_type,
                 "avg_rank_tier": 40,
                 "start_time": 1781457732,
             }
@@ -50,6 +52,17 @@ def test_extract_skips_low_quality(tmp_path) -> None:
     assert [m["match_id"] for m in match_rows] == [1]  # 2 unfinished, 3 no heroes
     assert len(hero_rows) == 10  # only match 1, a full 5v5
     assert {h["team"] for h in hero_rows} == {"radiant", "dire"}
+
+
+def test_extract_keeps_ranked_matches_only(tmp_path) -> None:
+    md = tmp_path / "matches"
+    _write_match(md, 1, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True)
+    _write_match(md, 2, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True, game_mode=23, lobby_type=0)  # turbo
+    _write_match(md, 3, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True, lobby_type=0)  # unranked AD
+
+    match_rows, _ = extract_rows(md)
+
+    assert [m["match_id"] for m in match_rows] == [1]
 
 
 def test_build_and_hero_win_rates(tmp_path) -> None:
