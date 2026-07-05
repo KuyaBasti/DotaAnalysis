@@ -46,6 +46,42 @@ export function scoreAt(timeline: TimelineEvent[], clock: number): Score {
   return score;
 }
 
+// Mirrors the engine's fight resolver (fight_v0._PROB_SCALE): a 10k net-worth
+// lead makes the leader a ~73% favorite. Keeping the same constant means the
+// strip shows the engine's own odds, not a separate model.
+const PROB_SCALE = 10_000;
+
+export interface WinProbPoint {
+  t: number;
+  radiant: number; // P(radiant wins), 0..1
+}
+
+export function winProbSeries(timeline: TimelineEvent[]): WinProbPoint[] {
+  return timeline
+    .filter((e) => e.type === "economy")
+    .map((e) => {
+      const lead =
+        Number(e.payload.radiant_net_worth ?? 0) -
+        Number(e.payload.dire_net_worth ?? 0);
+      return { t: e.t, radiant: 1 / (1 + Math.exp(-lead / PROB_SCALE)) };
+    });
+}
+
+// P(radiant wins) as of the clock: carried from the latest tick that has fired.
+export function winProbAt(timeline: TimelineEvent[], clock: number): number {
+  let p = 0.5;
+  for (const e of timeline) {
+    if (e.t > clock) break;
+    if (e.type === "economy") {
+      const lead =
+        Number(e.payload.radiant_net_worth ?? 0) -
+        Number(e.payload.dire_net_worth ?? 0);
+      p = 1 / (1 + Math.exp(-lead / PROB_SCALE));
+    }
+  }
+  return p;
+}
+
 // Enemy structures each side has destroyed as of the clock.
 export function structuresAt(timeline: TimelineEvent[], clock: number): Score {
   const s: Score = { radiant: 0, dire: 0 };

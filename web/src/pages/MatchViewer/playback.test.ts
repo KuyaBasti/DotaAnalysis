@@ -7,6 +7,8 @@ import {
   mmss,
   scoreAt,
   structuresAt,
+  winProbAt,
+  winProbSeries,
 } from "./playback";
 
 const TIMELINE: TimelineEvent[] = [
@@ -58,6 +60,27 @@ describe("structuresAt", () => {
   it("counts each side's destroyed structures up to the clock", () => {
     expect(structuresAt(TIMELINE, 480)).toEqual({ radiant: 0, dire: 1 });
     expect(structuresAt(TIMELINE, 900)).toEqual({ radiant: 0, dire: 2 });
+  });
+});
+
+describe("winProbSeries / winProbAt", () => {
+  it("maps net-worth leads through the engine's logistic", () => {
+    const series = winProbSeries(TIMELINE);
+    expect(series).toHaveLength(2); // one point per economy tick
+    expect(series[0].radiant).toBeLessThan(0.5); // dire ahead 100 vs 120
+    // Mirrors fight_v0: a 10k lead => ~0.731 favorite
+    const big = winProbSeries([
+      { t: 30, type: "economy", payload: { radiant_net_worth: 20000, dire_net_worth: 10000 } },
+    ]);
+    expect(big[0].radiant).toBeCloseTo(0.731, 3);
+  });
+
+  it("carries the latest probability up to the clock", () => {
+    expect(winProbAt(TIMELINE, 0)).toBe(0.5); // before any tick: even odds
+    expect(winProbAt(TIMELINE, 700)).toBeCloseTo(
+      1 / (1 + Math.exp(200 / 10000)),
+      6,
+    ); // dire up 400-200 at t=600
   });
 });
 
