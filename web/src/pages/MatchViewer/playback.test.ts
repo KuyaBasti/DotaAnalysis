@@ -4,6 +4,7 @@ import {
   clamp,
   describeEvent,
   eventsUpTo,
+  heroScoresAt,
   mmss,
   scoreAt,
   structuresAt,
@@ -60,6 +61,35 @@ describe("structuresAt", () => {
   it("counts each side's destroyed structures up to the clock", () => {
     expect(structuresAt(TIMELINE, 480)).toEqual({ radiant: 0, dire: 1 });
     expect(structuresAt(TIMELINE, 900)).toEqual({ radiant: 0, dire: 2 });
+  });
+});
+
+describe("heroScoresAt", () => {
+  it("carries per-hero net worths from the latest economy tick", () => {
+    const tl = [
+      { t: 30, type: "economy", payload: {
+        radiant_net_worth: 300, dire_net_worth: 100,
+        radiant_heroes: [{ hero: "Axe", net_worth: 200 }, { hero: "Lion", net_worth: 100 }],
+        dire_heroes: [{ hero: "Lich", net_worth: 100 }],
+      } },
+      { t: 60, type: "economy", payload: {
+        radiant_net_worth: 500, dire_net_worth: 400,
+        radiant_heroes: [{ hero: "Axe", net_worth: 350 }, { hero: "Lion", net_worth: 150 }],
+        dire_heroes: [{ hero: "Lich", net_worth: 400 }],
+      } },
+    ];
+    expect(heroScoresAt(tl, 45).radiant).toEqual([
+      { hero: "Axe", netWorth: 200 },
+      { hero: "Lion", netWorth: 100 },
+    ]);
+    expect(heroScoresAt(tl, 90).dire).toEqual([{ hero: "Lich", netWorth: 400 }]);
+  });
+
+  it("returns empty lists for sims without per-hero data", () => {
+    const tl = [
+      { t: 30, type: "economy", payload: { radiant_net_worth: 100, dire_net_worth: 120 } },
+    ];
+    expect(heroScoresAt(tl, 60)).toEqual({ radiant: [], dire: [] });
   });
 });
 

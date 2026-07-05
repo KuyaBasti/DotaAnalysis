@@ -46,6 +46,37 @@ export function scoreAt(timeline: TimelineEvent[], clock: number): Score {
   return score;
 }
 
+export interface HeroScore {
+  hero: string;
+  netWorth: number;
+}
+
+function heroList(v: unknown): HeroScore[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((h) => ({
+    hero: String((h as Record<string, unknown>).hero ?? ""),
+    netWorth: Number((h as Record<string, unknown>).net_worth ?? 0),
+  }));
+}
+
+// Per-hero net worths as of the clock (from the latest economy tick). Empty
+// lists for older sims exported before the engine carried per-hero data.
+export function heroScoresAt(
+  timeline: TimelineEvent[],
+  clock: number,
+): { radiant: HeroScore[]; dire: HeroScore[] } {
+  let radiant: HeroScore[] = [];
+  let dire: HeroScore[] = [];
+  for (const e of timeline) {
+    if (e.t > clock) break;
+    if (e.type === "economy") {
+      radiant = heroList(e.payload.radiant_heroes);
+      dire = heroList(e.payload.dire_heroes);
+    }
+  }
+  return { radiant, dire };
+}
+
 // Mirrors the engine's fight resolver (fight_v0._PROB_SCALE): a 10k net-worth
 // lead makes the leader a ~73% favorite. Keeping the same constant means the
 // strip shows the engine's own odds, not a separate model.

@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { getSim, listSims } from "../../api/client";
 import type { SimResult } from "../../types";
 import { EventLog } from "./EventLog";
+import { HeroScoreboard } from "./HeroScoreboard";
 import { NetworthGraph } from "./NetworthGraph";
 import { PlaybackControls } from "./PlaybackControls";
 import { WinProbGraph } from "./WinProbGraph";
-import { mmss, scoreAt, structuresAt, winProbAt } from "./playback";
+import { heroScoresAt, mmss, scoreAt, structuresAt, winProbAt } from "./playback";
 import { usePlayback } from "./usePlayback";
 
 export function MatchViewer() {
@@ -102,6 +103,7 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const winProb = winProbAt(sim.timeline, pb.clock);
   const favored = winProb >= 0.5 ? "Radiant" : "Dire";
   const favoredPct = Math.round((winProb >= 0.5 ? winProb : 1 - winProb) * 100);
+  const heroScores = heroScoresAt(sim.timeline, pb.clock);
 
   return (
     <>
@@ -153,6 +155,8 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
       </div>
 
       <PlaybackControls pb={pb} duration={duration} />
+
+      <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
 
       <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
 

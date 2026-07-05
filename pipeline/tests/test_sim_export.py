@@ -30,3 +30,27 @@ def test_economy_events_carry_running_net_worth() -> None:
     assert "radiant_net_worth" in economy["payload"]
     assert "dire_net_worth" in economy["payload"]
     assert economy["payload"]["radiant_net_worth"] >= 0
+
+
+def test_economy_events_carry_per_hero_networths() -> None:
+    from dm_pipeline.prototype.scenario import Scenario
+    from dm_pipeline.prototype.sim_loop import simulate
+
+    heroes = {
+        f"h{i}": {
+            "id": i,
+            "display_name": f"H{i}",
+            "roles": ["carry"],
+            "attack_type": "melee",
+            "base_stats": {"str": 20, "agi": 20, "int": 20},
+        }
+        for i in range(1, 5)
+    }
+    scenario = Scenario(patch_id="test", radiant=["h1", "h2"], dire=["h3", "h4"])
+    timeline, _ = simulate(scenario, heroes, seed=5)
+
+    economy = next(e for e in timeline.events if e.type.value == "economy")
+    radiant = economy.payload["radiant_heroes"]
+    assert [h["hero"] for h in radiant] == ["H1", "H2"]
+    team_total = economy.payload["radiant_net_worth"]
+    assert abs(sum(h["net_worth"] for h in radiant) - team_total) < 1.0
