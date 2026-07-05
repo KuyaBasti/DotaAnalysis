@@ -242,9 +242,19 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
                 "dire_gain": round(dire_gain, 1),
                 "radiant_net_worth": round(state.radiant.net_worth, 1),
                 "dire_net_worth": round(state.dire.net_worth, 1),
+                # Per-hero snapshot so viewers can render individual economies.
+                "radiant_heroes": _hero_networths(state.radiant),
+                "dire_heroes": _hero_networths(state.dire),
             },
         )
     )
+
+
+def _hero_networths(team: TeamState) -> list[dict[str, Any]]:
+    return [
+        {"hero": h.display_name, "net_worth": round(h.net_worth, 1)}
+        for h in team.heroes
+    ]
 
 
 def _team_economy(team: TeamState, rng: SeededRng) -> float:
