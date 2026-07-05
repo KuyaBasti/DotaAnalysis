@@ -20,6 +20,11 @@ from dm_pipeline.prototype.rng import SeededRng
 _PROB_SCALE = 10_000.0
 # Net-worth swing awarded to the fight's winner (uncalibrated placeholder).
 _FIGHT_SWING = (1500.0, 5000.0)
+# Comeback gold, like the real game's rubber-band bounties: when the trailing
+# team wins a fight, the swing grows with their deficit — up to double at
+# _COMEBACK_DEFICIT_FULL behind. Leads stay valuable; claw-backs get teeth.
+_COMEBACK_DEFICIT_FULL = 20_000.0
+_COMEBACK_MAX_BONUS = 1.0  # +100% swing at a full deficit
 
 
 @dataclass
@@ -27,6 +32,7 @@ class FightOutcome:
     winner: str  # "radiant" | "dire"
     swing: float  # net-worth swing to the winner
     radiant_win_prob: float
+    comeback_factor: float = 1.0  # >1 when the trailing team won the fight
 
 
 def radiant_win_probability(
@@ -51,8 +57,25 @@ def resolve_fight(
     *,
     strength_edge: float = 0.0,
 ) -> FightOutcome:
-    """Sample a teamfight outcome from net-worth state and draft strength."""
+    """Sample a teamfight outcome from net-worth state and draft strength.
+
+    Comeback gold: if the winner was behind in net worth, the swing is scaled
+    up with the deficit (rubber-banding, like real kill bounties).
+    """
     p = radiant_win_probability(radiant_net_worth, dire_net_worth, strength_edge)
     winner = "radiant" if rng.chance(p) else "dire"
     swing = rng.uniform(*_FIGHT_SWING)
-    return FightOutcome(winner=winner, swing=swing, radiant_win_prob=p)
+
+    winner_nw, loser_nw = (
+        (radiant_net_worth, dire_net_worth)
+        if winner == "radiant"
+        else (dire_net_worth, radiant_net_worth)
+    )
+    deficit = max(0.0, loser_nw - winner_nw)
+    factor = 1.0 + _COMEBACK_MAX_BONUS * min(1.0, deficit / _COMEBACK_DEFICIT_FULL)
+    return FightOutcome(
+        winner=winner,
+        swing=swing * factor,
+        radiant_win_prob=p,
+        comeback_factor=factor,
+    )
