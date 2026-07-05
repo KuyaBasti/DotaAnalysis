@@ -119,7 +119,11 @@ export function describeEvent(e: TimelineEvent): Beat {
       const tail = fallen.length
         ? ` — ${fallen.join(", ")} ${fallen.length > 1 ? "fall" : "falls"}`
         : "";
-      return { text: `${cap(winner)} win a teamfight${tail}`, side: winner as Side };
+      const bounty = p.comeback ? " 💰 comeback bounty!" : "";
+      return {
+        text: `${cap(winner)} win a teamfight${tail}${bounty}`,
+        side: winner as Side,
+      };
     }
     case "roshan": {
       const team = String(p.team);
