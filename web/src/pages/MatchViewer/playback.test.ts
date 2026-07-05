@@ -102,6 +102,15 @@ describe("describeEvent", () => {
     expect(beat.side).toBe("radiant");
   });
 
+  it("announces comeback bounties", () => {
+    const beat = describeEvent({
+      t: 1,
+      type: "fight",
+      payload: { winner: "dire", radiant_deaths: ["Axe"], dire_deaths: [], comeback: true },
+    });
+    expect(beat.text).toBe("Dire win a teamfight — Axe falls 💰 comeback bounty!");
+  });
+
   it("calls out the Ancient and Roshan", () => {
     expect(describeEvent(TIMELINE[6]).text).toBe("Dire destroy the Ancient");
     expect(describeEvent(TIMELINE[5]).text).toBe("Dire slay Roshan — Aegis claimed");

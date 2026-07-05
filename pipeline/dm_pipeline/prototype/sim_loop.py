@@ -313,19 +313,16 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
         radiant_deaths = [h.display_name for h in loser_dead]
         dire_deaths = [h.display_name for h in winner_dead]
 
-    timeline.emit(
-        Event(
-            t=state.t,
-            type=EventType.FIGHT,
-            payload={
-                "winner": outcome.winner,
-                "swing": round(outcome.swing, 1),
-                "radiant_win_prob": round(outcome.radiant_win_prob, 3),
-                "radiant_deaths": radiant_deaths,
-                "dire_deaths": dire_deaths,
-            },
-        )
-    )
+    payload: dict[str, Any] = {
+        "winner": outcome.winner,
+        "swing": round(outcome.swing, 1),
+        "radiant_win_prob": round(outcome.radiant_win_prob, 3),
+        "radiant_deaths": radiant_deaths,
+        "dire_deaths": dire_deaths,
+    }
+    if outcome.comeback_factor >= 1.2:  # the trailing team cashed real bounties
+        payload["comeback"] = True
+    timeline.emit(Event(t=state.t, type=EventType.FIGHT, payload=payload))
 
 
 def _distribute(team: TeamState, amount: float) -> None:
