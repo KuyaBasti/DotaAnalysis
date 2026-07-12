@@ -69,20 +69,20 @@ describe("heroScoresAt", () => {
     const tl = [
       { t: 30, type: "economy", payload: {
         radiant_net_worth: 300, dire_net_worth: 100,
-        radiant_heroes: [{ hero: "Axe", net_worth: 200 }, { hero: "Lion", net_worth: 100 }],
-        dire_heroes: [{ hero: "Lich", net_worth: 100 }],
+        radiant_heroes: [{ hero: "Axe", net_worth: 200, level: 2 }, { hero: "Lion", net_worth: 100, level: 1 }],
+        dire_heroes: [{ hero: "Lich", net_worth: 100, level: 1 }],
       } },
       { t: 60, type: "economy", payload: {
         radiant_net_worth: 500, dire_net_worth: 400,
-        radiant_heroes: [{ hero: "Axe", net_worth: 350 }, { hero: "Lion", net_worth: 150 }],
-        dire_heroes: [{ hero: "Lich", net_worth: 400 }],
+        radiant_heroes: [{ hero: "Axe", net_worth: 350, level: 3 }, { hero: "Lion", net_worth: 150, level: 2 }],
+        dire_heroes: [{ hero: "Lich", net_worth: 400, level: 6 }],
       } },
     ];
     expect(heroScoresAt(tl, 45).radiant).toEqual([
-      { hero: "Axe", netWorth: 200 },
-      { hero: "Lion", netWorth: 100 },
+      { hero: "Axe", netWorth: 200, level: 2 },
+      { hero: "Lion", netWorth: 100, level: 1 },
     ]);
-    expect(heroScoresAt(tl, 90).dire).toEqual([{ hero: "Lich", netWorth: 400 }]);
+    expect(heroScoresAt(tl, 90).dire).toEqual([{ hero: "Lich", netWorth: 400, level: 6 }]);
   });
 
   it("returns empty lists for sims without per-hero data", () => {
@@ -130,6 +130,28 @@ describe("describeEvent", () => {
     });
     expect(beat.text).toBe("Radiant win a teamfight — Lich, Storm Spirit fall");
     expect(beat.side).toBe("radiant");
+  });
+
+  it("announces first blood", () => {
+    const beat = describeEvent({
+      t: 60,
+      type: "fight",
+      payload: { winner: "radiant", radiant_deaths: [], dire_deaths: ["Lich"], first_blood: true },
+    });
+    expect(beat.text).toBe("Radiant win a teamfight — Lich falls 🩸 first blood!");
+  });
+
+  it("announces level milestones with ult callout at 6", () => {
+    expect(describeEvent({
+      t: 360,
+      type: "level_up",
+      payload: { team: "dire", hero: "Storm Spirit", level: 6 },
+    })).toEqual({ text: "Storm Spirit reaches level 6 — ultimate online!", side: "dire" });
+    expect(describeEvent({
+      t: 1200,
+      type: "level_up",
+      payload: { team: "radiant", hero: "Juggernaut", level: 12 },
+    }).text).toBe("Juggernaut reaches level 12");
   });
 
   it("announces comeback bounties", () => {
