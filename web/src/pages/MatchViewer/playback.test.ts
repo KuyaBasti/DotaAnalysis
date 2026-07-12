@@ -4,6 +4,7 @@ import {
   clamp,
   describeEvent,
   eventsUpTo,
+  fallenStructuresAt,
   heroScoresAt,
   mmss,
   scoreAt,
@@ -61,6 +62,27 @@ describe("structuresAt", () => {
   it("counts each side's destroyed structures up to the clock", () => {
     expect(structuresAt(TIMELINE, 480)).toEqual({ radiant: 0, dire: 1 });
     expect(structuresAt(TIMELINE, 900)).toEqual({ radiant: 0, dire: 2 });
+  });
+});
+
+describe("fallenStructuresAt", () => {
+  const tl = [
+    { t: 600, type: "objective", payload: { team: "dire", structure: "tier-1 tower", lane: "top" } },
+    { t: 900, type: "objective", payload: { team: "radiant", structure: "barracks", lane: "bot" } },
+    { t: 1200, type: "objective", payload: { team: "dire", structure: "ancient" } },
+  ];
+
+  it("attributes losses to the victim side, up to the clock", () => {
+    const at10 = fallenStructuresAt(tl, 600);
+    expect(at10.radiant).toEqual([{ structure: "tier-1 tower", lane: "top" }]);
+    expect(at10.dire).toEqual([]);
+
+    const at20 = fallenStructuresAt(tl, 1200);
+    expect(at20.radiant).toEqual([
+      { structure: "tier-1 tower", lane: "top" },
+      { structure: "ancient", lane: null },
+    ]);
+    expect(at20.dire).toEqual([{ structure: "barracks", lane: "bot" }]);
   });
 });
 
