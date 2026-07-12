@@ -1,0 +1,84 @@
+"""Tests for hero XP/levels and first blood."""
+
+from __future__ import annotations
+
+from dm_pipeline.prototype.scenario import Scenario
+from dm_pipeline.prototype.sim_loop import _level_for_xp, simulate
+
+HEROES = {
+    "carry": {
+        "id": 1,
+        "display_name": "Carry",
+        "roles": ["carry"],
+        "attack_type": "melee",
+        "base_stats": {"str": 20, "agi": 20, "int": 20},
+    },
+    "supp": {
+        "id": 2,
+        "display_name": "Supp",
+        "roles": ["support"],
+        "attack_type": "ranged",
+        "base_stats": {"str": 20, "agi": 20, "int": 20},
+    },
+    "mid": {
+        "id": 3,
+        "display_name": "Mid",
+        "roles": ["nuker"],
+        "attack_type": "ranged",
+        "base_stats": {"str": 20, "agi": 20, "int": 20},
+    },
+    "off": {
+        "id": 4,
+        "display_name": "Off",
+        "roles": ["durable"],
+        "attack_type": "melee",
+        "base_stats": {"str": 20, "agi": 20, "int": 20},
+    },
+}
+SCENARIO = Scenario(patch_id="test", radiant=["carry", "supp"], dire=["mid", "off"])
+
+
+def test_level_curve_thresholds() -> None:
+    assert _level_for_xp(0) == 1
+    assert _level_for_xp(239) == 1
+    assert _level_for_xp(240) == 2  # cum(2) = 60·1·4
+    assert _level_for_xp(2399) == 5
+    assert _level_for_xp(2400) == 6  # cum(6) = 60·5·8 — ultimate online
+    assert _level_for_xp(10**9) == 30  # capped
+
+
+def test_heroes_level_up_and_carries_outlevel_supports() -> None:
+    timeline, state = simulate(SCENARIO, HEROES, seed=11)
+
+    carry = next(h for h in state.radiant.heroes if h.display_name == "Carry")
+    supp = next(h for h in state.radiant.heroes if h.display_name == "Supp")
+    assert carry.level >= 6
+    assert carry.level > supp.level  # farm priority drives XP
+
+    six = [e for e in timeline.events
+           if e.type.value == "level_up" and e.payload["level"] == 6]
+    assert {e.payload["hero"] for e in six} >= {"Carry", "Mid"}
+    carry_six = next(e for e in six if e.payload["hero"] == "Carry")
+    supp_six = next((e for e in six if e.payload["hero"] == "Supp"), None)
+    if supp_six is not None:
+        assert carry_six.t <= supp_six.t
+
+
+def test_first_blood_fires_exactly_once_on_first_casualty() -> None:
+    timeline, _ = simulate(SCENARIO, HEROES, seed=11)
+
+    fights = [e for e in timeline.events if e.type.value == "fight"]
+    fb = [e for e in fights if e.payload.get("first_blood")]
+    with_deaths = [
+        e for e in fights
+        if e.payload.get("radiant_deaths") or e.payload.get("dire_deaths")
+    ]
+    assert len(fb) == 1
+    assert with_deaths and fb[0] is with_deaths[0]
+
+
+def test_hero_snapshot_carries_levels() -> None:
+    timeline, _ = simulate(SCENARIO, HEROES, seed=11)
+    last_econ = [e for e in timeline.events if e.type.value == "economy"][-1]
+    for entry in last_econ.payload["radiant_heroes"]:
+        assert entry["level"] >= 6
