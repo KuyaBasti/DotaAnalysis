@@ -167,4 +167,12 @@ describe("describeEvent", () => {
     expect(describeEvent(TIMELINE[6]).text).toBe("Dire destroy the Ancient");
     expect(describeEvent(TIMELINE[5]).text).toBe("Dire slay Roshan — Aegis claimed");
   });
+
+  it("names the lane a structure fell in", () => {
+    expect(describeEvent({
+      t: 600,
+      type: "objective",
+      payload: { team: "radiant", structure: "tier-1 tower", lane: "mid" },
+    }).text).toBe("Radiant destroy the mid tier-1 tower");
+  });
 });

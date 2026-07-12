@@ -175,7 +175,12 @@ export function describeEvent(e: TimelineEvent): Beat {
     case "objective": {
       const team = String(p.team);
       const structure = String(p.structure);
-      const what = structure === "ancient" ? "the Ancient" : `a ${structure}`;
+      const what =
+        structure === "ancient"
+          ? "the Ancient"
+          : p.lane
+            ? `the ${String(p.lane)} ${structure}`
+            : `a ${structure}`;
       return { text: `${cap(team)} destroy ${what}`, side: team as Side };
     }
     case "game_over":
