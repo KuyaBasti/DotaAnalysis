@@ -47,3 +47,15 @@ def test_no_structures_fall_before_the_objective_phase() -> None:
         if e.type.value == "objective" and e.t < 8 * 60
     ]
     assert early == []
+
+
+def test_towers_fall_in_a_lane_but_the_ancient_does_not() -> None:
+    ratings = {1: 1.6, 2: 1.6, 3: 0.4, 4: 0.4}
+    timeline, _ = simulate(SCENARIO, HEROES, seed=1, ratings=ratings)
+
+    objectives = [e for e in timeline.events if e.type.value == "objective"]
+    for e in objectives:
+        if e.payload["structure"] == "ancient":
+            assert "lane" not in e.payload
+        else:
+            assert e.payload["lane"] in {"top", "mid", "bot"}
