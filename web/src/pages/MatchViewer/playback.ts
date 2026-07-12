@@ -49,6 +49,7 @@ export function scoreAt(timeline: TimelineEvent[], clock: number): Score {
 export interface HeroScore {
   hero: string;
   netWorth: number;
+  level: number;
 }
 
 function heroList(v: unknown): HeroScore[] {
@@ -56,6 +57,7 @@ function heroList(v: unknown): HeroScore[] {
   return v.map((h) => ({
     hero: String((h as Record<string, unknown>).hero ?? ""),
     netWorth: Number((h as Record<string, unknown>).net_worth ?? 0),
+    level: Number((h as Record<string, unknown>).level ?? 1),
   }));
 }
 
@@ -151,9 +153,19 @@ export function describeEvent(e: TimelineEvent): Beat {
         ? ` — ${fallen.join(", ")} ${fallen.length > 1 ? "fall" : "falls"}`
         : "";
       const bounty = p.comeback ? " 💰 comeback bounty!" : "";
+      const blood = p.first_blood ? " 🩸 first blood!" : "";
       return {
-        text: `${cap(winner)} win a teamfight${tail}${bounty}`,
+        text: `${cap(winner)} win a teamfight${tail}${blood}${bounty}`,
         side: winner as Side,
+      };
+    }
+    case "level_up": {
+      const team = String(p.team);
+      const level = Number(p.level);
+      const tail = level === 6 ? " — ultimate online!" : "";
+      return {
+        text: `${String(p.hero)} reaches level ${level}${tail}`,
+        side: team as Side,
       };
     }
     case "roshan": {

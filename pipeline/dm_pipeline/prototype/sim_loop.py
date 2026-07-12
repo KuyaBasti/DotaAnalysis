@@ -50,6 +50,23 @@ _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibra
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
 _STRENGTH_TO_NETWORTH = 16000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
+# Experience: narration-only for now (levels don't yet feed fight strength).
+# XP tracks farm plus a passive floor so supports still level, and the curve
+# approximates the real table (level 6 ~2,400 cumulative XP). Cores hit 6
+# around minute 6, supports a few minutes later.
+_XP_BASE_PER_TICK = 80.0
+_XP_PER_GOLD = 1.5
+_MAX_LEVEL = 30
+_MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are emitted
+
+
+def _level_for_xp(xp: float) -> int:
+    """Cumulative XP -> level, via cum(L) = 60·(L−1)·(L+2) (≈ the real curve)."""
+    level = 1
+    while level < _MAX_LEVEL and xp >= 60.0 * level * (level + 3):
+        level += 1
+    return level
+
 
 @dataclass
 class HeroState:
@@ -58,6 +75,8 @@ class HeroState:
     farm_priority: float
     strength: float = 1.0  # data-derived multiplier (~1.0); 1.0 = neutral
     net_worth: float = 0.0
+    xp: float = 0.0
+    level: int = 1
 
 
 @dataclass
@@ -85,6 +104,7 @@ class GameState:
     game_over: bool = False
     winner: str | None = None
     roshan_available_at: int = _ROSHAN_FIRST_SECONDS  # game-time the next Roshan can be taken
+    first_blood_done: bool = False
 
 
 def simulate(
@@ -125,6 +145,7 @@ def simulate(
     while not state.game_over and state.t < MAX_TIME:
         state.t += TICK_SECONDS
         _economy_tick(state, rng, timeline)
+        _level_tick(state, timeline)
         _laning_tick(state, timeline)
         _maybe_fight(state, rng, timeline)
         _roshan_tick(state, rng, timeline)
@@ -252,7 +273,7 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
 
 def _hero_networths(team: TeamState) -> list[dict[str, Any]]:
     return [
-        {"hero": h.display_name, "net_worth": round(h.net_worth, 1)}
+        {"hero": h.display_name, "net_worth": round(h.net_worth, 1), "level": h.level}
         for h in team.heroes
     ]
 
@@ -262,8 +283,32 @@ def _team_economy(team: TeamState, rng: SeededRng) -> float:
     for hero in team.heroes:
         gain = hero_gold_gain(rng, hero.farm_priority, hero.strength)
         hero.net_worth += gain
+        hero.xp += _XP_BASE_PER_TICK + gain * _XP_PER_GOLD
         total += gain
     return total
+
+
+def _level_tick(state: GameState, timeline: Timeline) -> None:
+    """Advance hero levels from accrued XP; announce the milestone levels."""
+    for team in (state.radiant, state.dire):
+        for hero in team.heroes:
+            new_level = _level_for_xp(hero.xp)
+            if new_level <= hero.level:
+                continue
+            for milestone in _MILESTONE_LEVELS:
+                if hero.level < milestone <= new_level:
+                    timeline.emit(
+                        Event(
+                            t=state.t,
+                            type=EventType.LEVEL_UP,
+                            payload={
+                                "team": team.name,
+                                "hero": hero.display_name,
+                                "level": milestone,
+                            },
+                        )
+                    )
+            hero.level = new_level
 
 
 def _laning_tick(state: GameState, timeline: Timeline) -> None:
@@ -332,6 +377,9 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     }
     if outcome.comeback_factor >= 1.2:  # the trailing team cashed real bounties
         payload["comeback"] = True
+    if not state.first_blood_done and (radiant_deaths or dire_deaths):
+        payload["first_blood"] = True
+        state.first_blood_done = True
     timeline.emit(Event(t=state.t, type=EventType.FIGHT, payload=payload))
 
 

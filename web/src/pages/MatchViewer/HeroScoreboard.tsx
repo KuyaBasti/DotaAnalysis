@@ -49,7 +49,21 @@ function Column({
               lineHeight: 1.4,
             }}
           >
-            <span>{h.hero}</span>
+            <span>
+              <span
+                style={{
+                  display: "inline-block",
+                  minWidth: 22,
+                  marginRight: 6,
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: "0.7rem",
+                  color: "#999",
+                }}
+              >
+                {h.level}
+              </span>
+              {h.hero}
+            </span>
             <span style={{ fontFamily: "ui-monospace, monospace", color: "#666" }}>
               {Math.round(h.netWorth).toLocaleString()}
             </span>
