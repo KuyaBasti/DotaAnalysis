@@ -82,3 +82,28 @@ def test_hero_snapshot_carries_levels() -> None:
     last_econ = [e for e in timeline.events if e.type.value == "economy"][-1]
     for entry in last_econ.payload["radiant_heroes"]:
         assert entry["level"] >= 6
+
+
+def test_spike_edge_counts_ult_tiers() -> None:
+    from dm_pipeline.prototype.sim_loop import (
+        _ULT_TIER_NETWORTH,
+        GameState,
+        HeroState,
+        TeamState,
+        _spike_edge,
+    )
+
+    def team(name: str, levels: list[int]) -> TeamState:
+        return TeamState(
+            name,
+            [HeroState(key=f"h{i}", display_name=f"H{i}", farm_priority=1.0, level=lv)
+             for i, lv in enumerate(levels)],
+        )
+
+    # Radiant: levels 6 and 12 => 1 + 2 = 3 tiers. Dire: 5 and 5 => 0 tiers.
+    state = GameState(radiant=team("radiant", [6, 12]), dire=team("dire", [5, 5]))
+    assert _spike_edge(state) == 3 * _ULT_TIER_NETWORTH
+
+    # Both maxed => no edge.
+    state = GameState(radiant=team("radiant", [18, 18]), dire=team("dire", [18, 18]))
+    assert _spike_edge(state) == 0.0
