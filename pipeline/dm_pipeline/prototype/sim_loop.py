@@ -50,14 +50,19 @@ _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibra
 _DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
 _STRENGTH_TO_NETWORTH = 16000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
-# Experience: narration-only for now (levels don't yet feed fight strength).
-# XP tracks farm plus a passive floor so supports still level, and the curve
-# approximates the real table (level 6 ~2,400 cumulative XP). Cores hit 6
-# around minute 6, supports a few minutes later.
+# Experience: XP tracks farm plus a passive floor so supports still level, and
+# the curve approximates the real table (level 6 ~2,400 cumulative XP). Cores
+# hit 6 around minute 6, supports a few minutes later.
 _XP_BASE_PER_TICK = 80.0
 _XP_PER_GOLD = 1.5
 _MAX_LEVEL = 30
 _MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are emitted
+
+# Power spikes: an ultimate (and each upgrade tier) online is worth real fight
+# strength, expressed in gold-equivalent like the draft edge. A full 5-ult
+# advantage (~min 4-9 vs a slower-leveling draft) is a ~61% fight favorite.
+_ULT_TIER_LEVELS = (6, 12, 18)
+_ULT_TIER_NETWORTH = 900.0  # fight value of each ult tier a hero has online
 
 
 def _level_for_xp(xp: float) -> int:
@@ -334,12 +339,23 @@ def _laning_tick(state: GameState, timeline: Timeline) -> None:
     )
 
 
+def _spike_edge(state: GameState) -> float:
+    """Radiant-minus-dire fight edge from ult tiers online, in gold-equivalent."""
+
+    def tiers(team: TeamState) -> int:
+        return sum(
+            sum(1 for m in _ULT_TIER_LEVELS if h.level >= m) for h in team.heroes
+        )
+
+    return _ULT_TIER_NETWORTH * (tiers(state.radiant) - tiers(state.dire))
+
+
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     if not rng.chance(_FIGHT_CHANCE):
         return
     strength_edge = _STRENGTH_TO_NETWORTH * (
         state.radiant.strength_edge - state.dire.strength_edge
-    )
+    ) + _spike_edge(state)
     outcome = resolve_fight(
         state.radiant.net_worth,
         state.dire.net_worth,
