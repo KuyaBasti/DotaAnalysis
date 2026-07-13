@@ -7,6 +7,7 @@ import {
   fallenStructuresAt,
   heroScoresAt,
   mmss,
+  positionsAt,
   scoreAt,
   structuresAt,
   winProbAt,
@@ -62,6 +63,33 @@ describe("structuresAt", () => {
   it("counts each side's destroyed structures up to the clock", () => {
     expect(structuresAt(TIMELINE, 480)).toEqual({ radiant: 0, dire: 1 });
     expect(structuresAt(TIMELINE, 900)).toEqual({ radiant: 0, dire: 2 });
+  });
+});
+
+describe("positionsAt", () => {
+  const tl = [
+    { t: 30, type: "positions", payload: {
+      radiant_heroes: [{ hero: "Axe", x: 10, y: 80 }],
+      dire_heroes: [{ hero: "Lich", x: 90, y: 20 }],
+    } },
+    { t: 60, type: "positions", payload: {
+      radiant_heroes: [{ hero: "Axe", x: 20, y: 60 }],
+      dire_heroes: [{ hero: "Lich", x: 80, y: 40 }],
+    } },
+  ];
+
+  it("interpolates between surrounding snapshots", () => {
+    const dots = positionsAt(tl, 45); // halfway between ticks
+    const axe = dots.find((d) => d.hero === "Axe");
+    expect(axe).toMatchObject({ side: "radiant", x: 15, y: 70 });
+    const lich = dots.find((d) => d.hero === "Lich");
+    expect(lich).toMatchObject({ side: "dire", x: 85, y: 30 });
+  });
+
+  it("holds the last snapshot at the end and handles pre-first-tick", () => {
+    expect(positionsAt(tl, 300).find((d) => d.hero === "Axe")).toMatchObject({ x: 20, y: 60 });
+    expect(positionsAt(tl, 0).find((d) => d.hero === "Axe")).toMatchObject({ x: 10, y: 80 });
+    expect(positionsAt([], 60)).toEqual([]);
   });
 });
 

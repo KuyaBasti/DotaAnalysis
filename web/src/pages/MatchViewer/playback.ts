@@ -71,6 +71,60 @@ export function fallenStructuresAt(
   return fallen;
 }
 
+export interface HeroDot {
+  hero: string;
+  side: "radiant" | "dire";
+  x: number;
+  y: number;
+}
+
+function dotList(v: unknown, side: "radiant" | "dire"): HeroDot[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((h) => ({
+    hero: String((h as Record<string, unknown>).hero ?? ""),
+    side,
+    x: Number((h as Record<string, unknown>).x ?? 50),
+    y: Number((h as Record<string, unknown>).y ?? 50),
+  }));
+}
+
+function dotsOf(e: TimelineEvent): HeroDot[] {
+  return [
+    ...dotList(e.payload.radiant_heroes, "radiant"),
+    ...dotList(e.payload.dire_heroes, "dire"),
+  ];
+}
+
+// Hero map positions as of the clock, interpolated between the surrounding
+// position snapshots so dots glide instead of teleporting each tick. Empty for
+// sims exported before the engine emitted positions.
+export function positionsAt(timeline: TimelineEvent[], clock: number): HeroDot[] {
+  let prev: TimelineEvent | null = null;
+  let next: TimelineEvent | null = null;
+  for (const e of timeline) {
+    if (e.type !== "positions") continue;
+    if (e.t <= clock) prev = e;
+    else {
+      next = e;
+      break;
+    }
+  }
+  if (!prev) return next ? dotsOf(next) : [];
+  if (!next || next.t === prev.t) return dotsOf(prev);
+
+  const frac = (clock - prev.t) / (next.t - prev.t);
+  const target = new Map(dotsOf(next).map((d) => [`${d.side}:${d.hero}`, d]));
+  return dotsOf(prev).map((d) => {
+    const to = target.get(`${d.side}:${d.hero}`);
+    if (!to) return d;
+    return {
+      ...d,
+      x: d.x + (to.x - d.x) * frac,
+      y: d.y + (to.y - d.y) * frac,
+    };
+  });
+}
+
 export interface HeroScore {
   hero: string;
   netWorth: number;
