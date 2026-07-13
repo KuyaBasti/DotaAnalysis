@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
-import { evaluateDraft, getHeroes, latestPatch, listPatches } from "../../api/client";
+import { evaluateDraft, getHeroes, latestPatch, listPatches, simulateDraft } from "../../api/client";
 import type { Hero } from "../../types";
 
 const TEAM_SIZE = 5;
 
-export function DraftStudio() {
+export function DraftStudio({
+  onSimulated,
+}: {
+  onSimulated?: (simId: string) => void;
+}) {
   const [patch, setPatch] = useState<string | null>(null);
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -13,6 +17,8 @@ export function DraftStudio() {
   const [dire, setDire] = useState<string[]>([]);
   const [side, setSide] = useState<"radiant" | "dire">("radiant");
   const [winProb, setWinProb] = useState<number | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
 
   // Load the patch's heroes once.
   useEffect(() => {
@@ -81,6 +87,54 @@ export function DraftStudio() {
         Patch <strong>{patch}</strong> — pick a draft, see the live win
         probability from the trained model.
       </p>
+
+      {/* simulate the drafted match */}
+      <div style={{ margin: "0.75rem 0" }}>
+        <button
+          disabled={
+            radiant.length !== TEAM_SIZE ||
+            dire.length !== TEAM_SIZE ||
+            simulating
+          }
+          onClick={async () => {
+            if (!patch) return;
+            setSimulating(true);
+            setSimError(null);
+            try {
+              const { id } = await simulateDraft(radiant, dire, patch);
+              onSimulated?.(id);
+            } catch (e) {
+              setSimError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setSimulating(false);
+            }
+          }}
+          style={{
+            padding: "0.5rem 1rem",
+            border: "none",
+            borderRadius: 6,
+            background:
+              radiant.length === TEAM_SIZE && dire.length === TEAM_SIZE
+                ? "#2e7d32"
+                : "#bbb",
+            color: "#fff",
+            cursor: "pointer",
+            fontSize: "0.95rem",
+          }}
+        >
+          {simulating ? "Simulating…" : "▶ Simulate this draft"}
+        </button>
+        {radiant.length !== TEAM_SIZE || dire.length !== TEAM_SIZE ? (
+          <span style={{ marginLeft: 10, fontSize: "0.8rem", color: "#888" }}>
+            pick 5 heroes per side to simulate
+          </span>
+        ) : null}
+        {simError && (
+          <span style={{ marginLeft: 10, fontSize: "0.8rem", color: "crimson" }}>
+            {simError}
+          </span>
+        )}
+      </div>
 
       {/* win-probability bar */}
       <div style={{ margin: "1rem 0" }}>
