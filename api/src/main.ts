@@ -6,6 +6,7 @@ const app = buildApp({
   snapshotDir: config.snapshotDir,
   simDir: config.simDir,
   modelsDir: config.modelsDir,
+  repoRoot: config.repoRoot,
   logger: true,
 });
 

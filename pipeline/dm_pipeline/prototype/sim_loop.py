@@ -613,16 +613,40 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="seed a draft prior from the trained win-probability model",
     )
+    parser.add_argument(
+        "--radiant",
+        help="comma-separated radiant hero keys (default: the demo draft)",
+    )
+    parser.add_argument(
+        "--dire",
+        help="comma-separated dire hero keys (default: the demo draft)",
+    )
+    parser.add_argument(
+        "--patch",
+        default=_DEMO_SCENARIO.patch_id,
+        help="patch snapshot to draft from",
+    )
     args = parser.parse_args(argv)
 
-    if args.model:
-        timeline, state = run_with_model(_DEMO_SCENARIO, seed=args.seed)
+    if (args.radiant is None) != (args.dire is None):
+        parser.error("--radiant and --dire must be given together")
+    if args.radiant is not None:
+        radiant = [k.strip() for k in args.radiant.split(",") if k.strip()]
+        dire = [k.strip() for k in args.dire.split(",") if k.strip()]
+        if not radiant or not dire:
+            parser.error("--radiant and --dire each need at least one hero key")
+        scenario = Scenario(patch_id=args.patch, radiant=radiant, dire=dire)
     else:
-        timeline, state = run_scenario(_DEMO_SCENARIO, seed=args.seed)
+        scenario = _DEMO_SCENARIO
+
+    if args.model:
+        timeline, state = run_with_model(scenario, seed=args.seed)
+    else:
+        timeline, state = run_scenario(scenario, seed=args.seed)
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
     if args.export:
-        result = sim_result(_DEMO_SCENARIO, timeline, state, seed=args.seed)
+        result = sim_result(scenario, timeline, state, seed=args.seed)
         out_path = config.SIM_OUT_DIR / f"sim.{result['id']}.json"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(json.dumps(result, indent=2, sort_keys=True))

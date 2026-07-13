@@ -9,6 +9,7 @@ const repoRoot = path.resolve(here, "..", "..");
 export interface Config {
   host: string;
   port: number;
+  repoRoot: string;
   snapshotDir: string;
   simDir: string;
   modelsDir: string;
@@ -18,6 +19,7 @@ export function loadConfig(): Config {
   return {
     host: process.env.HOST ?? "127.0.0.1",
     port: Number(process.env.PORT ?? 3000),
+    repoRoot,
     snapshotDir:
       process.env.DM_SNAPSHOT_DIR ?? path.join(repoRoot, "data", "snapshots"),
     simDir: process.env.DM_SIM_DIR ?? path.join(repoRoot, "data", "sims"),

@@ -18,7 +18,17 @@ import {
 } from "./playback";
 import { usePlayback } from "./usePlayback";
 
-export function MatchViewer() {
+// A sim id like "7.41d-seed8144464" reads as "Game 8144464 — patch 7.41d".
+function simLabel(id: string): string {
+  const m = /^(.+)-seed(\d+)$/.exec(id);
+  return m ? `Game ${m[2]} — patch ${m[1]}` : id;
+}
+
+export function MatchViewer({
+  initialSimId = null,
+}: {
+  initialSimId?: string | null;
+}) {
   const [simIds, setSimIds] = useState<string[]>([]);
   const [simId, setSimId] = useState<string | null>(null);
   const [sim, setSim] = useState<SimResult | null>(null);
@@ -37,7 +47,10 @@ export function MatchViewer() {
         }
         if (!cancelled) {
           setSimIds(sims);
-          setSimId(sims[0]);
+          // Prefer the sim we were sent here to watch (a just-drafted match).
+          setSimId(
+            initialSimId && sims.includes(initialSimId) ? initialSimId : sims[0],
+          );
         }
       } catch (e) {
         if (!cancelled) {
@@ -85,7 +98,7 @@ export function MatchViewer() {
           >
             {simIds.map((id) => (
               <option key={id} value={id}>
-                {id}
+                {simLabel(id)}
               </option>
             ))}
           </select>
