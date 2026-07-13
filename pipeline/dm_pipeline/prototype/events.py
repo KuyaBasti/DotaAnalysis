@@ -22,6 +22,7 @@ class EventType(str, Enum):
     ROSHAN = "roshan"
     LEVEL_UP = "level_up"
     OBJECTIVE = "objective"
+    POSITIONS = "positions"
     GAME_OVER = "game_over"
 
 
