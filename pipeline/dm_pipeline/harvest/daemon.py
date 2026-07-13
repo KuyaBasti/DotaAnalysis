@@ -17,18 +17,24 @@ from dm_pipeline.features.build_dataset import is_ranked
 from dm_pipeline.harvest.opendota import OpenDotaClient
 
 
+# The project studies high-level play: Divine (rank tier 70) and up. OpenDota
+# filters server-side, so this costs no extra API budget.
+DEFAULT_MIN_RANK = 70
+
+
 def harvest_public_matches(
     client: OpenDotaClient,
     store_dir: Path | str,
     *,
     max_matches: int = 100,
     fetch_details: bool = False,
+    min_rank: int | None = DEFAULT_MIN_RANK,
 ) -> int:
     """Bank up to ``max_matches`` new ranked matches. Returns how many were stored.
 
-    Ranked All Draft only (see ``features.build_dataset.is_ranked``) — the
-    publicMatches stream is ~10% ranked, so the collector pages deeper to fill
-    its quota rather than banking Turbo/unranked records this project won't use.
+    Ranked All Draft only (see ``features.build_dataset.is_ranked``), and
+    Divine+ by default (``min_rank`` is an OpenDota rank tier, applied
+    server-side; pass None to take all ranks).
 
     With ``fetch_details``, each match is enriched via /matches/{id} (more API
     calls, parsed fields when available); otherwise the lightweight publicMatches
@@ -40,7 +46,7 @@ def harvest_public_matches(
     stored = 0
     cursor: int | None = None
     while stored < max_matches:
-        batch = client.public_matches(less_than_match_id=cursor)
+        batch = client.public_matches(less_than_match_id=cursor, min_rank=min_rank)
         if not batch:
             break  # no more history available
         for match in batch:
@@ -73,11 +79,21 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="also fetch full match detail per match (uses more rate budget)",
     )
+    parser.add_argument(
+        "--min-rank",
+        type=int,
+        default=DEFAULT_MIN_RANK,
+        help="minimum OpenDota rank tier (70 = Divine, the default); 0 = all ranks",
+    )
     args = parser.parse_args(argv)
 
     client = OpenDotaClient()
     stored = harvest_public_matches(
-        client, config.MATCHES_DIR, max_matches=args.max, fetch_details=args.details
+        client,
+        config.MATCHES_DIR,
+        max_matches=args.max,
+        fetch_details=args.details,
+        min_rank=args.min_rank or None,
     )
     print(f"stored {stored} new matches to {config.MATCHES_DIR}")
 

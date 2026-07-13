@@ -96,3 +96,17 @@ def test_hero_strength_ratings(tmp_path) -> None:
     assert ratings[1] > 1.0  # strong hero farms more
     assert ratings[6] < 1.0  # weak hero farms less
     assert 0.5 < ratings[1] < 1.5  # shrinkage keeps it bounded
+
+
+def test_extract_respects_min_rank(tmp_path) -> None:
+    md = tmp_path / "matches"
+    _write_match(md, 1, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True)  # rank 40 fixture
+    _write_match(md, 2, [1, 2, 3, 4, 5], [6, 7, 8, 9, 10], True)
+    # bump match 2 to Divine
+    import json as _json
+    rec = _json.loads((md / "2.json").read_text())
+    rec["avg_rank_tier"] = 74
+    (md / "2.json").write_text(_json.dumps(rec))
+
+    match_rows, _ = extract_rows(md, min_rank=70)
+    assert [m["match_id"] for m in match_rows] == [2]

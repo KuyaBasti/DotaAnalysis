@@ -41,7 +41,10 @@ class _StubClient:
         self._served = False
 
     def public_matches(
-        self, *, less_than_match_id: int | None = None
+        self,
+        *,
+        less_than_match_id: int | None = None,
+        min_rank: int | None = None,
     ) -> list[dict[str, Any]]:
         if self._served:
             return []
@@ -92,3 +95,16 @@ def test_harvest_skips_non_ranked(tmp_path) -> None:
     assert not (tmp_path / "20.json").exists()
     assert not (tmp_path / "21.json").exists()
     assert (tmp_path / "22.json").exists()
+
+
+def test_harvest_passes_min_rank_to_the_client(tmp_path) -> None:
+    seen: dict[str, Any] = {}
+
+    class _RankStub(_StubClient):
+        def public_matches(self, *, less_than_match_id=None, min_rank=None):
+            seen["min_rank"] = min_rank
+            return super().public_matches(less_than_match_id=less_than_match_id)
+
+    client = _RankStub([_ranked(30)])
+    harvest_public_matches(client, tmp_path, max_matches=1, min_rank=70)
+    assert seen["min_rank"] == 70
