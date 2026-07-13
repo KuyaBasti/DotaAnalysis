@@ -41,3 +41,12 @@ describe("api client", () => {
     await expect(listPatches()).rejects.toThrow();
   });
 });
+
+describe("latestPatch", () => {
+  it("picks the newest patch label, not the first", async () => {
+    const { latestPatch } = await import("./client");
+    expect(latestPatch(["7.39c", "7.41d"])).toBe("7.41d");
+    expect(latestPatch(["7.41d", "7.39c"])).toBe("7.41d");
+    expect(latestPatch([])).toBeUndefined();
+  });
+});

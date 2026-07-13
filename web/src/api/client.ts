@@ -34,6 +34,12 @@ export function listPatches(): Promise<PatchesResponse> {
   return getJSON<PatchesResponse>("/patches");
 }
 
+// The newest patch on disk. Dota patch labels sort correctly as strings
+// (7.39c < 7.41d), so the latest is the lexicographic max.
+export function latestPatch(patches: string[]): string | undefined {
+  return [...patches].sort().at(-1);
+}
+
 export function getHeroes(patchId: string): Promise<HeroesResponse> {
   return getJSON<HeroesResponse>(`/patches/${patchId}/heroes`);
 }
