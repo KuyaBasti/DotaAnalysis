@@ -3,10 +3,18 @@ import { getSim, listSims } from "../../api/client";
 import type { SimResult } from "../../types";
 import { EventLog } from "./EventLog";
 import { HeroScoreboard } from "./HeroScoreboard";
+import { Minimap } from "./Minimap";
 import { NetworthGraph } from "./NetworthGraph";
 import { PlaybackControls } from "./PlaybackControls";
 import { WinProbGraph } from "./WinProbGraph";
-import { heroScoresAt, mmss, scoreAt, structuresAt, winProbAt } from "./playback";
+import {
+  fallenStructuresAt,
+  heroScoresAt,
+  mmss,
+  scoreAt,
+  structuresAt,
+  winProbAt,
+} from "./playback";
 import { usePlayback } from "./usePlayback";
 
 export function MatchViewer() {
@@ -104,6 +112,7 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const favored = winProb >= 0.5 ? "Radiant" : "Dire";
   const favoredPct = Math.round((winProb >= 0.5 ? winProb : 1 - winProb) * 100);
   const heroScores = heroScoresAt(sim.timeline, pb.clock);
+  const fallen = fallenStructuresAt(sim.timeline, pb.clock);
 
   return (
     <>
@@ -156,7 +165,19 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
 
       <PlaybackControls pb={pb} duration={duration} />
 
-      <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
+      <div
+        style={{
+          display: "flex",
+          gap: "1.25rem",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
+        </div>
+        <Minimap radiantLost={fallen.radiant} direLost={fallen.dire} />
+      </div>
 
       <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
 

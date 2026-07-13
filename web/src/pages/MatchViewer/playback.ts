@@ -46,6 +46,31 @@ export function scoreAt(timeline: TimelineEvent[], clock: number): Score {
   return score;
 }
 
+export interface FallenStructure {
+  structure: string; // "tier-1 tower" | ... | "barracks" | "ancient"
+  lane: string | null; // top | mid | bot; null for the ancient (and old sims)
+}
+
+// Structures each side has LOST as of the clock. Objective events name the
+// destroying team, so the victim is the other side — that's whose map dot
+// goes dark.
+export function fallenStructuresAt(
+  timeline: TimelineEvent[],
+  clock: number,
+): { radiant: FallenStructure[]; dire: FallenStructure[] } {
+  const fallen = { radiant: [] as FallenStructure[], dire: [] as FallenStructure[] };
+  for (const e of timeline) {
+    if (e.t > clock) break;
+    if (e.type !== "objective") continue;
+    const victim = String(e.payload.team) === "radiant" ? "dire" : "radiant";
+    fallen[victim].push({
+      structure: String(e.payload.structure),
+      lane: e.payload.lane == null ? null : String(e.payload.lane),
+    });
+  }
+  return fallen;
+}
+
 export interface HeroScore {
   hero: string;
   netWorth: number;
