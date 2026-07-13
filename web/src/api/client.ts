@@ -52,6 +52,18 @@ export function getSim(id: string): Promise<SimResult> {
   return getJSON<SimResult>(`/sims/${id}`);
 }
 
+export function simulateDraft(
+  radiant: string[],
+  dire: string[],
+  patchId: string,
+): Promise<{ id: string }> {
+  return postJSON<{ id: string }>("/sims", {
+    patch: patchId,
+    radiant,
+    dire,
+  });
+}
+
 export function evaluateDraft(
   radiant: string[],
   dire: string[],
