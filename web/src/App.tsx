@@ -7,6 +7,13 @@ type View = "draft" | "match" | "patches";
 
 export function App() {
   const [view, setView] = useState<View>("draft");
+  const [watchSimId, setWatchSimId] = useState<string | null>(null);
+
+  // Draft Studio hands a freshly simulated match here; we jump to the viewer.
+  const handleSimulated = (id: string) => {
+    setWatchSimId(id);
+    setView("match");
+  };
 
   const tab = (id: View, label: string) => (
     <button
@@ -40,9 +47,9 @@ export function App() {
         {tab("patches", "Patch Explorer")}
       </nav>
       {view === "draft" ? (
-        <DraftStudio />
+        <DraftStudio onSimulated={handleSimulated} />
       ) : view === "match" ? (
-        <MatchViewer />
+        <MatchViewer initialSimId={watchSimId} />
       ) : (
         <PatchExplorer />
       )}
