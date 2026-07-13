@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getHeroes, listPatches } from "../api/client";
+import { getHeroes, latestPatch, listPatches } from "../api/client";
 import type { Hero } from "../types";
 
 export function PatchExplorer() {
@@ -13,13 +13,13 @@ export function PatchExplorer() {
     (async () => {
       try {
         const { patches } = await listPatches();
-        const first = patches[0];
-        if (!first) {
+        const current = latestPatch(patches);
+        if (!current) {
           throw new Error("No patches ingested yet — run the ingestion CLI.");
         }
-        const data = await getHeroes(first);
+        const data = await getHeroes(current);
         if (!cancelled) {
-          setPatch(first);
+          setPatch(current);
           setHeroes(data.heroes);
         }
       } catch (e) {
