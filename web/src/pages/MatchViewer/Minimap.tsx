@@ -1,4 +1,4 @@
-import type { FallenStructure } from "./playback";
+import type { FallenStructure, HeroDot } from "./playback";
 
 // Minimap v0: the classic square — Radiant bottom-left, Dire top-right, river
 // on the diagonal. Towers/barracks/ancients render per side and gray out as
@@ -45,10 +45,12 @@ function fallenKeys(lost: FallenStructure[]): Set<string> {
 export function Minimap({
   radiantLost,
   direLost,
+  heroes = [],
   size = 210,
 }: {
   radiantLost: FallenStructure[];
   direLost: FallenStructure[];
+  heroes?: HeroDot[];
   size?: number;
 }) {
   const lost = { radiant: fallenKeys(radiantLost), dire: fallenKeys(direLost) };
@@ -132,6 +134,21 @@ export function Minimap({
           </circle>
         );
       })}
+
+      {/* the ten heroes, drawn last so they ride on top of everything */}
+      {heroes.map((h) => (
+        <circle
+          key={`${h.side}:${h.hero}`}
+          cx={h.x}
+          cy={h.y}
+          r="2.1"
+          fill={h.side === "radiant" ? "#43a047" : "#e53935"}
+          stroke="#fff"
+          strokeWidth="0.8"
+        >
+          <title>{h.hero}</title>
+        </circle>
+      ))}
     </svg>
   );
 }
