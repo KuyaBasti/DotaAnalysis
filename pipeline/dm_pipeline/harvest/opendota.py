@@ -44,16 +44,23 @@ class OpenDotaClient:
         return response.json()
 
     def public_matches(
-        self, *, less_than_match_id: int | None = None
+        self,
+        *,
+        less_than_match_id: int | None = None,
+        min_rank: int | None = None,
     ) -> list[dict[str, Any]]:
         """A page (~100) of recent public matches, newest first.
 
         Pass the smallest match_id seen so far as ``less_than_match_id`` to page
-        backwards through history.
+        backwards through history. ``min_rank`` is an OpenDota rank tier (70 =
+        Divine) applied server-side, so a high-rank harvest wastes no pages on
+        low-rank games.
         """
         params: dict[str, Any] = {}
         if less_than_match_id is not None:
             params["less_than_match_id"] = less_than_match_id
+        if min_rank is not None:
+            params["min_rank"] = min_rank
         return self.get_json("/publicMatches", params)
 
     def match(self, match_id: int) -> dict[str, Any]:
