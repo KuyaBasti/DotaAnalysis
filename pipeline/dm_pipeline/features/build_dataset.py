@@ -43,12 +43,15 @@ def _hero_ids(team: Any) -> list[int]:
 
 def extract_rows(
     matches_dir: Path | str,
+    *,
+    min_rank: int = 0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Read match JSONs into (match rows, hero rows).
 
     Keeps ranked matches only (see ``is_ranked``) and drops low-quality
     records: unfinished games (duration <= 0) and matches missing a full 5v5
-    of hero ids.
+    of hero ids. ``min_rank`` (an OpenDota rank tier, e.g. 70 = Divine)
+    additionally restricts to high-level play.
     """
     match_rows: list[dict[str, Any]] = []
     hero_rows: list[dict[str, Any]] = []
@@ -56,6 +59,8 @@ def extract_rows(
     for path in sorted(glob.glob(str(Path(matches_dir) / "*.json"))):
         match = json.loads(Path(path).read_text())
         if not is_ranked(match):
+            continue
+        if min_rank and (match.get("avg_rank_tier") or 0) < min_rank:
             continue
         radiant = _hero_ids(match.get("radiant_team"))
         dire = _hero_ids(match.get("dire_team"))
@@ -87,13 +92,15 @@ def extract_rows(
 def build_dataset(
     matches_dir: Path | str | None = None,
     out_dir: Path | str | None = None,
+    *,
+    min_rank: int = 0,
 ) -> dict[str, Any]:
     """Extract and write matches.parquet + match_heroes.parquet; return a summary."""
     matches_dir = Path(matches_dir) if matches_dir is not None else config.MATCHES_DIR
     out_dir = Path(out_dir) if out_dir is not None else config.FEATURES_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    match_rows, hero_rows = extract_rows(matches_dir)
+    match_rows, hero_rows = extract_rows(matches_dir, min_rank=min_rank)
     matches_path = out_dir / "matches.parquet"
     heroes_path = out_dir / "match_heroes.parquet"
     pl.DataFrame(match_rows).write_parquet(matches_path)
@@ -188,9 +195,15 @@ def main(argv: list[str] | None = None) -> None:
         default=0,
         help="also print the top-N heroes by win rate",
     )
+    parser.add_argument(
+        "--min-rank",
+        type=int,
+        default=0,
+        help="minimum OpenDota rank tier (70 = Divine); 0 = all banked ranks",
+    )
     args = parser.parse_args(argv)
 
-    summary = build_dataset()
+    summary = build_dataset(min_rank=args.min_rank)
     print(
         f"wrote {summary['matches']} matches + {summary['hero_rows']} hero rows "
         f"to {config.FEATURES_DIR}"
