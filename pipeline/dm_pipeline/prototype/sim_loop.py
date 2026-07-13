@@ -14,6 +14,7 @@ a byte-identical timeline (see tests/test_sim_determinism.py).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -111,6 +112,8 @@ class GameState:
     winner: str | None = None
     roshan_available_at: int = _ROSHAN_FIRST_SECONDS  # game-time the next Roshan can be taken
     first_blood_done: bool = False
+    last_fight_t: int = -1  # tick a fight last fired (positions cluster there)
+    last_fight_xy: tuple[float, float] = (50.0, 50.0)
 
 
 def simulate(
@@ -156,6 +159,7 @@ def simulate(
         _maybe_fight(state, rng, timeline)
         _roshan_tick(state, rng, timeline)
         _objectives_tick(state, rng, timeline)
+        _positions_tick(state, timeline)
 
     if state.winner is None:  # time cap, no Ancient fell — decide on objectives, then net worth
         radiant, dire = state.radiant, state.dire
@@ -394,6 +398,11 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     }
     if outcome.comeback_factor >= 1.2:  # the trailing team cashed real bounties
         payload["comeback"] = True
+    state.last_fight_t = state.t
+    state.last_fight_xy = _fight_spot(state)
+    payload["x"], payload["y"] = round(state.last_fight_xy[0], 1), round(
+        state.last_fight_xy[1], 1
+    )
     if not state.first_blood_done and (radiant_deaths or dire_deaths):
         payload["first_blood"] = True
         state.first_blood_done = True
@@ -452,6 +461,93 @@ def _roshan_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
             payload={"team": leader.name, "reward": round(_ROSHAN_REWARD, 1)},
         )
     )
+
+
+# --- Positions (presentational, deliberately rng-free) ----------------------
+# Hero map positions are pure functions of time, hero index, and game state, so
+# they never consume rng draws — the minimap is a lens on the sim, and adding it
+# cannot change any match outcome. Coordinates live in the same 0..100 square
+# the web minimap draws (Radiant base bottom-left, Dire top-right).
+
+_MAP_BASE = {"radiant": (18.0, 82.0), "dire": (82.0, 18.0)}
+# Laning spots sit near each side's tier-1 towers. Radiant's safelane is bot,
+# Dire's is top; offlanes mirror.
+_LANING_SPOTS = {
+    "radiant": {"safe": (66.0, 86.0), "mid": (44.0, 56.0), "off": (16.0, 30.0)},
+    "dire": {"safe": (34.0, 14.0), "mid": (56.0, 44.0), "off": (84.0, 70.0)},
+}
+_LANE_ROLES = ("safe", "mid", "off", "safe", "off")  # by farm priority: cores then sups
+_FRONT_BASE = 0.22  # how far up the map a team sits with no structures taken
+_FRONT_PER_OBJECTIVE = 0.13  # each enemy structure taken pushes the front deeper
+_FRONT_LEAD_NUDGE = 0.05  # being ahead in gold pushes a bit further
+
+
+def _assign_lanes(team: TeamState) -> dict[str, str]:
+    """Deterministic 2-1-2: highest farm priority safelane, then mid, then off."""
+    ordered = sorted(team.heroes, key=lambda h: (-h.farm_priority, h.key))
+    return {
+        h.key: _LANE_ROLES[i % len(_LANE_ROLES)] for i, h in enumerate(ordered)
+    }
+
+
+def _front_point(state: GameState, side: str) -> tuple[float, float]:
+    """Where a team's push front sits on the base-to-base diagonal."""
+    team, enemy = (
+        (state.radiant, state.dire) if side == "radiant" else (state.dire, state.radiant)
+    )
+    f = _FRONT_BASE + _FRONT_PER_OBJECTIVE * team.objectives
+    if team.net_worth > enemy.net_worth:
+        f += _FRONT_LEAD_NUDGE
+    f = min(f, 0.9)
+    (x0, y0), (x1, y1) = _MAP_BASE[side], _MAP_BASE["dire" if side == "radiant" else "radiant"]
+    return (x0 + f * (x1 - x0), y0 + f * (y1 - y0))
+
+
+def _fight_spot(state: GameState) -> tuple[float, float]:
+    """Where a fight breaks out: mid river early, between the fronts later."""
+    if state.t <= LANING_END_SECONDS:
+        drift = 8.0 * math.sin(state.t / 120.0)  # wander along the river
+        return (50.0 + drift, 50.0 + drift)
+    (rx, ry), (dx, dy) = _front_point(state, "radiant"), _front_point(state, "dire")
+    return ((rx + dx) / 2.0, (ry + dy) / 2.0)
+
+
+def _wobble(t: int, i: int) -> tuple[float, float]:
+    """Small deterministic motion so dots feel alive between phases."""
+    return (2.0 * math.sin(t / 45.0 + i * 1.7), 2.0 * math.cos(t / 60.0 + i * 2.3))
+
+
+def _positions_tick(state: GameState, timeline: Timeline) -> None:
+    fighting = state.last_fight_t == state.t
+    payload: dict[str, Any] = {}
+    for side, team in (("radiant", state.radiant), ("dire", state.dire)):
+        lanes = _assign_lanes(team)
+        entries: list[dict[str, Any]] = []
+        for i, hero in enumerate(team.heroes):
+            if fighting:
+                angle = i * 1.257 + (0.0 if side == "radiant" else 0.63)
+                x = state.last_fight_xy[0] + 4.0 * math.cos(angle)
+                y = state.last_fight_xy[1] + 4.0 * math.sin(angle)
+            elif state.t <= LANING_END_SECONDS:
+                sx, sy = _LANING_SPOTS[side][lanes[hero.key]]
+                wx, wy = _wobble(state.t, i)
+                # duo-lane partners stand apart instead of stacking
+                x, y = sx + wx + (i - 2) * 1.5, sy + wy
+            else:
+                fx, fy = _front_point(state, side)
+                wx, wy = _wobble(state.t, i)
+                spread = (i - 2) * 5.0  # fan out perpendicular to the diagonal
+                x = fx + spread * 0.707 + wx
+                y = fy + spread * 0.707 + wy
+            entries.append(
+                {
+                    "hero": hero.display_name,
+                    "x": round(min(max(x, 2.0), 98.0), 1),
+                    "y": round(min(max(y, 2.0), 98.0), 1),
+                }
+            )
+        payload[f"{side}_heroes"] = entries
+    timeline.emit(Event(t=state.t, type=EventType.POSITIONS, payload=payload))
 
 
 def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:

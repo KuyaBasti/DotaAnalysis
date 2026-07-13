@@ -21,6 +21,7 @@ export function EventLog({
       ({ e }) =>
         e.type !== "economy" &&
         e.type !== "laning" &&
+        e.type !== "positions" &&
         (upTo === undefined || e.t <= upTo),
     );
   const feed = [...beats].reverse(); // newest at the top
