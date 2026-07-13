@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { evaluateDraft, getHeroes, listPatches } from "../../api/client";
+import { evaluateDraft, getHeroes, latestPatch, listPatches } from "../../api/client";
 import type { Hero } from "../../types";
 
 const TEAM_SIZE = 5;
@@ -20,11 +20,11 @@ export function DraftStudio() {
     (async () => {
       try {
         const { patches } = await listPatches();
-        const first = patches[0];
-        if (!first) throw new Error("No patches ingested yet.");
-        const data = await getHeroes(first);
+        const current = latestPatch(patches);
+        if (!current) throw new Error("No patches ingested yet.");
+        const data = await getHeroes(current);
         if (!cancelled) {
-          setPatch(first);
+          setPatch(current);
           setHeroes([...data.heroes].sort((a, b) =>
             a.display_name.localeCompare(b.display_name),
           ));
