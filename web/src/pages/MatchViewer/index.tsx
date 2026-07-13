@@ -11,6 +11,7 @@ import {
   fallenStructuresAt,
   heroScoresAt,
   mmss,
+  positionsAt,
   scoreAt,
   structuresAt,
   winProbAt,
@@ -113,6 +114,7 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const favoredPct = Math.round((winProb >= 0.5 ? winProb : 1 - winProb) * 100);
   const heroScores = heroScoresAt(sim.timeline, pb.clock);
   const fallen = fallenStructuresAt(sim.timeline, pb.clock);
+  const heroDots = positionsAt(sim.timeline, pb.clock);
 
   return (
     <>
@@ -176,7 +178,11 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
         <div style={{ flex: 1, minWidth: 280 }}>
           <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
         </div>
-        <Minimap radiantLost={fallen.radiant} direLost={fallen.dire} />
+        <Minimap
+          radiantLost={fallen.radiant}
+          direLost={fallen.dire}
+          heroes={heroDots}
+        />
       </div>
 
       <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
