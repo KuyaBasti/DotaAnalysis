@@ -71,6 +71,8 @@ def backfill_details(
             if e.response.status_code == 429:
                 break  # budget exhausted even after backoff — resume later
             raise
+        except httpx.TransportError:
+            continue  # transient network hiccup: skip this match, keep going
         fetched += 1
         if _is_parsed(detail):
             (details_dir / f"{match_id}.json").write_text(
