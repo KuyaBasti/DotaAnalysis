@@ -108,3 +108,41 @@ def test_harvest_passes_min_rank_to_the_client(tmp_path) -> None:
     client = _RankStub([_ranked(30)])
     harvest_public_matches(client, tmp_path, max_matches=1, min_rank=70)
     assert seen["min_rank"] == 70
+
+
+def test_client_backs_off_on_429(monkeypatch) -> None:
+    import time as time_mod
+
+    calls = {"n": 0}
+    naps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(429)
+        return httpx.Response(200, json=[{"match_id": 1}])
+
+    monkeypatch.setattr(time_mod, "sleep", lambda s: naps.append(s))
+    client = OpenDotaClient(
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        min_interval=0,
+    )
+    assert client.public_matches() == [{"match_id": 1}]
+    assert calls["n"] == 2  # retried once
+    assert 30.0 in naps  # backed off before the retry
+
+
+def test_harvest_stops_after_pages_with_nothing_new(tmp_path) -> None:
+    class _EndlessStub:
+        def __init__(self) -> None:
+            self.pages = 0
+
+        def public_matches(self, *, less_than_match_id=None, min_rank=None):
+            self.pages += 1
+            return [_ranked(500)]  # the same already-banked match forever
+
+    (tmp_path / "500.json").write_text("{}")
+    client = _EndlessStub()
+    stored = harvest_public_matches(client, tmp_path, max_matches=100)
+    assert stored == 0
+    assert client.pages <= 11  # gave up instead of paging forever
