@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from dm_pipeline import config
 from dm_pipeline.features.build_dataset import is_ranked
 from dm_pipeline.harvest.opendota import OpenDotaClient
@@ -63,7 +65,12 @@ def backfill_details(
         if match_id in unparsed or (details_dir / f"{match_id}.json").exists():
             continue  # already resolved one way or the other
 
-        detail = client.match(match_id)
+        try:
+            detail = client.match(match_id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                break  # budget exhausted even after backoff — resume later
+            raise
         fetched += 1
         if _is_parsed(detail):
             (details_dir / f"{match_id}.json").write_text(
