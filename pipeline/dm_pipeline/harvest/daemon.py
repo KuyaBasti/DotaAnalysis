@@ -45,10 +45,12 @@ def harvest_public_matches(
 
     stored = 0
     cursor: int | None = None
+    empty_pages = 0  # consecutive pages that stored nothing new
     while stored < max_matches:
         batch = client.public_matches(less_than_match_id=cursor, min_rank=min_rank)
         if not batch:
             break  # no more history available
+        stored_before = stored
         for match in batch:
             match_id = match["match_id"]
             cursor = match_id  # page backwards from the oldest id seen
@@ -62,6 +64,11 @@ def harvest_public_matches(
             stored += 1
             if stored >= max_matches:
                 break
+        # Once we're paging through history we've already banked, stop rather
+        # than burn the day's API budget walking ever deeper into the past.
+        empty_pages = empty_pages + 1 if stored == stored_before else 0
+        if empty_pages >= 10:
+            break
     return stored
 
 
