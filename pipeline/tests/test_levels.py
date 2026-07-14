@@ -107,3 +107,19 @@ def test_spike_edge_counts_ult_tiers() -> None:
     # Both maxed => no edge.
     state = GameState(radiant=team("radiant", [18, 18]), dire=team("dire", [18, 18]))
     assert _spike_edge(state) == 0.0
+
+
+def test_kda_is_counted_and_conserved() -> None:
+    timeline, state = simulate(SCENARIO, HEROES, seed=11)
+
+    radiant = state.radiant.heroes
+    dire = state.dire.heroes
+    # Every dire death is exactly one radiant kill, and vice versa.
+    assert sum(h.kills for h in radiant) == sum(h.deaths for h in dire)
+    assert sum(h.kills for h in dire) == sum(h.deaths for h in radiant)
+    assert sum(h.deaths for h in radiant + dire) > 0  # fights happened
+
+    # The per-hero snapshot carries the counters.
+    last_econ = [e for e in timeline.events if e.type.value == "economy"][-1]
+    entry = last_econ.payload["radiant_heroes"][0]
+    assert {"kills", "deaths", "assists"} <= set(entry)
