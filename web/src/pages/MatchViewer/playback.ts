@@ -129,15 +129,24 @@ export interface HeroScore {
   hero: string;
   netWorth: number;
   level: number;
+  kills: number;
+  deaths: number;
+  assists: number;
 }
 
 function heroList(v: unknown): HeroScore[] {
   if (!Array.isArray(v)) return [];
-  return v.map((h) => ({
-    hero: String((h as Record<string, unknown>).hero ?? ""),
-    netWorth: Number((h as Record<string, unknown>).net_worth ?? 0),
-    level: Number((h as Record<string, unknown>).level ?? 1),
-  }));
+  return v.map((h) => {
+    const r = h as Record<string, unknown>;
+    return {
+      hero: String(r.hero ?? ""),
+      netWorth: Number(r.net_worth ?? 0),
+      level: Number(r.level ?? 1),
+      kills: Number(r.kills ?? 0),
+      deaths: Number(r.deaths ?? 0),
+      assists: Number(r.assists ?? 0),
+    };
+  });
 }
 
 // Per-hero net worths as of the clock (from the latest economy tick). Empty

@@ -64,8 +64,21 @@ function Column({
               </span>
               {h.hero}
             </span>
-            <span style={{ fontFamily: "ui-monospace, monospace", color: "#666" }}>
-              {Math.round(h.netWorth).toLocaleString()}
+            <span>
+              <span
+                style={{
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: "0.7rem",
+                  color: "#999",
+                  marginRight: 10,
+                }}
+                title="kills / deaths / assists"
+              >
+                {h.kills}/{h.deaths}/{h.assists}
+              </span>
+              <span style={{ fontFamily: "ui-monospace, monospace", color: "#666" }}>
+                {Math.round(h.netWorth).toLocaleString()}
+              </span>
             </span>
           </div>
           <div style={{ height: 3, background: "#eee", borderRadius: 2 }}>
