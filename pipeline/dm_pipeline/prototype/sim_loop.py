@@ -84,6 +84,9 @@ class HeroState:
     net_worth: float = 0.0
     xp: float = 0.0
     level: int = 1
+    kills: int = 0
+    deaths: int = 0
+    assists: int = 0
 
 
 @dataclass
@@ -92,6 +95,7 @@ class TeamState:
     heroes: list[HeroState] = field(default_factory=list)
     lane_power: float = 0.0
     objectives: int = 0  # enemy structures destroyed; len(_STRUCTURES) = Ancient down
+    kill_rotation: int = 0  # deterministic round-robin for kill credit (rng-free)
 
     @property
     def net_worth(self) -> float:
@@ -283,7 +287,14 @@ def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
 
 def _hero_networths(team: TeamState) -> list[dict[str, Any]]:
     return [
-        {"hero": h.display_name, "net_worth": round(h.net_worth, 1), "level": h.level}
+        {
+            "hero": h.display_name,
+            "net_worth": round(h.net_worth, 1),
+            "level": h.level,
+            "kills": h.kills,
+            "deaths": h.deaths,
+            "assists": h.assists,
+        }
         for h in team.heroes
     ]
 
@@ -382,6 +393,8 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
         else []
     )
     winner_dead = rng.sample(won.heroes, 1) if won.heroes and rng.chance(0.35) else []
+    _credit_kda(won, loser_dead)
+    _credit_kda(lost, winner_dead)
     if outcome.winner == "radiant":
         radiant_deaths = [h.display_name for h in winner_dead]
         dire_deaths = [h.display_name for h in loser_dead]
@@ -407,6 +420,25 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
         payload["first_blood"] = True
         state.first_blood_done = True
     timeline.emit(Event(t=state.t, type=EventType.FIGHT, payload=payload))
+
+
+def _credit_kda(killers: TeamState, fallen: list[HeroState]) -> None:
+    """Count kills/deaths/assists for a fight's casualties.
+
+    Deliberately rng-free (like positions): kill credit rotates round-robin
+    through the killing team, everyone else on it gets the assist — so adding
+    stats cannot change any match outcome.
+    """
+    for hero in fallen:
+        hero.deaths += 1
+        if not killers.heroes:
+            continue
+        killer = killers.heroes[killers.kill_rotation % len(killers.heroes)]
+        killers.kill_rotation += 1
+        killer.kills += 1
+        for mate in killers.heroes:
+            if mate is not killer:
+                mate.assists += 1
 
 
 def _distribute(team: TeamState, amount: float) -> None:
