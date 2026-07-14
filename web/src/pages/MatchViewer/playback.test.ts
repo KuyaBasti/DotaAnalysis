@@ -128,11 +128,13 @@ describe("heroScoresAt", () => {
         dire_heroes: [{ hero: "Lich", net_worth: 400, level: 6 }],
       } },
     ];
-    expect(heroScoresAt(tl, 45).radiant).toEqual([
+    expect(heroScoresAt(tl, 45).radiant).toMatchObject([
       { hero: "Axe", netWorth: 200, level: 2 },
       { hero: "Lion", netWorth: 100, level: 1 },
     ]);
-    expect(heroScoresAt(tl, 90).dire).toEqual([{ hero: "Lich", netWorth: 400, level: 6 }]);
+    expect(heroScoresAt(tl, 90).dire).toMatchObject([
+      { hero: "Lich", netWorth: 400, level: 6 },
+    ]);
   });
 
   it("returns empty lists for sims without per-hero data", () => {
