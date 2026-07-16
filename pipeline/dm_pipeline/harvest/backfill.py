@@ -70,6 +70,8 @@ def backfill_details(
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 break  # budget exhausted even after backoff — resume later
+            if e.response.status_code >= 500:
+                continue  # OpenDota hiccup on one match: skip it, keep going
             raise
         except httpx.TransportError:
             continue  # transient network hiccup: skip this match, keep going
