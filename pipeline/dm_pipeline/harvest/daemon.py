@@ -17,9 +17,10 @@ from dm_pipeline.features.build_dataset import is_ranked
 from dm_pipeline.harvest.opendota import OpenDotaClient
 
 
-# The project studies high-level play: Divine (rank tier 70) and up. OpenDota
-# filters server-side, so this costs no extra API budget.
-DEFAULT_MIN_RANK = 70
+# All ranks are banked (product decision: players will pick their own bracket
+# to learn at). Pass --min-rank (OpenDota tier, e.g. 70 = Divine) to focus a
+# harvest; OpenDota filters server-side either way.
+DEFAULT_MIN_RANK = 0
 
 
 def harvest_public_matches(
@@ -28,13 +29,13 @@ def harvest_public_matches(
     *,
     max_matches: int = 100,
     fetch_details: bool = False,
-    min_rank: int | None = DEFAULT_MIN_RANK,
+    min_rank: int | None = None,
 ) -> int:
     """Bank up to ``max_matches`` new ranked matches. Returns how many were stored.
 
-    Ranked All Draft only (see ``features.build_dataset.is_ranked``), and
-    Divine+ by default (``min_rank`` is an OpenDota rank tier, applied
-    server-side; pass None to take all ranks).
+    Ranked All Draft only (see ``features.build_dataset.is_ranked``), across
+    all ranks by default (``min_rank`` is an OpenDota rank tier, applied
+    server-side, to focus a harvest on one bracket and up).
 
     With ``fetch_details``, each match is enriched via /matches/{id} (more API
     calls, parsed fields when available); otherwise the lightweight publicMatches
@@ -90,7 +91,7 @@ def main(argv: list[str] | None = None) -> None:
         "--min-rank",
         type=int,
         default=DEFAULT_MIN_RANK,
-        help="minimum OpenDota rank tier (70 = Divine, the default); 0 = all ranks",
+        help="minimum OpenDota rank tier (e.g. 70 = Divine); 0 = all ranks (default)",
     )
     args = parser.parse_args(argv)
 
