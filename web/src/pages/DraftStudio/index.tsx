@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { evaluateDraft, getHeroes, latestPatch, listPatches, simulateDraft } from "../../api/client";
+import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
 import type { Hero } from "../../types";
 
 const TEAM_SIZE = 5;
@@ -234,40 +235,67 @@ export function DraftStudio({
         ))}
       </div>
 
-      {/* hero grid */}
-      <ul
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-          gap: "0.4rem",
-          listStyle: "none",
-          padding: 0,
-        }}
-      >
-        {heroes.map((h) => {
-          const used = picked.has(h.key);
-          return (
-            <li key={h.key}>
-              <button
-                onClick={() => pick(h.key)}
-                disabled={used}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "0.35rem 0.5rem",
-                  borderRadius: 6,
-                  border: "1px solid #ddd",
-                  background: used ? "#eee" : "#fff",
-                  color: used ? "#aaa" : "#222",
-                  cursor: used ? "default" : "pointer",
-                }}
-              >
-                {h.display_name}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {/* hero grid, grouped the way the game does it: STR / AGI / INT / Universal */}
+      {groupByAttribute(heroes).map((group) => (
+        <section key={group.attr}>
+          <h4
+            style={{
+              margin: "0.9rem 0 0.4rem",
+              fontSize: "0.8rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: ATTRIBUTE_COLORS[group.attr],
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 9,
+                height: 9,
+                borderRadius: 2,
+                background: ATTRIBUTE_COLORS[group.attr],
+                marginRight: 6,
+              }}
+            />
+            {group.label} ({group.heroes.length})
+          </h4>
+          <ul
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+              gap: "0.4rem",
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+            }}
+          >
+            {group.heroes.map((h) => {
+              const used = picked.has(h.key);
+              return (
+                <li key={h.key}>
+                  <button
+                    onClick={() => pick(h.key)}
+                    disabled={used}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "0.35rem 0.5rem",
+                      borderRadius: 6,
+                      border: "1px solid #ddd",
+                      borderLeft: `3px solid ${used ? "#ccc" : ATTRIBUTE_COLORS[group.attr]}`,
+                      background: used ? "#eee" : "#fff",
+                      color: used ? "#aaa" : "#222",
+                      cursor: used ? "default" : "pointer",
+                    }}
+                  >
+                    {h.display_name}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </>
   );
 }
