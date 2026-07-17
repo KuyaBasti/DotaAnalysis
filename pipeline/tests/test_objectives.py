@@ -59,3 +59,13 @@ def test_towers_fall_in_a_lane_but_the_ancient_does_not() -> None:
             assert "lane" not in e.payload
         else:
             assert e.payload["lane"] in {"top", "mid", "bot"}
+
+
+def test_structure_falls_respect_the_cooldown() -> None:
+    from dm_pipeline.prototype.sim_loop import _OBJECTIVE_COOLDOWN_SECONDS
+
+    ratings = {1: 1.6, 2: 1.6, 3: 0.4, 4: 0.4}
+    timeline, _ = simulate(SCENARIO, HEROES, seed=1, ratings=ratings)
+    falls = [e.t for e in timeline.events if e.type.value == "objective"]
+    gaps = [b - a for a, b in zip(falls, falls[1:])]
+    assert gaps and all(g >= _OBJECTIVE_COOLDOWN_SECONDS for g in gaps)

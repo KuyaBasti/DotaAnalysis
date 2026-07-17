@@ -39,8 +39,21 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 _OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
 _STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
 _LANES = ("top", "mid", "bot")  # where a tower/barracks falls (flavor for the map)
-_OBJECTIVE_BASE_CHANCE = 0.19  # per-tick chance the leader takes the next structure (at full lead; tuned to ranked-real mean duration ~27m under the real-economy constants)
+_OBJECTIVE_BASE_CHANCE = 0.24  # per-tick chance the leader takes the next structure (at full lead; tuned to the Divine corpus: mean ~37m, median ~34m)
 _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
+# Pacing: after a structure falls the defenders regroup (TPs, buybacks, creep
+# equilibrium) — nothing else can fall for a window. With the high-ground
+# difficulty below this puts the fastest possible finish near real Dota's
+# floor (~3% of ranked games end under 18 minutes, none in 16).
+_OBJECTIVE_COOLDOWN_SECONDS = 150
+# Deeper structures are harder to take (glyph, high ground, fountain range).
+_STRUCTURE_TOUGHNESS = {
+    "tier-1 tower": 1.0,
+    "tier-2 tower": 0.9,
+    "tier-3 tower": 0.7,
+    "barracks": 0.65,
+    "ancient": 0.55,
+}
 
 # Roshan: the leading team contests it when up; the Aegis is a real net-worth swing.
 _ROSHAN_FIRST_SECONDS = 10 * 60  # worth contesting from ~10 min
@@ -116,6 +129,7 @@ class GameState:
     game_over: bool = False
     winner: str | None = None
     roshan_available_at: int = _ROSHAN_FIRST_SECONDS  # game-time the next Roshan can be taken
+    objectives_locked_until: int = 0  # defenders regroup after each structure falls
     first_blood_done: bool = False
     last_fight_t: int = -1  # tick a fight last fired (positions cluster there)
     last_fight_xy: tuple[float, float] = (50.0, 50.0)
@@ -604,7 +618,7 @@ def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> No
     Chance scales with the net-worth lead; destroying the Ancient ends the game.
     Towers are too tanky to fall in the first several minutes.
     """
-    if state.t < _OBJECTIVE_START_SECONDS:
+    if state.t < _OBJECTIVE_START_SECONDS or state.t < state.objectives_locked_until:
         return
     lead = state.radiant.net_worth - state.dire.net_worth
     if lead == 0:
@@ -613,12 +627,17 @@ def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> No
     if leader.objectives >= len(_STRUCTURES):
         return
 
-    chance = _OBJECTIVE_BASE_CHANCE * min(1.0, abs(lead) / _OBJECTIVE_LEAD_FULL)
+    structure = _STRUCTURES[leader.objectives]
+    chance = (
+        _OBJECTIVE_BASE_CHANCE
+        * _STRUCTURE_TOUGHNESS[structure]
+        * min(1.0, abs(lead) / _OBJECTIVE_LEAD_FULL)
+    )
     if not rng.chance(chance):
         return
 
-    structure = _STRUCTURES[leader.objectives]
     leader.objectives += 1
+    state.objectives_locked_until = state.t + _OBJECTIVE_COOLDOWN_SECONDS
     payload: dict[str, Any] = {
         "team": leader.name,
         "structure": structure,
