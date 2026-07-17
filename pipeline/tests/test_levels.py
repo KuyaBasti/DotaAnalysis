@@ -53,7 +53,8 @@ def test_heroes_level_up_and_carries_outlevel_supports() -> None:
     carry = next(h for h in state.radiant.heroes if h.display_name == "Carry")
     supp = next(h for h in state.radiant.heroes if h.display_name == "Supp")
     assert carry.level >= 6
-    assert carry.level > supp.level  # farm priority drives XP
+    assert carry.xp > supp.xp  # farm priority drives XP
+    assert carry.level >= supp.level  # levels can tie inside a band, never invert
 
     six = [e for e in timeline.events
            if e.type.value == "level_up" and e.payload["level"] == 6]
