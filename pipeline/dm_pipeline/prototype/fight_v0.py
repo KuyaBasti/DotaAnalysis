@@ -16,10 +16,14 @@ from dataclasses import dataclass
 
 from dm_pipeline.prototype.rng import SeededRng
 
-# Net-worth gap (gold) at which the leader becomes a ~73% fight favorite.
+# Net-worth gap (gold) at which the leader becomes a ~73% fight favorite —
+# in the real-calibrated economy that's the typical winning lead at min 20
+# (measured mean 10.2k in parsed Divine games).
 _PROB_SCALE = 10_000.0
-# Net-worth swing awarded to the fight's winner (uncalibrated placeholder).
-_FIGHT_SWING = (1500.0, 5000.0)
+# Net-worth swing awarded to the fight's winner, sized like real bounty
+# economics: a won fight nets the team roughly 1.2k (a pick) to 3.6k (a wipe
+# with assists), not the old placeholder's 5k+ windfalls.
+_FIGHT_SWING = (1_200.0, 3_600.0)
 # Comeback gold, like the real game's rubber-band bounties: when the trailing
 # team wins a fight, the swing grows with their deficit — up to double at
 # _COMEBACK_DEFICIT_FULL behind. Leads stay valuable; claw-backs get teeth.
