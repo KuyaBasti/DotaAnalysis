@@ -16,6 +16,7 @@ from typing import Any
 
 import polars as pl
 
+from dm_pipeline.calibrate.economy import CHECKPOINT_MINUTES, timeline_team_networth
 from dm_pipeline.prototype.scenario import Scenario
 from dm_pipeline.prototype.sim_loop import simulate
 
@@ -75,15 +76,20 @@ def run_sim_corpus(
         scenario = Scenario(patch_id=patch_id, radiant=radiant, dire=dire)  # type: ignore[arg-type]
         radiant_wins = 0
         sim_durations: list[int] = []
+        networth_at: dict[int, list[float]] = {m: [] for m in CHECKPOINT_MINUTES}
         for s in range(seeds):
             # Per-draft seeds: derive each sim's seed from the match id so a
             # single seed's quirks average out across drafts.
-            _, state = simulate(
+            timeline, state = simulate(
                 scenario, heroes, seed=(match_id * 101 + s) & 0x7FFFFFFF, ratings=ratings
             )
             if state.winner == "radiant":
                 radiant_wins += 1
             sim_durations.append(state.t)
+            for minute in CHECKPOINT_MINUTES:
+                nw = timeline_team_networth(timeline, minute)
+                if nw is not None:
+                    networth_at[minute].append(nw)
 
         records.append(
             {
@@ -94,6 +100,10 @@ def run_sim_corpus(
                 "actual_duration": int(dur_by_match[match_id]),
                 "sim_radiant_winrate": radiant_wins / seeds,
                 "sim_durations": sim_durations,
+                "sim_networth_at": {
+                    m: (sum(v) / len(v) if v else None)
+                    for m, v in networth_at.items()
+                },
             }
         )
     return records
