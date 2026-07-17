@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from dm_pipeline.prototype.fight_v0 import _FIGHT_SWING, resolve_fight
+from dm_pipeline.prototype.fight_v0 import (
+    _COMEBACK_DEFICIT_FULL,
+    _FIGHT_SWING,
+    resolve_fight,
+)
 from dm_pipeline.prototype.rng import SeededRng
 
 
@@ -17,7 +21,9 @@ def _outcome_where(winner: str, radiant_nw: float, dire_nw: float, start_seed: i
 
 def test_trailing_winner_gets_scaled_bounty() -> None:
     # Radiant is 20k behind => a radiant fight win pays out double.
-    outcome = _outcome_where("radiant", radiant_nw=10_000, dire_nw=30_000)
+    outcome = _outcome_where(
+        "radiant", radiant_nw=5_000, dire_nw=5_000 + _COMEBACK_DEFICIT_FULL
+    )
     assert outcome.comeback_factor == 2.0
     assert outcome.swing > _FIGHT_SWING[1]  # beyond the normal max swing
 

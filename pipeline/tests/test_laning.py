@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from dm_pipeline.prototype.laning import (
+    _LANE_GOLD_PER_TICK,
     hero_lane_strength,
     laning_gold_split,
     team_lane_power,
@@ -31,13 +32,13 @@ def test_team_lane_power_sums_heroes() -> None:
 def test_equal_power_splits_the_pool_evenly() -> None:
     radiant, dire = laning_gold_split(100.0, 100.0)
     assert radiant == dire
-    assert radiant + dire == pytest.approx(220.0)
+    assert radiant + dire == pytest.approx(_LANE_GOLD_PER_TICK)
 
 
 def test_stronger_lane_gets_more_gold() -> None:
     radiant, dire = laning_gold_split(150.0, 50.0)
     assert radiant > dire
-    assert radiant + dire == pytest.approx(220.0)
+    assert radiant + dire == pytest.approx(_LANE_GOLD_PER_TICK)
 
 
 def test_zero_power_yields_no_bonus() -> None:
