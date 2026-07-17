@@ -38,10 +38,17 @@ class OpenDotaClient:
         self._last_call = time.monotonic()
 
     def get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
-        self._throttle()
-        response = self._http.get(f"{self._base_url}{path}", params=params)
-        response.raise_for_status()
-        return response.json()
+        # Back off and retry on 429 (rate limited) — bursts happen when the
+        # cron harvester and a manual job overlap. The final attempt raises.
+        for attempt in range(4):
+            self._throttle()
+            response = self._http.get(f"{self._base_url}{path}", params=params)
+            if response.status_code == 429 and attempt < 3:
+                time.sleep(30.0 * (attempt + 1))
+                continue
+            response.raise_for_status()
+            return response.json()
+        raise AssertionError("unreachable")
 
     def public_matches(
         self,

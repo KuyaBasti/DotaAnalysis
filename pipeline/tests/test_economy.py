@@ -18,9 +18,17 @@ def test_carry_outprioritizes_support() -> None:
 
 def test_higher_priority_earns_more_for_the_same_draw() -> None:
     # Same seed => same base uniform draw, so the higher multiplier must win.
-    carry = hero_gold_gain(SeededRng(1), farm_priority(["carry"]))
-    support = hero_gold_gain(SeededRng(1), farm_priority(["support"]))
+    carry = hero_gold_gain(SeededRng(1), farm_priority(["carry"]), minutes=10)
+    support = hero_gold_gain(SeededRng(1), farm_priority(["support"]), minutes=10)
     assert carry > support
+
+
+def test_income_ramps_with_game_time() -> None:
+    # Real farm income grows as items come online; the lane pool owns minute 0.
+    early = hero_gold_gain(SeededRng(1), 1.0, minutes=5)
+    late = hero_gold_gain(SeededRng(1), 1.0, minutes=25)
+    assert hero_gold_gain(SeededRng(1), 1.0, minutes=0) == 0.0
+    assert late > early * 4  # linear ramp: 25/5 = 5x
 
 
 def test_strength_scales_gold() -> None:

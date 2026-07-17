@@ -17,7 +17,7 @@ from typing import Any
 
 LANING_END_SECONDS = 10 * 60  # laning phase lasts ~10 minutes
 _RANGED_LANE_BONUS = 8.0  # ranged heroes harass / last-hit more safely
-_LANE_GOLD_PER_TICK = 220.0  # total laning gold split between the teams each tick
+_LANE_GOLD_PER_TICK = 385.0  # total laning gold split between the teams each tick
 
 
 def hero_lane_strength(hero: dict[str, Any]) -> float:

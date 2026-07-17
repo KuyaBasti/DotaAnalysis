@@ -39,24 +39,25 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 _OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
 _STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
 _LANES = ("top", "mid", "bot")  # where a tower/barracks falls (flavor for the map)
-_OBJECTIVE_BASE_CHANCE = 0.15  # per-tick chance the leader takes the next structure (at full lead; tuned so mean game length ~= real 23.6m, accounting for Roshan gold)
+_OBJECTIVE_BASE_CHANCE = 0.19  # per-tick chance the leader takes the next structure (at full lead; tuned to ranked-real mean duration ~27m under the real-economy constants)
 _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
 
 # Roshan: the leading team contests it when up; the Aegis is a real net-worth swing.
 _ROSHAN_FIRST_SECONDS = 10 * 60  # worth contesting from ~10 min
 _ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill
 _ROSHAN_CHANCE = 0.15  # per-tick chance the leader takes an available Roshan
-_ROSHAN_REWARD = 2500.0  # net-worth value of the Aegis + bounty
+_ROSHAN_REWARD = 2_500.0  # net-worth value of the Aegis + bounty
 
 _FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
-_DRAFT_PRIOR_NETWORTH = 8000.0  # starting net-worth edge a decisive draft (p=1) is worth
-_STRENGTH_TO_NETWORTH = 16000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
+_DRAFT_PRIOR_NETWORTH = 8_000.0  # starting net-worth edge a decisive draft (p=1) is worth
+_STRENGTH_TO_NETWORTH = 16_000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
-# Experience: XP tracks farm plus a passive floor so supports still level, and
-# the curve approximates the real table (level 6 ~2,400 cumulative XP). Cores
-# hit 6 around minute 6, supports a few minutes later.
+# Experience: unlike gold (which ramps with items/farm efficiency), real XP
+# flows steadily from creep waves, so XP is flat in time — a passive floor
+# plus a farm-position share. Curve approximates the real table (level 6
+# ~2,400 cumulative XP): cores hit 6 ~min 6, supports ~min 8.5.
 _XP_BASE_PER_TICK = 80.0
-_XP_PER_GOLD = 1.5
+_XP_PER_PRIORITY = 88.0  # per-tick XP scaled by the hero's farm position
 _MAX_LEVEL = 30
 _MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are emitted
 
@@ -240,6 +241,13 @@ def sim_result(
     }
 
 
+# Farm share ladder for positions 1-5 within a team, from parsed Divine games:
+# real net-worth shares are ~27/24/21/15/13% — a smooth gradient, not tiers.
+# (Values are shares x5 so an average hero is ~1.0.)
+_POSITION_PRIORITIES = (1.37, 1.19, 1.03, 0.76, 0.64)
+_STARTING_GOLD = 600.0  # what real heroes walk out of the fountain with
+
+
 def _build_team(
     name: str,
     keys: list[str],
@@ -260,14 +268,22 @@ def _build_team(
                 display_name=hero["display_name"],
                 farm_priority=farm_priority(hero.get("roles", [])),
                 strength=ratings.get(hero.get("id"), 1.0),
+                net_worth=_STARTING_GOLD,
             )
         )
+    # Rank the lineup into positions 1-5: role priority breaks into a smooth
+    # farm ladder (real teams have one clear pos-1, not three equal cores).
+    ordered = sorted(
+        states, key=lambda h: (-h.farm_priority, -h.strength, h.key)
+    )
+    for i, hero in enumerate(ordered):
+        hero.farm_priority = _POSITION_PRIORITIES[i % len(_POSITION_PRIORITIES)]
     return TeamState(name, states, lane_power=team_lane_power(hero_dicts))
 
 
 def _economy_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
-    radiant_gain = _team_economy(state.radiant, rng)
-    dire_gain = _team_economy(state.dire, rng)
+    radiant_gain = _team_economy(state.radiant, rng, state.t / 60.0)
+    dire_gain = _team_economy(state.dire, rng, state.t / 60.0)
     timeline.emit(
         Event(
             t=state.t,
@@ -299,12 +315,12 @@ def _hero_networths(team: TeamState) -> list[dict[str, Any]]:
     ]
 
 
-def _team_economy(team: TeamState, rng: SeededRng) -> float:
+def _team_economy(team: TeamState, rng: SeededRng, minutes: float) -> float:
     total = 0.0
     for hero in team.heroes:
-        gain = hero_gold_gain(rng, hero.farm_priority, hero.strength)
+        gain = hero_gold_gain(rng, hero.farm_priority, hero.strength, minutes)
         hero.net_worth += gain
-        hero.xp += _XP_BASE_PER_TICK + gain * _XP_PER_GOLD
+        hero.xp += _XP_BASE_PER_TICK + _XP_PER_PRIORITY * hero.farm_priority
         total += gain
     return total
 

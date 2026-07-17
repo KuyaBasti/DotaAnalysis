@@ -19,6 +19,7 @@ from dm_pipeline.calibrate.compare import (
     duration_comparison,
     hero_winrate_correlation,
 )
+from dm_pipeline.calibrate.economy import economy_comparison
 from dm_pipeline.calibrate.run_corpus import run_sim_corpus
 from dm_pipeline.features.build_dataset import hero_strength_ratings
 from dm_pipeline.prototype.scenario import load_heroes
@@ -59,6 +60,7 @@ def main(argv: list[str] | None = None) -> None:
     win = calibration_metrics(records)
     hero_corr = hero_winrate_correlation(records)
     duration = duration_comparison(records)
+    economy = economy_comparison(records)
 
     report = {
         "patch_id": args.patch_id,
@@ -67,6 +69,7 @@ def main(argv: list[str] | None = None) -> None:
         "win": win,
         "hero_winrate_correlation": hero_corr,
         "duration": duration,
+        "economy": economy,
     }
     config.CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
     out_path = config.CALIBRATION_DIR / f"report.{args.patch_id}.json"
@@ -87,6 +90,12 @@ def main(argv: list[str] | None = None) -> None:
             f"duration sim {duration['sim_mean_min']}m vs real "
             f"{duration['real_mean_min']}m (gap {duration['gap_min']:+}m)"
         )
+        if economy:
+            parts = ", ".join(
+                f"min {m}: sim {v['sim']:,.0f} vs real {v['real']:,.0f} (x{v['ratio']})"
+                for m, v in economy.items()
+            )
+            print(f"economy:  team net worth — {parts}")
 
 
 if __name__ == "__main__":
