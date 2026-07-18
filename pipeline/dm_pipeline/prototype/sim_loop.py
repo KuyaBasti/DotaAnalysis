@@ -211,7 +211,9 @@ def run_scenario(
     )
 
 
-def run_with_model(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameState]:
+def run_with_model(
+    scenario: Scenario, *, seed: int, ratings: dict[int, float] | None = None
+) -> tuple[Timeline, GameState]:
     """Like run_scenario, but seed a draft prior from the trained win-prob model.
 
     Maps the scenario's hero keys to ids (via the snapshot), asks the model for
@@ -227,7 +229,23 @@ def run_with_model(scenario: Scenario, *, seed: int) -> tuple[Timeline, GameStat
     radiant_ids = [heroes[key]["id"] for key in scenario.radiant]
     dire_ids = [heroes[key]["id"] for key in scenario.dire]
     prior = predict_draft(bundle, radiant_ids, dire_ids)
-    return simulate(scenario, heroes, seed=seed, draft_prior=prior)
+    return simulate(scenario, heroes, seed=seed, draft_prior=prior, ratings=ratings)
+
+
+def load_default_ratings() -> dict[int, float] | None:
+    """Data-derived hero strength for watched sims, or None before any
+    features have been built (fresh clone, offline tests) — the bare engine.
+
+    This is what makes a simulated Anti-Mage different from a simulated
+    Invoker in the games users actually watch; the calibration harness has
+    always passed ratings, but the CLI/API path used to forget them.
+    """
+    try:
+        from dm_pipeline.features.build_dataset import hero_strength_ratings
+
+        return hero_strength_ratings(config.FEATURES_DIR)
+    except Exception:
+        return None
 
 
 def sim_result(
@@ -693,6 +711,11 @@ def main(argv: list[str] | None = None) -> None:
         default=_DEMO_SCENARIO.patch_id,
         help="patch snapshot to draft from",
     )
+    parser.add_argument(
+        "--no-ratings",
+        action="store_true",
+        help="ignore data-derived hero strength (run the bare engine)",
+    )
     args = parser.parse_args(argv)
 
     if (args.radiant is None) != (args.dire is None):
@@ -706,10 +729,11 @@ def main(argv: list[str] | None = None) -> None:
     else:
         scenario = _DEMO_SCENARIO
 
+    ratings = None if args.no_ratings else load_default_ratings()
     if args.model:
-        timeline, state = run_with_model(scenario, seed=args.seed)
+        timeline, state = run_with_model(scenario, seed=args.seed, ratings=ratings)
     else:
-        timeline, state = run_scenario(scenario, seed=args.seed)
+        timeline, state = run_scenario(scenario, seed=args.seed, ratings=ratings)
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
     if args.export:

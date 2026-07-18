@@ -54,3 +54,11 @@ def test_economy_events_carry_per_hero_networths() -> None:
     assert [h["hero"] for h in radiant] == ["H1", "H2"]
     team_total = economy.payload["radiant_net_worth"]
     assert abs(sum(h["net_worth"] for h in radiant) - team_total) < 1.0
+
+
+def test_load_default_ratings_survives_missing_features(monkeypatch, tmp_path) -> None:
+    from dm_pipeline import config
+    from dm_pipeline.prototype.sim_loop import load_default_ratings
+
+    monkeypatch.setattr(config, "FEATURES_DIR", tmp_path / "nope")
+    assert load_default_ratings() is None  # bare engine, no crash
