@@ -21,9 +21,10 @@ from dm_pipeline.prototype.rng import SeededRng
 # (measured mean 10.2k in parsed Divine games).
 _PROB_SCALE = 10_000.0
 # Net-worth swing awarded to the fight's winner, sized like real bounty
-# economics: a won fight nets the team roughly 1.2k (a pick) to 3.6k (a wipe
-# with assists), not the old placeholder's 5k+ windfalls.
-_FIGHT_SWING = (1_200.0, 3_600.0)
+# economics for a skirmish: a pick nets ~0.6k, a won brawl up to ~1.8k.
+# Fights fire twice as often as before, so per-minute fight gold is unchanged
+# and the economy calibration holds.
+_FIGHT_SWING = (600.0, 1_800.0)
 # Comeback gold, like the real game's rubber-band bounties: when the trailing
 # team wins a fight, the swing grows with their deficit — up to double at
 # _COMEBACK_DEFICIT_FULL behind. Leads stay valuable; claw-backs get teeth.
