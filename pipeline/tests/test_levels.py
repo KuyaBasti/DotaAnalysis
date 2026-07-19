@@ -155,3 +155,19 @@ def test_kda_shapes_cores_frag_supports_assist() -> None:
         mean_sup_assists = sum(h.assists for h in sups) / len(sups)
         mean_core_assists = sum(h.assists for h in cores) / len(cores)
         assert mean_sup_assists > mean_core_assists  # supports set up
+
+
+def test_kills_grant_experience() -> None:
+    from dm_pipeline.prototype.sim_loop import (
+        _XP_BASE_PER_TICK,
+        _XP_PER_PRIORITY,
+        TICK_SECONDS,
+    )
+
+    _, state = simulate(SCENARIO, HEROES, seed=11)
+    ticks = state.t // TICK_SECONDS
+    killers = [h for h in state.radiant.heroes + state.dire.heroes if h.kills > 0]
+    assert killers, "seed must produce kills"
+    for hero in killers:
+        passive = ticks * (_XP_BASE_PER_TICK + _XP_PER_PRIORITY * hero.farm_priority)
+        assert hero.xp > passive + 100  # fight XP on top of creep XP
