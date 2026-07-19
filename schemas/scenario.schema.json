@@ -1,6 +1,30 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "scenario",
+  "$id": "https://draftmaster.dev/schemas/scenario.schema.json",
+  "title": "SimScenario",
+  "description": "The input to one simulation: which patch, and the two five-hero drafts. Hero keys must exist in the referenced patch snapshot. This is what POST /sims and the sim CLI (--radiant/--dire) accept.",
   "type": "object",
-  "properties": {}
+  "required": ["patch_id", "radiant", "dire"],
+  "additionalProperties": false,
+  "properties": {
+    "patch_id": {
+      "type": "string",
+      "description": "Patch whose snapshot the heroes are resolved from, e.g. \"7.41d\".",
+      "minLength": 1
+    },
+    "radiant": {
+      "type": "array",
+      "description": "Radiant hero keys (see snapshot.hero.key), e.g. [\"juggernaut\", ...].",
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "dire": {
+      "type": "array",
+      "description": "Dire hero keys.",
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+      "minItems": 1,
+      "maxItems": 5
+    }
+  }
 }
