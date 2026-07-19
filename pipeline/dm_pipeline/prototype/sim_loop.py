@@ -71,6 +71,12 @@ _STRENGTH_TO_NETWORTH = 16_000.0  # net-worth-equivalent value of one point of d
 # ~2,400 cumulative XP): cores hit 6 ~min 6, supports ~min 8.5.
 _XP_BASE_PER_TICK = 80.0
 _XP_PER_PRIORITY = 88.0  # per-tick XP scaled by the hero's farm position
+# Fights grant XP like real kill experience, and it grows with game time the
+# way real bounties do — this is what carries cores past level 20 in long
+# games (creep XP alone plateaus them around 15).
+_FIGHT_XP_KILL_BASE = 250.0
+_FIGHT_XP_KILL_PER_MIN = 56.0  # killer's XP per kill grows with the clock
+_FIGHT_XP_ASSIST_SHARE = 0.16  # assisters earn a sliver; kills are the level engine
 _MAX_LEVEL = 30
 _MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are emitted
 
@@ -441,8 +447,8 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
         else []
     )
     winner_dead = rng.sample(won.heroes, 1) if won.heroes and rng.chance(0.35) else []
-    _credit_kda(won, loser_dead)
-    _credit_kda(lost, winner_dead)
+    _credit_kda(won, loser_dead, state.t)
+    _credit_kda(lost, winner_dead, state.t)
     if outcome.winner == "radiant":
         radiant_deaths = [h.display_name for h in winner_dead]
         dire_deaths = [h.display_name for h in loser_dead]
@@ -473,15 +479,18 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
 _SUPPORT_PRIORITY_CUTOFF = 0.9  # below this farm position a hero plays support
 
 
-def _credit_kda(killers: TeamState, fallen: list[HeroState]) -> None:
-    """Count kills/deaths/assists for a fight's casualties.
+def _credit_kda(killers: TeamState, fallen: list[HeroState], t: int) -> None:
+    """Count kills/deaths/assists (and kill XP) for a fight's casualties.
 
-    Deliberately rng-free (like positions) so stats can never change a match
-    outcome. Kill credit is self-balancing toward farm priority — over a game
-    kills land roughly in proportion to position, so cores frag and supports
-    set up. Supports assist every kill they didn't land; cores only about
-    half — the K/D/A shapes real scoreboards have.
+    Deliberately rng-free (like positions) so stats can never change which
+    team wins a fight. Kill credit is self-balancing toward farm priority —
+    over a game kills land roughly in proportion to position, so cores frag
+    and supports set up. Supports assist every kill they didn't land; cores
+    only about half — the K/D/A shapes real scoreboards have. Kills also pay
+    experience (time-scaled, like real bounties), which is what levels teams
+    through the late game.
     """
+    kill_xp = _FIGHT_XP_KILL_BASE + _FIGHT_XP_KILL_PER_MIN * (t / 60.0)
     for hero in fallen:
         hero.deaths += 1
         if not killers.heroes:
@@ -492,13 +501,16 @@ def _credit_kda(killers: TeamState, fallen: list[HeroState]) -> None:
         )
         killers.kill_rotation += 1  # running team-kill count (assist cadence)
         killer.kills += 1
+        killer.xp += kill_xp
         for i, mate in enumerate(killers.heroes):
             if mate is killer:
                 continue
             if mate.farm_priority < _SUPPORT_PRIORITY_CUTOFF:
                 mate.assists += 1  # supports are in every fight
+                mate.xp += kill_xp * _FIGHT_XP_ASSIST_SHARE
             elif (killers.kill_rotation + i) % 2 == 0:
                 mate.assists += 1  # cores rotate in for about half
+                mate.xp += kill_xp * _FIGHT_XP_ASSIST_SHARE
 
 
 def _distribute(team: TeamState, amount: float) -> None:
