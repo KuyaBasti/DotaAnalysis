@@ -1,17 +1,16 @@
 # DraftMaster — system design
 
-> How a real Dota 2 match becomes a **watchable simulation**.
+> How a drafted Dota 2 match becomes a **watchable simulation**.
 >
-> DraftMaster is a Football-Manager-style match simulator. Real match data flows
-> in from OpenDota, trains a draft→win model and grounds a deterministic
-> simulation engine, an offline loop calibrates that engine against reality, and
-> the results are served through an API to a React web app. The **north star** is
-> the Playback Viewer — watching a *generated* match unfold minute-by-minute (a
-> simulation, not a replay).
+> Real ranked match data flows in from OpenDota, trains a draft→win model and
+> grounds a deterministic simulation engine, an offline loop calibrates that
+> engine against reality, and the results are served through an API to a React
+> web app. Pick a draft in the browser and watch the game it produces unfold
+> minute-by-minute — a *generated* match, not a replay.
 
-This document is the developer-facing map of the whole system — every component,
-**built or planned**, and how data moves between them. Read the flowchart
-top-to-bottom; the dashed nodes are the roadmap.
+This is the developer-facing map of the whole system — every component, **built
+or planned**, and how data moves between them. Dashed nodes in the flowchart are
+the roadmap (documented on purpose, not yet built).
 
 ---
 
@@ -19,69 +18,64 @@ top-to-bottom; the dashed nodes are the roadmap.
 
 ```mermaid
 flowchart TD
-    %% ===== External =====
-    OD["OpenDota API<br/>free matches + constants, rate-limited"]:::data
+    OD["OpenDota API<br/>free matches, constants, parsed details"]:::data
 
-    %% ===== Ingestion =====
     subgraph ING["Ingestion — pipeline/ Python CLI"]
         ingest["dm-ingest<br/>patch constants → snapshot"]:::py
-        harvest["dm-harvest<br/>cron 3h → raw matches"]:::py
+        harvest["dm-harvest<br/>cron → ranked matches"]:::py
+        backfill["dm-backfill<br/>parsed details: gold curves, purchases"]:::py
     end
 
-    %% ===== Data store =====
     subgraph STORE["Data store — data/ git-ignored"]
         snaps[("snapshots/")]:::data
         matches[("matches/ raw")]:::data
+        details[("details/ parsed")]:::data
         feats[("features/ *.parquet")]:::data
         models[("models/")]:::data
         sims[("sims/")]:::data
         calib[("calibration/")]:::data
     end
 
-    %% ===== Features & ML =====
     subgraph ML["Features &amp; ML — scikit-learn + DuckDB"]
-        features["dm-features<br/>matches → parquet, hero win rates"]:::py
-        train["dm-train-winprob<br/>logistic draft→win, AUC 0.63"]:::py
+        features["dm-features<br/>matches → parquet, hero win rates + ratings"]:::py
+        train["dm-train-winprob<br/>logistic draft→win"]:::py
     end
 
-    %% ===== Engine =====
-    subgraph ENGINE["Engine — simulation core — Python DES → Rust"]
-        engine["Prototype engine ★<br/>draft + seed → deterministic event timeline<br/>economy · laning · fights+named kills · Roshan · objectives→Ancient"]:::engine
+    subgraph ENGINE["Engine — Python DES (prototype)"]
+        engine["Simulation engine<br/>draft + seed → deterministic event timeline<br/>economy · laning · fights (named kills, K/D/A) · Roshan<br/>XP/levels · objectives (2-sided, laned) · hero positions"]:::engine
     end
 
-    %% ===== Calibration =====
     subgraph CAL["Calibration — offline dev loop"]
-        calibrate["dm-calibrate<br/>sim vs real corpus<br/>win acc 0.57 · per-hero r 0.55 · duration ✅"]:::py
+        calibrate["dm-calibrate<br/>sim vs real: win acc · per-hero r · duration · economy"]:::py
     end
 
-    %% ===== API =====
-    subgraph API["API — Fastify TypeScript"]
+    subgraph API["API — Fastify (TypeScript)"]
         patchesAPI["GET /patches/:id<br/>heroes &amp; items"]:::api
         simsAPI["GET /sims/:id<br/>match timeline"]:::api
+        makeSim["POST /sims<br/>simulate a draft (spawns the engine)"]:::api
         draftAPI["POST /analysis/draft<br/>live win% (native sigmoid)"]:::api
     end
 
-    %% ===== Web =====
     subgraph WEB["Web app — React + Vite"]
         explorer["Patch Explorer<br/>browse heroes &amp; items"]:::web
-        studio["Draft Studio<br/>pick heroes → live win%"]:::web
-        viewer["Match Viewer<br/>summary + net-worth graph + log"]:::web
-        playback["Playback Viewer ★ north star<br/>watch the match minute-by-minute"]:::planned
+        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) → win% → Simulate"]:::web
+        viewer["Match Viewer ★<br/>PLAY the match: clock · scoreboard · minimap · win-prob · feed"]:::web
     end
 
-    %% ===== Roadmap =====
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
-        orch["Orchestrator<br/>job queue + Monte Carlo"]:::planned
-        minimap["2D minimap<br/>heroes moving on the map"]:::planned
+        orch["Orchestrator<br/>job queue + Monte Carlo (N sims / draft)"]:::planned
+        bracket["Per-rank models<br/>pick your bracket to learn at"]:::planned
+        items["Item-timing beats<br/>from parsed purchase logs"]:::planned
         coach["Coach Lab<br/>education / premium tier"]:::planned
     end
 
-    %% ===== Flows =====
-    OD -->|REST pulls| ingest
-    OD -->|REST pulls| harvest
+    OD -->|REST| ingest
+    OD -->|REST| harvest
+    OD -->|REST| backfill
     ingest --> snaps
     harvest --> matches
+    backfill --> details
 
     matches --> features
     features --> feats
@@ -90,25 +84,30 @@ flowchart TD
 
     snaps -->|loads heroes| engine
     models -.->|draft prior| engine
+    feats -.->|hero ratings| engine
     engine -->|sim_result| sims
     matches --> calibrate
+    details -->|real gold curves| calibrate
     engine --> calibrate
-    calibrate --> calib
     calibrate -.->|tunes constants| engine
 
     snaps --> patchesAPI
     sims --> simsAPI
     models --> draftAPI
+    makeSim -->|runs| engine
 
     patchesAPI --> explorer
     patchesAPI --> studio
     draftAPI --> studio
+    studio -->|Simulate this draft| makeSim
+    makeSim --> viewer
     simsAPI --> viewer
-    viewer -.->|evolves into| playback
 
     engine -.->|port| rust
+    makeSim -.->|batch| orch
+    feats -.->|by rank tier| bracket
+    details -.->|purchase logs| items
 
-    %% ===== Styles =====
     classDef py fill:#E1F5EE,stroke:#0F6E56,color:#085041;
     classDef engine fill:#EEEDFE,stroke:#534AB7,color:#3C3489,stroke-width:2px;
     classDef api fill:#E6F1FB,stroke:#185FA5,color:#0C447C;
@@ -118,28 +117,49 @@ flowchart TD
 ```
 
 **Legend** — 🟩 Python pipeline · 🟪 engine / sim core · 🟦 API (TypeScript) ·
-🟧 web (React) · ⬜ data / external · ◌ dashed = planned (not yet built).
+🟧 web (React) · ⬜ data / external · ◌ dashed = planned (not yet built) ·
+★ the core draft → watch loop.
 
 ---
 
-## How to read it: the three flows that matter
+## How to read it: the flows that matter
 
-1. **Two ingestion paths, one store.** `dm-ingest` pulls *patch constants* (the
-   snapshot that powers Patch Explorer and Draft Studio). `dm-harvest` runs on a
-   cron banking *raw matches* (the training corpus). They serve different purposes
-   but both land in `data/`.
-2. **The model loops back into the engine** (the `draft prior` edge). The
-   win-probability model isn't only for the Draft Studio bar — its coefficients
-   seed the engine's *draft prior*, so a stronger draft starts the simulated match
-   ahead.
-3. **Calibration is a feedback loop, not a serving path** (the `tunes constants`
-   edge). `dm-calibrate` sims real drafts offline, scores realism (per-hero win-rate
-   correlation, game duration), and that result is how the engine's constants get
-   tuned. It never touches the API.
+1. **Three ingestion paths, one store.** `dm-ingest` pulls *patch constants* (the
+   snapshot powering Patch Explorer and Draft Studio). `dm-harvest` banks *raw
+   ranked matches* (the training corpus). `dm-backfill` fetches *parsed match
+   details* (per-minute gold curves + purchase logs) for a sample — the ground
+   truth the economy is calibrated against.
+2. **The core loop is draft → watch.** Draft Studio posts a draft to `POST /sims`,
+   which spawns the engine to simulate *that* game; the Match Viewer opens playing
+   it. Draft → predict (win%) → simulate → watch, end to end.
+3. **The model and ratings loop back into the engine.** The win-prob model seeds
+   the engine's *draft prior* (a stronger draft starts ahead), and data-derived
+   *hero ratings* make a simulated Anti-Mage differ from a simulated Invoker.
+4. **Calibration is a feedback loop, not a serving path.** `dm-calibrate` sims
+   real drafts offline and scores four things — win accuracy, per-hero win-rate
+   correlation, game duration, and economy checkpoints against parsed details —
+   and that result is how the engine's constants get tuned. It never touches the
+   API.
 
-The **★ Playback Viewer** is the north star. The diagram makes the punchline
-visible: everything upstream already exists to feed it — the engine emits a rich
-event timeline; it simply isn't *animated* yet.
+---
+
+## Design decisions
+
+| Decision | Choice | Why |
+|---|---|---|
+| Simulation fidelity | **Macro** discrete-event sim (30s ticks), not micro/unit-level | A believable *watchable* game needs beats and economy, not pathfinding; a complete coarse loop beats a perfect fragment. |
+| Engine language (now) | **Python** prototype | Fastest path to a correct, calibrated loop; sits next to the data/ML that feeds it. |
+| Engine language (later) | **Rust** port (planned) | Speed for Monte-Carlo (thousands of sims per draft); same seam, same timeline contract. |
+| Determinism | Single seeded RNG; same draft+seed ⇒ byte-identical timeline | Reproducibility, golden-replay tests, and a stable thing to calibrate. |
+| Presentational state (positions, K/D/A) | **rng-free**, pure functions of game state | Adding a scoreboard or moving dots can never change a match outcome. |
+| Data source | **OpenDota** free tier | No cost, rich enough (drafts, outcomes, parsed gold/purchase logs). |
+| Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket enables future "pick your rank" models. |
+| Win prediction in the API | Native `sigmoid(intercept + weights·draft)` in TS | The logistic model exports coefficients — no ONNX/sklearn runtime in the API. |
+| Engine's real target | **Distributional realism** (per-hero r, duration, economy), not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. The Draft Studio uses the model for win%. |
+| Storage | Files under `data/` (Parquet/JSON), DuckDB for queries | Zero infra for a solo alpha; a database is a deploy-time concern. |
+
+Longer rationale for the load-bearing calls lives in
+[docs/decisions/](docs/decisions/).
 
 ---
 
@@ -149,26 +169,29 @@ event timeline; it simply isn't *animated* yet.
 |---|---|---|---|---|
 | OpenDota API | External | — | external | opendota.com |
 | `dm-ingest` | Ingestion | Python | ✅ built | `pipeline/dm_pipeline/ingest/` |
-| `dm-harvest` | Ingestion | Python | ✅ built | `pipeline/dm_pipeline/harvest/` |
+| `dm-harvest` | Ingestion | Python | ✅ built | `pipeline/dm_pipeline/harvest/daemon.py` |
+| `dm-backfill` | Ingestion | Python | ✅ built | `pipeline/dm_pipeline/harvest/backfill.py` |
 | `dm-features` | Features &amp; ML | Python · DuckDB | ✅ built | `pipeline/dm_pipeline/features/` |
 | `dm-train-winprob` | Features &amp; ML | Python · scikit-learn | ✅ built | `pipeline/dm_pipeline/models/win_probability/` |
-| Prototype engine | Engine | Python (DES) | ✅ built | `pipeline/dm_pipeline/prototype/` |
+| Simulation engine | Engine | Python (DES) | ✅ built | `pipeline/dm_pipeline/prototype/` |
 | `dm-calibrate` | Calibration | Python | ✅ built | `pipeline/dm_pipeline/calibrate/` |
 | Patch Data API | API | TypeScript · Fastify | ✅ built | `api/src/routes/patches.ts` |
-| Sims API | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` |
+| Sims API (`GET`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` |
+| Simulate-a-draft (`POST /sims`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` + `simRunner.ts` |
 | Draft eval API | API | TypeScript · Fastify | ✅ built | `api/src/routes/analysis.ts` |
 | Patch Explorer | Web | React · Vite | ✅ built | `web/src/pages/PatchExplorer.tsx` |
 | Draft Studio | Web | React · Vite | ✅ built | `web/src/pages/DraftStudio/` |
-| Match Viewer | Web | React · Vite | ✅ built | `web/src/pages/MatchViewer/` |
-| Playback Viewer | Web | React · Vite | ⬜ planned | — *(north star)* |
+| Match Viewer (playback) | Web | React · Vite | ✅ built | `web/src/pages/MatchViewer/` |
+| Minimap w/ moving heroes | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/Minimap.tsx` |
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
-| Orchestrator | Backend | — | ⬜ planned | — *(job queue + Monte Carlo)* |
-| 2D minimap | Web | React | ⬜ planned | — |
+| Orchestrator / Monte Carlo | Backend | — | ⬜ planned | — |
+| Per-rank models | ML | Python | ⬜ planned | — |
+| Item-timing beats | Engine + Web | — | ⬜ planned | *(data already banked in `data/details/`)* |
 | Coach Lab | Web | — | ⬜ planned | `web/src/pages/CoachLab/` *(placeholder)* |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
 > `SimDashboard`, `replays.ts`, `scenarios.ts`) are scaffolded placeholders, not
-> yet wired into the live flow above.
+> yet wired into the live flow.
 
 ---
 
@@ -176,28 +199,29 @@ event timeline; it simply isn't *animated* yet.
 
 | Path | Role |
 |---|---|
-| `pipeline/` | Python: ingestion, harvesting, feature store, ML models, the prototype engine, calibration |
-| `engine/` | Rust simulation core — **not started** (the prototype engine will be ported here) |
-| `api/` | TypeScript / Fastify read-only API serving snapshots, sims, and draft eval |
+| `pipeline/` | Python: ingestion, harvesting, feature store, ML models, **the simulation engine**, calibration |
+| `api/` | TypeScript / Fastify API: snapshots, sims (read + simulate), draft eval |
 | `web/` | React + Vite frontend (Patch Explorer, Draft Studio, Match Viewer) |
-| `schemas/` | JSON Schema single-source-of-truth + SQL migrations |
-| `data/` | Generated artifacts (snapshots, matches, features, models, sims) — **git-ignored** |
-| `infra/`, `docs/` | Deployment and documentation scaffolding |
+| `schemas/` | JSON Schema data contracts (see [docs/02-data-model.md](docs/02-data-model.md)) |
+| `data/` | Generated artifacts (snapshots, matches, details, features, models, sims, calibration) — **git-ignored** |
+| `engine/` | Rust simulation core — **planned, not started** |
+| `infra/`, `docs/` | Deployment scaffolding and documentation |
 
 ---
 
 ## Build stages
 
-The build follows a staged pipeline (Stage 0 design → Stage 8 launch):
+Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
+[docs/01-implementation-pipeline.md](docs/01-implementation-pipeline.md).
 
 | Stage | Name | Status |
 |---|---|---|
 | 0 | System design | ✅ done |
-| 1 | Feasibility spikes | ✅ draft→win model proven (AUC 0.63) |
-| 2 | Data foundation | ✅ snapshots + API + auto-harvesting corpus |
-| 3 | Engine core | 🟡 prototype is a real game (towers→Ancient, Roshan, named kills); not ported to Rust |
-| 4 | Orchestrator / API | 🟡 read-only API + draft eval; no job queue / Monte Carlo |
-| 5 | Frontend alpha | 🟡 Patch Explorer + Match Viewer + Draft Studio; no playback / minimap |
-| 6 | ML &amp; calibration | 🟡 feature store, win-prob model, realism calibration loop |
+| 1 | Feasibility spikes | ✅ draft→win signal proven |
+| 2 | Data foundation | ✅ snapshots + auto-harvesting 100k+ ranked corpus + parsed details |
+| 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, 2-sided objectives, positions); ⬜ Rust port |
+| 4 | Orchestrator / API | 🟡 read-only API + draft eval + simulate-a-draft; ⬜ job queue / Monte Carlo |
+| 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
+| 6 | ML &amp; calibration | 🟡 feature store, win-prob model, four-metric calibration harness; ⬜ per-rank / fight-outcome models |
 | 7 | Coach Lab / education | ⬜ not started |
-| 8 | Beta &amp; launch | ⬜ not started |
+| 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |

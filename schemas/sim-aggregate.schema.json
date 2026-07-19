@@ -1,6 +1,40 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "sim-aggregate",
+  "$id": "https://draftmaster.dev/schemas/sim-aggregate.schema.json",
+  "title": "SimAggregate",
+  "description": "PLANNED (not yet produced). The output of a Monte-Carlo run: one scenario simulated N times, reduced to a win-probability distribution and summary statistics. A single representative timeline may be attached for playback. Until the orchestrator (Stage 4) lands, only single-match SimResult (sim-result.schema.json) is produced.",
   "type": "object",
-  "properties": {}
+  "required": ["scenario", "runs", "radiant_win_rate"],
+  "additionalProperties": false,
+  "properties": {
+    "scenario": {
+      "description": "The draft that was simulated.",
+      "$ref": "scenario.schema.json"
+    },
+    "runs": {
+      "type": "integer",
+      "description": "Number of simulations aggregated.",
+      "minimum": 1
+    },
+    "radiant_win_rate": {
+      "type": "number",
+      "description": "Fraction of runs Radiant won.",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "duration_seconds": {
+      "type": "object",
+      "description": "Game-length distribution across runs.",
+      "properties": {
+        "mean": { "type": "number" },
+        "p25": { "type": "number" },
+        "median": { "type": "number" },
+        "p75": { "type": "number" }
+      }
+    },
+    "representative_sim_id": {
+      "type": "string",
+      "description": "Id of a stored SimResult that typifies the aggregate, for playback."
+    }
+  }
 }

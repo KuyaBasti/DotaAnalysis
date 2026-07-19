@@ -1,27 +1,88 @@
 # DraftMaster
 
-A Dota 2 draft simulation & analysis engine — a deterministic Monte Carlo match
-simulator that turns a draft (heroes, builds, skill profiles) into win-probability
-distributions, timing windows, and replayable match timelines.
+**Watch a Dota 2 match you drafted play out, minute by minute.** DraftMaster is a
+Football-Manager-style match simulator: pick two teams, and a deterministic
+engine — grounded in real ranked match data — generates a full game you can
+watch unfold (heroes moving on the map, gold and levels ticking, teamfights,
+Roshan, towers, the Ancient). Not a replay of a real game — a *generated* one.
+
+> **North star:** the watch-from-the-bench experience — see the whole game as it
+> happens, like being benched in NBA 2K MyCareer. That experience exists today
+> (the Match Viewer); everything else serves making it believable.
+
+The engine is validated against a live corpus of **100k+ ranked matches** and
+sits within ~1% of real Divine-bracket gold curves, exact on median game length.
+See [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) for the full map and
+[docs/05-progress.md](docs/05-progress.md) for where things stand.
 
 ## Monorepo layout
 
-| Dir | Lang | What |
-|-----|------|------|
-| `pipeline/` | Python | Patch ingestion, match harvesting, feature extraction, ML training |
-| `engine/`   | Rust   | The deterministic simulation core, CLI, and queue worker |
-| `api/`      | TypeScript | Core HTTP/WebSocket API (Fastify) |
-| `web/`      | React  | Frontend — Draft Studio, Sim Dashboard, Match Viewer |
-| `schemas/`  | JSON/SQL | Single source of truth for cross-language contracts + DB migrations |
-| `infra/`    | —      | Docker, PaaS configs, dev scripts |
-| `docs/`     | —      | System design, ADRs, runbooks |
+| Dir | Lang | What | Status |
+|-----|------|------|--------|
+| `pipeline/` | Python | Patch ingestion, match harvesting, feature store, ML, **and the prototype simulation engine** | ✅ built |
+| `api/` | TypeScript (Fastify) | Read-only data API + draft evaluation + simulate-a-draft | ✅ built |
+| `web/` | React + Vite | Draft Studio, Match Viewer (playback), Patch Explorer | ✅ built |
+| `schemas/` | JSON Schema | Cross-language data contracts (single source of truth) | 🟡 partial |
+| `engine/` | Rust | The DES core, ported from Python for speed | ⬜ planned |
+| `infra/` | — | Deploy configs, dev scripts | ⬜ planned |
+| `docs/` | — | System design, data model, specs, progress log | ✅ this refresh |
+
+The simulation engine lives in `pipeline/dm_pipeline/prototype/` as a Python
+discrete-event simulation (DES). The `engine/` Rust port is **planned, not
+started** — the Python prototype is the working engine today.
 
 ## Quickstart
 
+Prereqs: Python 3.11+, Node 20+.
+
 ```bash
-make dev      # bring up local stack (Postgres, Redis, MinIO)
-make test     # run all test suites
-make sim      # run a sample simulation
+# 1. Pipeline (Python) — ingestion, ML, and the simulation engine
+python -m venv .venv && source .venv/bin/activate
+pip install -e pipeline                      # installs the dm-* CLIs
+
+dm-ingest --patch-id 7.41d                   # build a patch snapshot from OpenDota
+python -m dm_pipeline.prototype.sim_loop --seed 42 --export   # simulate one match
+
+PYTHONPATH=pipeline .venv/bin/python -m pytest pipeline/tests/   # run pipeline tests
+
+# 2. API (TypeScript) — serves snapshots, sims, and draft eval on :3000
+cd api && npm install && npm run dev
+
+# 3. Web (React) — Draft Studio + Match Viewer on :5173 (proxies to the API)
+cd web && npm install && npm run dev
 ```
 
-> This tree is scaffolding — most files are placeholders pending implementation.
+Then open <http://localhost:5173>, go to **Draft Studio**, pick five heroes per
+side, hit **▶ Simulate this draft**, and watch the game in the **Match Viewer**.
+
+### The pipeline CLIs (`pip install -e pipeline`)
+
+| Command | What it does |
+|---|---|
+| `dm-ingest --patch-id <v>` | OpenDota constants → validated patch snapshot |
+| `dm-harvest --max N` | bank recent ranked matches to `data/matches/` (resumable) |
+| `python -m dm_pipeline.harvest.backfill` | fetch parsed match details (gold curves, purchase logs) |
+| `dm-features` | banked matches → Parquet feature tables + hero win rates |
+| `dm-train-winprob` | train the draft→win logistic model |
+| `dm-calibrate --sample N` | score the sim against the real corpus (win / realism / economy) |
+
+Generated artifacts land in `data/` (git-ignored). See
+[docs/03-ingestion-spec.md](docs/03-ingestion-spec.md) and
+[docs/04-ml-engine.md](docs/04-ml-engine.md) for details.
+
+## Documentation
+
+- [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) — the full map, design decisions, and Stage 0–8 build plan
+- [docs/01-implementation-pipeline.md](docs/01-implementation-pipeline.md) — stages with concrete exit criteria
+- [docs/02-data-model.md](docs/02-data-model.md) — schemas: snapshots, timeline events, scenarios, feature tables
+- [docs/03-ingestion-spec.md](docs/03-ingestion-spec.md) — OpenDota ingestion, harvesting, dedup, details backfill
+- [docs/04-ml-engine.md](docs/04-ml-engine.md) — win-prob model, hero ratings, and the calibration harness
+- [docs/05-progress.md](docs/05-progress.md) — living log of what's shipped
+- [CLAUDE.md](CLAUDE.md) — conventions for working in this repo
+
+## Status
+
+A working alpha, developed as a personal project — **not shipped or deployed**.
+The core loop (draft → predict → simulate → watch) works end-to-end. The
+remaining roadmap (Rust engine, orchestrator/Monte-Carlo, per-rank models, Coach
+Lab) is tracked in [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md).

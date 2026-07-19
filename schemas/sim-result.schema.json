@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://draftmaster.dev/schemas/sim-result.schema.json",
+  "title": "SimResult",
+  "description": "One simulated match: the scenario that produced it, a summary, and the full event timeline. This is the shape the sim CLI exports to data/sims/sim.<id>.json and the API serves at GET /sims/:id.",
+  "type": "object",
+  "required": ["id", "patch_id", "seed", "radiant", "dire", "summary", "timeline"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable id, formatted \"<patch_id>-seed<seed>\", e.g. \"7.41d-seed42\"."
+    },
+    "patch_id": { "type": "string", "minLength": 1 },
+    "seed": {
+      "type": "integer",
+      "description": "RNG seed; same scenario + seed reproduce this timeline exactly."
+    },
+    "radiant": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+    },
+    "dire": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "winner",
+        "duration_seconds",
+        "radiant_net_worth",
+        "dire_net_worth",
+        "radiant_objectives",
+        "dire_objectives"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "winner": { "type": "string", "enum": ["radiant", "dire"] },
+        "duration_seconds": { "type": "integer", "minimum": 0 },
+        "radiant_net_worth": { "type": "number", "minimum": 0 },
+        "dire_net_worth": { "type": "number", "minimum": 0 },
+        "radiant_objectives": {
+          "type": "integer",
+          "description": "Enemy structures Radiant destroyed (5 = the Dire Ancient fell).",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "dire_objectives": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "description": "Every event, in non-decreasing t order.",
+      "items": { "$ref": "timeline-event.schema.json" }
+    }
+  }
+}

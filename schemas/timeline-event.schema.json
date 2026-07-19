@@ -1,6 +1,37 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "timeline-event",
+  "$id": "https://draftmaster.dev/schemas/timeline-event.schema.json",
+  "title": "TimelineEvent",
+  "description": "One event in a simulated match timeline. The envelope is stable (t, type, payload); the payload shape depends on type. See docs/02-data-model.md for per-type payload fields. Events are emitted in non-decreasing t order.",
   "type": "object",
-  "properties": {}
+  "required": ["t", "type", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "t": {
+      "type": "integer",
+      "description": "Game time in seconds (0 = match start). Ticks are 30s.",
+      "minimum": 0
+    },
+    "type": {
+      "type": "string",
+      "description": "Event kind. Drives the payload shape and how the viewer renders/narrates it.",
+      "enum": [
+        "game_start",
+        "draft_prior",
+        "economy",
+        "laning",
+        "fight",
+        "roshan",
+        "level_up",
+        "objective",
+        "positions",
+        "game_over"
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-specific fields (documented per-type in docs/02-data-model.md). Kept as a plain JSON object so timelines diff cleanly and stay portable.",
+      "additionalProperties": true
+    }
+  }
 }
