@@ -642,43 +642,74 @@ def _positions_tick(state: GameState, timeline: Timeline) -> None:
     timeline.emit(Event(t=state.t, type=EventType.POSITIONS, payload=payload))
 
 
-def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
-    """The team ahead in net worth pushes and takes enemy structures over time.
+_OBJECTIVE_PRESSURE_SLACK = 4_000.0  # a slightly-behind team still pokes towers
+# Early game, lane pressure exists regardless of total gold — a winning lane
+# takes its tier-1 even while the team is losing overall. Both sides push at
+# at least this floor until the floor window closes.
+_EARLY_PUSH_FLOOR = 0.5
+_EARLY_PUSH_END_SECONDS = 15 * 60
 
-    Chance scales with the net-worth lead; destroying the Ancient ends the game.
-    Towers are too tanky to fall in the first several minutes.
+
+def _push_pressure(own_lead: float, t: int) -> float:
+    """How hard a team can push (0..1) given its own signed net-worth lead.
+
+    Real losing teams still take towers: an even game leaves BOTH sides at
+    quarter pressure (towers trade in stalemates), a full-lead team pushes at
+    1.0, and beyond the slack behind you're defending, not pushing — except
+    early, where lane pressure guarantees the floor.
+    """
+    pressure = min(
+        1.0,
+        max(
+            0.0,
+            (own_lead + _OBJECTIVE_PRESSURE_SLACK)
+            / (_OBJECTIVE_LEAD_FULL + _OBJECTIVE_PRESSURE_SLACK),
+        ),
+    )
+    if t < _EARLY_PUSH_END_SECONDS:
+        pressure = max(pressure, _EARLY_PUSH_FLOOR)
+    return pressure
+
+
+def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
+    """Both teams push and take enemy structures over time.
+
+    Each side's chance scales with its own push pressure (see
+    ``_push_pressure``) and the target's toughness; destroying the Ancient
+    ends the game. Towers are too tanky to fall in the first several minutes.
     """
     if state.t < _OBJECTIVE_START_SECONDS or state.t < state.objectives_locked_until:
         return
     lead = state.radiant.net_worth - state.dire.net_worth
-    if lead == 0:
-        return
-    leader = state.radiant if lead > 0 else state.dire
-    if leader.objectives >= len(_STRUCTURES):
-        return
+    for team, own_lead in ((state.radiant, lead), (state.dire, -lead)):
+        if state.t < state.objectives_locked_until:
+            break  # a structure just fell; defenders regroup everywhere
+        if team.objectives >= len(_STRUCTURES):
+            continue
 
-    structure = _STRUCTURES[leader.objectives]
-    chance = (
-        _OBJECTIVE_BASE_CHANCE
-        * _STRUCTURE_TOUGHNESS[structure]
-        * min(1.0, abs(lead) / _OBJECTIVE_LEAD_FULL)
-    )
-    if not rng.chance(chance):
-        return
+        structure = _STRUCTURES[team.objectives]
+        chance = (
+            _OBJECTIVE_BASE_CHANCE
+            * _STRUCTURE_TOUGHNESS[structure]
+            * _push_pressure(own_lead, state.t)
+        )
+        if not rng.chance(chance):
+            continue
 
-    leader.objectives += 1
-    state.objectives_locked_until = state.t + _OBJECTIVE_COOLDOWN_SECONDS
-    payload: dict[str, Any] = {
-        "team": leader.name,
-        "structure": structure,
-        "destroyed": leader.objectives,  # enemy structures down so far
-    }
-    if structure != "ancient":  # towers and barracks fall in a lane
-        payload["lane"] = rng.sample(_LANES, 1)[0]
-    timeline.emit(Event(t=state.t, type=EventType.OBJECTIVE, payload=payload))
-    if leader.objectives >= len(_STRUCTURES):  # the Ancient fell
-        state.game_over = True
-        state.winner = leader.name
+        team.objectives += 1
+        state.objectives_locked_until = state.t + _OBJECTIVE_COOLDOWN_SECONDS
+        payload: dict[str, Any] = {
+            "team": team.name,
+            "structure": structure,
+            "destroyed": team.objectives,  # enemy structures down so far
+        }
+        if structure != "ancient":  # towers and barracks fall in a lane
+            payload["lane"] = rng.sample(_LANES, 1)[0]
+        timeline.emit(Event(t=state.t, type=EventType.OBJECTIVE, payload=payload))
+        if team.objectives >= len(_STRUCTURES):  # the Ancient fell
+            state.game_over = True
+            state.winner = team.name
+            break
 
 
 # A demo scenario of standard heroes (keys must exist in the loaded snapshot).
