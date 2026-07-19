@@ -124,3 +124,34 @@ def test_kda_is_counted_and_conserved() -> None:
     last_econ = [e for e in timeline.events if e.type.value == "economy"][-1]
     entry = last_econ.payload["radiant_heroes"][0]
     assert {"kills", "deaths", "assists"} <= set(entry)
+
+
+def test_kda_shapes_cores_frag_supports_assist() -> None:
+    heroes = {
+        f"h{i}": {
+            "id": i,
+            "display_name": f"H{i}",
+            "roles": ["carry"] if i % 5 < 3 else ["support"],
+            "attack_type": "melee",
+            "base_stats": {"str": 20, "agi": 20, "int": 20},
+        }
+        for i in range(10)
+    }
+    scenario = Scenario(
+        patch_id="test",
+        radiant=[f"h{i}" for i in range(5)],
+        dire=[f"h{i}" for i in range(5, 10)],
+    )
+    _, state = simulate(scenario, heroes, seed=11)
+
+    for team in (state.radiant, state.dire):
+        cores = [h for h in team.heroes if h.farm_priority > 0.9]
+        sups = [h for h in team.heroes if h.farm_priority <= 0.9]
+        team_kills = sum(h.kills for h in team.heroes)
+        if team_kills < 10:
+            continue  # a stomped side may not have enough sample to assert shape
+        top_killer = max(team.heroes, key=lambda h: h.kills)
+        assert top_killer in cores  # cores frag
+        mean_sup_assists = sum(h.assists for h in sups) / len(sups)
+        mean_core_assists = sum(h.assists for h in cores) / len(cores)
+        assert mean_sup_assists > mean_core_assists  # supports set up

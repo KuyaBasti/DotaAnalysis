@@ -61,7 +61,7 @@ _ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill
 _ROSHAN_CHANCE = 0.15  # per-tick chance the leader takes an available Roshan
 _ROSHAN_REWARD = 2_500.0  # net-worth value of the Aegis + bounty
 
-_FIGHT_CHANCE = 0.18  # chance a teamfight breaks out in a given tick (uncalibrated)
+_FIGHT_CHANCE = 0.36  # skirmish cadence: ~one fight per 1.4 min, like real mid-game (swings halved to keep the economy calibrated)
 _DRAFT_PRIOR_NETWORTH = 8_000.0  # starting net-worth edge a decisive draft (p=1) is worth
 _STRENGTH_TO_NETWORTH = 16_000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
@@ -109,7 +109,7 @@ class TeamState:
     heroes: list[HeroState] = field(default_factory=list)
     lane_power: float = 0.0
     objectives: int = 0  # enemy structures destroyed; len(_STRUCTURES) = Ancient down
-    kill_rotation: int = 0  # deterministic round-robin for kill credit (rng-free)
+    kill_rotation: int = 0  # running team-kill count (drives rng-free assist cadence)
 
     @property
     def net_worth(self) -> float:
@@ -470,23 +470,35 @@ def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     timeline.emit(Event(t=state.t, type=EventType.FIGHT, payload=payload))
 
 
+_SUPPORT_PRIORITY_CUTOFF = 0.9  # below this farm position a hero plays support
+
+
 def _credit_kda(killers: TeamState, fallen: list[HeroState]) -> None:
     """Count kills/deaths/assists for a fight's casualties.
 
-    Deliberately rng-free (like positions): kill credit rotates round-robin
-    through the killing team, everyone else on it gets the assist — so adding
-    stats cannot change any match outcome.
+    Deliberately rng-free (like positions) so stats can never change a match
+    outcome. Kill credit is self-balancing toward farm priority — over a game
+    kills land roughly in proportion to position, so cores frag and supports
+    set up. Supports assist every kill they didn't land; cores only about
+    half — the K/D/A shapes real scoreboards have.
     """
     for hero in fallen:
         hero.deaths += 1
         if not killers.heroes:
             continue
-        killer = killers.heroes[killers.kill_rotation % len(killers.heroes)]
-        killers.kill_rotation += 1
+        killer = max(
+            killers.heroes,
+            key=lambda h: (h.farm_priority / (1.0 + h.kills), h.key),
+        )
+        killers.kill_rotation += 1  # running team-kill count (assist cadence)
         killer.kills += 1
-        for mate in killers.heroes:
-            if mate is not killer:
-                mate.assists += 1
+        for i, mate in enumerate(killers.heroes):
+            if mate is killer:
+                continue
+            if mate.farm_priority < _SUPPORT_PRIORITY_CUTOFF:
+                mate.assists += 1  # supports are in every fight
+            elif (killers.kill_rotation + i) % 2 == 0:
+                mate.assists += 1  # cores rotate in for about half
 
 
 def _distribute(team: TeamState, amount: float) -> None:
