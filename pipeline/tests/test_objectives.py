@@ -69,3 +69,30 @@ def test_structure_falls_respect_the_cooldown() -> None:
     falls = [e.t for e in timeline.events if e.type.value == "objective"]
     gaps = [b - a for a, b in zip(falls, falls[1:])]
     assert gaps and all(g >= _OBJECTIVE_COOLDOWN_SECONDS for g in gaps)
+
+
+def test_push_pressure_curve() -> None:
+    from dm_pipeline.prototype.sim_loop import (
+        _EARLY_PUSH_END_SECONDS,
+        _OBJECTIVE_LEAD_FULL,
+        _OBJECTIVE_PRESSURE_SLACK,
+        _push_pressure,
+    )
+
+    late = _EARLY_PUSH_END_SECONDS  # past the early-lane window
+    assert _push_pressure(-_OBJECTIVE_PRESSURE_SLACK, late) == 0.0  # far behind: defend
+    assert _push_pressure(_OBJECTIVE_LEAD_FULL, late) == 1.0  # full lead: full push
+    assert 0.0 < _push_pressure(0.0, late) < 0.5  # even game: both sides poke
+    # Early on, lane pressure guarantees the floor even when far behind.
+    assert _push_pressure(-20_000.0, 0) == 0.5
+
+
+def test_losing_team_takes_structures_sometimes() -> None:
+    # Across seeds of an even matchup, losers crack towers too (the audit
+    # found 8/12 losers ended with zero — that shape was fake).
+    total_loser_structures = 0
+    for seed in range(15):
+        _, state = simulate(SCENARIO, HEROES, seed=seed)
+        loser = state.dire if state.winner == "radiant" else state.radiant
+        total_loser_structures += loser.objectives
+    assert total_loser_structures >= 2
