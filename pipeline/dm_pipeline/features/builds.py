@@ -39,6 +39,31 @@ def _item_names(snapshot: dict[str, Any]) -> dict[str, str]:
     return {i["key"]: i["display_name"] for i in snapshot.get("items", [])}
 
 
+def _completion_thresholds(nw_owned: list[tuple[float, int]]) -> list[int]:
+    """Net worth at which P(a real player owns >= k big items) crosses 0.5.
+
+    Duration-independent (observations are sampled through every game), so it's
+    unaffected by how long the sampled games happen to run. This is what the
+    engine's _ITEM_NETWORTH_THRESHOLDS are set from.
+    """
+    if not nw_owned:
+        return []
+    ceiling = 40_000.0
+    out: list[int] = []
+    for k in range(1, _MAX_THRESHOLD_K + 1):
+        lo, hi = 0.0, ceiling
+        for _ in range(40):  # binary search on net worth
+            mid = (lo + hi) / 2
+            near = [owned for nw, owned in nw_owned if abs(nw - mid) < 1500]
+            p = (sum(1 for o in near if o >= k) / len(near)) if len(near) >= 30 else 0.0
+            lo, hi = (mid, hi) if p < 0.5 else (lo, mid)
+        threshold = (lo + hi) / 2
+        if threshold >= ceiling * 0.95:
+            break  # fewer than half of players ever own k items — no real T_k
+        out.append(round(threshold))
+    return out
+
+
 def _first_purchases(
     purchase_log: list[dict[str, Any]], costs: dict[str, int]
 ) -> list[tuple[str, float]]:
@@ -73,7 +98,9 @@ def build_hero_builds(
     hero_games: Counter[int] = Counter()
     global_counts: Counter[str] = Counter()
     global_times: dict[str, list[float]] = defaultdict(list)
-    networth_at_k: dict[int, list[float]] = defaultdict(list)
+    # (net worth, big items owned) sampled every 2 min across all games — the
+    # basis for duration-independent completion thresholds.
+    nw_owned: list[tuple[float, int]] = []
     matches = 0
 
     for path in glob.glob(str(details_dir / "*.json")):
@@ -92,16 +119,16 @@ def build_hero_builds(
             purchases = _first_purchases(log, costs)
             if purchases:
                 hero_games[hero_id] += 1
-            for k, (key, minute) in enumerate(purchases, start=1):
+            for key, minute in purchases:
                 hero_counts[hero_id][key] += 1
                 hero_times[hero_id][key].append(minute)
                 global_counts[key] += 1
                 global_times[key].append(minute)
-                # Net worth when this item completed, from the player's own curve.
-                if gold_t and k <= _MAX_THRESHOLD_K:
-                    idx = int(minute)
-                    if idx < len(gold_t):
-                        networth_at_k[k].append(float(gold_t[idx]))
+            if gold_t:
+                times = [m for _, m in purchases]
+                for minute in range(6, len(gold_t), 2):
+                    owned = sum(1 for t in times if t <= minute)
+                    nw_owned.append((float(gold_t[minute]), min(owned, _MAX_THRESHOLD_K)))
 
     def _entry(key: str, times: list[float]) -> dict[str, Any]:
         return {
@@ -116,17 +143,13 @@ def build_hero_builds(
         top.sort(key=lambda k: statistics.median(times[k]))  # completion order
         return [_entry(k, times[k]) for k in top]
 
-    thresholds = [
-        round(statistics.median(networth_at_k[k]))
-        for k in range(1, _MAX_THRESHOLD_K + 1)
-        if networth_at_k.get(k)
-    ]
+    thresholds = _completion_thresholds(nw_owned)
     step = (
         round(statistics.mean(
             [thresholds[i + 1] - thresholds[i] for i in range(len(thresholds) - 1)]
         ))
         if len(thresholds) > 1
-        else 2600
+        else 3000
     )
 
     return {
