@@ -110,3 +110,35 @@ def test_extract_respects_min_rank(tmp_path) -> None:
 
     match_rows, _ = extract_rows(md, min_rank=70)
     assert [m["match_id"] for m in match_rows] == [2]
+
+
+def test_hero_builds_extraction(tmp_path) -> None:
+    import json as _json
+    from dm_pipeline.features.builds import build_hero_builds
+
+    details = tmp_path / "details"
+    details.mkdir()
+    snapshot = {
+        "items": [
+            {"key": "battle_fury", "display_name": "Battle Fury", "cost": 3900},
+            {"key": "manta", "display_name": "Manta Style", "cost": 4650},
+            {"key": "tango", "display_name": "Tango", "cost": 90},
+        ],
+        "heroes": [],
+    }
+    # 5 games where hero 1 always builds Battle Fury then Manta (Tango ignored).
+    for i in range(5):
+        (details / f"{i}.json").write_text(_json.dumps({"players": [{
+            "hero_id": 1,
+            "gold_t": [0] * 60,
+            "purchase_log": [
+                {"key": "tango", "time": 5},
+                {"key": "battle_fury", "time": 800},
+                {"key": "manta", "time": 1400},
+            ],
+        }]}))
+
+    art = build_hero_builds(details, snapshot=snapshot)
+    build = art["heroes"]["1"]
+    assert [b["key"] for b in build] == ["battle_fury", "manta"]  # order, no Tango
+    assert art["source_matches"] == 5

@@ -215,6 +215,15 @@ describe("describeEvent", () => {
     expect(beat.text).toBe("Dire win a teamfight — Axe falls 💰 comeback bounty!");
   });
 
+  it("narrates an item completion", () => {
+    const beat = describeEvent({
+      t: 780,
+      type: "item",
+      payload: { team: "radiant", hero: "Phantom Assassin", item: "Battle Fury", nth: 1 },
+    });
+    expect(beat).toEqual({ text: "Phantom Assassin completes Battle Fury", side: "radiant" });
+  });
+
   it("calls out the Ancient and Roshan", () => {
     expect(describeEvent(TIMELINE[6]).text).toBe("Dire destroy the Ancient");
     expect(describeEvent(TIMELINE[5]).text).toBe("Dire slay Roshan — Aegis claimed");

@@ -39,10 +39,11 @@ flowchart TD
     subgraph ML["Features &amp; ML — scikit-learn + DuckDB"]
         features["dm-features<br/>matches → parquet, hero win rates + ratings"]:::py
         train["dm-train-winprob<br/>logistic draft→win"]:::py
+        builds["dm-builds<br/>parsed purchases → per-hero item builds"]:::py
     end
 
     subgraph ENGINE["Engine — Python DES (prototype)"]
-        engine["Simulation engine<br/>draft + seed → deterministic event timeline<br/>economy · laning · fights (named kills, K/D/A) · Roshan<br/>XP/levels · objectives (2-sided, laned) · hero positions"]:::engine
+        engine["Simulation engine<br/>draft + seed → deterministic event timeline<br/>economy · laning · fights (named kills, K/D/A) · Roshan<br/>XP/levels · item timings · objectives (2-sided, laned) · hero positions"]:::engine
     end
 
     subgraph CAL["Calibration — offline dev loop"]
@@ -66,7 +67,6 @@ flowchart TD
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Orchestrator<br/>job queue + Monte Carlo (N sims / draft)"]:::planned
         bracket["Per-rank models<br/>pick your bracket to learn at"]:::planned
-        items["Item-timing beats<br/>from parsed purchase logs"]:::planned
         coach["Coach Lab<br/>education / premium tier"]:::planned
     end
 
@@ -87,6 +87,8 @@ flowchart TD
     feats -.->|hero ratings| engine
     engine -->|sim_result| sims
     matches --> calibrate
+    details -->|purchase logs| builds
+    builds -.->|real builds| engine
     details -->|real gold curves| calibrate
     engine --> calibrate
     calibrate -.->|tunes constants| engine
@@ -106,7 +108,6 @@ flowchart TD
     engine -.->|port| rust
     makeSim -.->|batch| orch
     feats -.->|by rank tier| bracket
-    details -.->|purchase logs| items
 
     classDef py fill:#E1F5EE,stroke:#0F6E56,color:#085041;
     classDef engine fill:#EEEDFE,stroke:#534AB7,color:#3C3489,stroke-width:2px;
@@ -186,7 +187,7 @@ Longer rationale for the load-bearing calls lives in
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
 | Orchestrator / Monte Carlo | Backend | — | ⬜ planned | — |
 | Per-rank models | ML | Python | ⬜ planned | — |
-| Item-timing beats | Engine + Web | — | ⬜ planned | *(data already banked in `data/details/`)* |
+| Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab | Web | — | ⬜ planned | `web/src/pages/CoachLab/` *(placeholder)* |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
@@ -219,7 +220,7 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 0 | System design | ✅ done |
 | 1 | Feasibility spikes | ✅ draft→win signal proven |
 | 2 | Data foundation | ✅ snapshots + auto-harvesting 100k+ ranked corpus + parsed details |
-| 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, 2-sided objectives, positions); ⬜ Rust port |
+| 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
 | 4 | Orchestrator / API | 🟡 read-only API + draft eval + simulate-a-draft; ⬜ job queue / Monte Carlo |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
 | 6 | ML &amp; calibration | 🟡 feature store, win-prob model, four-metric calibration harness; ⬜ per-rank / fight-outcome models |

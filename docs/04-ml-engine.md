@@ -103,14 +103,16 @@ up, not down.
 
 ## Roadmap — richer models
 
-These need richer-than-draft signal; the data for the first two is **already
-banked** in `data/details/` (parsed gold curves + purchase logs):
+These need richer-than-draft signal; the data is **already banked** in
+`data/details/` (parsed gold curves + purchase logs — the latter now also feed
+`dm-builds`, which extracts real per-hero item builds and net-worth completion
+thresholds that drive the viewer's item-timing beats):
 
 - **Fight-outcome model** — replace the analytic fight resolver with one learned
   from parsed teamfight data (same interface: game-state in, win-prob + swing out).
 - **Per-rank models** — train the win-prob model and hero ratings by rank tier so
   players pick their bracket to learn at (the reason all-rank data is retained).
-- **Item-timing / build model** — from `purchase_log`, to drive item-timing beats
-  in the viewer and build advice in Coach Lab.
+- **Build advice** — recommend items for a draft (Coach Lab), extending the
+  item builds `dm-builds` already extracts (see below).
 - **Gradient boosting** — once the corpus supports richer feature sets (rank, mode,
   side, timing) beyond the linear draft model.
