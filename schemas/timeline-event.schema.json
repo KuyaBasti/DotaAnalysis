@@ -23,6 +23,7 @@
         "fight",
         "roshan",
         "level_up",
+        "item",
         "objective",
         "positions",
         "game_over"

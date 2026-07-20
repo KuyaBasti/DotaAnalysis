@@ -59,11 +59,12 @@ fields per type:
 |---|---|
 | `game_start` | `seed`, `patch_id`, `radiant[]`, `dire[]` |
 | `draft_prior` | `radiant_win_prob`, `radiant_lead` *(only with `--model`)* |
-| `economy` | `radiant_gain`, `dire_gain`, `radiant_net_worth`, `dire_net_worth`, `radiant_heroes[]`, `dire_heroes[]` — each hero: `{hero, net_worth, level, kills, deaths, assists}` |
+| `economy` | `radiant_gain`, `dire_gain`, `radiant_net_worth`, `dire_net_worth`, `radiant_heroes[]`, `dire_heroes[]` — each hero: `{hero, net_worth, level, kills, deaths, assists, items[]}` |
 | `laning` | `radiant_bonus`, `dire_bonus` |
 | `fight` | `winner`, `swing`, `radiant_win_prob`, `radiant_deaths[]`, `dire_deaths[]`, `x`, `y`; optional `comeback`, `first_blood` |
 | `roshan` | `team`, `reward` |
 | `level_up` | `team`, `hero`, `level` *(milestones 6/12/18/25)* |
+| `item` | `team`, `hero`, `item`, `cost`, `nth` *(hero completes their nth big item; real build, calibrated timing)* |
 | `objective` | `team`, `structure`, `destroyed`, `lane` *(no `lane` for the Ancient)* |
 | `positions` | `radiant_heroes[]`, `dire_heroes[]` — each: `{hero, x, y}` in a 0–100 map box |
 | `game_over` | `winner`, `radiant_net_worth`, `dire_net_worth` |

@@ -81,8 +81,9 @@ carry the ground truth the economy is calibrated against:
 
 - `players[].gold_t` — each player's net worth **per minute** (the real gold
   curves; see [04-ml-engine.md](04-ml-engine.md) and the economy calibration).
-- `players[].purchase_log` — real item builds with timings (the data the planned
-  **item-timing beats** feature will use — already banked, not yet consumed).
+- `players[].purchase_log` — real item builds with timings, consumed by
+  `dm-builds` to drive the viewer's **item-timing beats** (which items a hero
+  buys, and the net worth real players finish them at).
 
 Robustness (an API this size hiccups constantly):
 

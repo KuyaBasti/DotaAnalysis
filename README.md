@@ -63,6 +63,7 @@ side, hit **▶ Simulate this draft**, and watch the game in the **Match Viewer*
 | `dm-harvest --max N` | bank recent ranked matches to `data/matches/` (resumable) |
 | `python -m dm_pipeline.harvest.backfill` | fetch parsed match details (gold curves, purchase logs) |
 | `dm-features` | banked matches → Parquet feature tables + hero win rates |
+| `dm-builds` | parsed purchase logs → per-hero item builds + completion thresholds |
 | `dm-train-winprob` | train the draft→win logistic model |
 | `dm-calibrate --sample N` | score the sim against the real corpus (win / realism / economy) |
 
