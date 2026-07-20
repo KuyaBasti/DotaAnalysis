@@ -132,6 +132,7 @@ export interface HeroScore {
   kills: number;
   deaths: number;
   assists: number;
+  items: string[];
 }
 
 function heroList(v: unknown): HeroScore[] {
@@ -145,6 +146,7 @@ function heroList(v: unknown): HeroScore[] {
       kills: Number(r.kills ?? 0),
       deaths: Number(r.deaths ?? 0),
       assists: Number(r.assists ?? 0),
+      items: Array.isArray(r.items) ? (r.items as string[]) : [],
     };
   });
 }
@@ -253,6 +255,13 @@ export function describeEvent(e: TimelineEvent): Beat {
       const tail = level === 6 ? " — ultimate online!" : "";
       return {
         text: `${String(p.hero)} reaches level ${level}${tail}`,
+        side: team as Side,
+      };
+    }
+    case "item": {
+      const team = String(p.team);
+      return {
+        text: `${String(p.hero)} completes ${String(p.item)}`,
         side: team as Side,
       };
     }
