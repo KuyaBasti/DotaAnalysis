@@ -68,7 +68,12 @@ K/D/A; losing teams take towers (two-sided pressure); fight XP for real late-gam
 levels.
 
 **Documentation refresh.** README, SYSTEM-DESIGN, the `docs/` suite, `CLAUDE.md`,
-filled schemas — brought up to the reality above (this stage).
+filled schemas — brought up to reality.
+
+**Item timings.** `dm-builds` extracts real per-hero item builds and
+net-worth completion thresholds from parsed purchase logs; the engine narrates
+them (`item` events) as heroes finish their real builds at calibrated net worth,
+shown in the match feed and on the scoreboard. Rng-free (items are narrative).
 
 ## Next (from the latest audit)
 
@@ -78,8 +83,6 @@ Minor refinements, no longer structural:
    or add a late-game surge so someone takes the Ancient.
 2. **First bloods skew very early** (many in minute 1) — ramp fight chance in from
    a lower early value.
-3. **Item-timing beats** — the last missing feed vocabulary; parsed
-   `purchase_log` data is already banked in `data/details/`.
 
 Larger roadmap (Stages 4/6/7): Monte-Carlo orchestrator, per-rank models, Rust
 engine port, Coach Lab. See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md).
