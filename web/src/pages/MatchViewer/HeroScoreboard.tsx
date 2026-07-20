@@ -91,6 +91,15 @@ function Column({
               }}
             />
           </div>
+          {h.items.length > 0 && (
+            <div
+              style={{ fontSize: "0.65rem", color: "#999", marginTop: 1 }}
+              title={h.items.join(", ")}
+            >
+              {h.items[h.items.length - 1]}
+              {h.items.length > 1 ? ` +${h.items.length - 1}` : ""}
+            </div>
+          )}
         </div>
       ))}
     </div>
