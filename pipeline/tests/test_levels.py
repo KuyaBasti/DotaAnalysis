@@ -171,3 +171,53 @@ def test_kills_grant_experience() -> None:
     for hero in killers:
         passive = ticks * (_XP_BASE_PER_TICK + _XP_PER_PRIORITY * hero.farm_priority)
         assert hero.xp > passive + 100  # fight XP on top of creep XP
+
+
+def test_items_complete_at_thresholds_and_are_rng_free() -> None:
+    from dm_pipeline.prototype.sim_loop import _ITEM_NETWORTH_THRESHOLDS
+
+    builds = {
+        "generic": [
+            {"key": "a", "display_name": "Item A", "cost": 4000},
+            {"key": "b", "display_name": "Item B", "cost": 4000},
+            {"key": "c", "display_name": "Item C", "cost": 4000},
+        ],
+        "heroes": {},
+    }
+    # Same seed, builds on vs off: the item tick consumes no RNG, so the game
+    # itself is untouched — identical winner and identical net-worth trajectory.
+    # (The economy snapshot legitimately gains an `items` list; that's the only
+    # difference, so we compare the net-worth series, not the raw payloads.)
+    t_off, s_off = simulate(SCENARIO, HEROES, seed=11)
+    t_on, s_on = simulate(SCENARIO, HEROES, seed=11, builds=builds)
+    assert s_off.winner == s_on.winner
+    networth = lambda tl: [
+        (e.t, e.payload["radiant_net_worth"], e.payload["dire_net_worth"])
+        for e in tl.events if e.type.value == "economy"
+    ]
+    assert networth(t_off) == networth(t_on)  # the item tick perturbed nothing
+
+    items = [e for e in t_on.events if e.type.value == "item"]
+    assert items, "heroes should complete items"
+    # Each item fires only once net worth has crossed its threshold.
+    for e in items:
+        entry = next(
+            h for side in ("radiant_heroes", "dire_heroes")
+            for h in _econ_at(t_on, e.t)[side] if h["hero"] == e.payload["hero"]
+        )
+        assert entry["net_worth"] >= _ITEM_NETWORTH_THRESHOLDS[e.payload["nth"] - 1]
+    # The final economy snapshot carries every completed item, in order.
+    final = _econ_at(t_on, s_on.t)
+    for hero in s_on.radiant.heroes + s_on.dire.heroes:
+        entry = next(
+            h for side in ("radiant_heroes", "dire_heroes")
+            for h in final[side] if h["hero"] == hero.display_name
+        )
+        assert entry["items"] == hero.items
+
+
+def _econ_at(timeline, t):
+    return next(
+        e.payload for e in reversed(timeline.events)
+        if e.type.value == "economy" and e.t <= t
+    )
