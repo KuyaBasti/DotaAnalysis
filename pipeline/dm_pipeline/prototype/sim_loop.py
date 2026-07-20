@@ -86,8 +86,10 @@ _MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are em
 # which P(a real player owns >= k big items | that net worth) crosses 0.5 —
 # a DURATION-INDEPENDENT target (sampled every 2 min across all games), so it's
 # unaffected by the short-game skew in the current details sample. Timing then
-# falls out of the already-calibrated economy. Items are NARRATIVE
-# ONLY — they feed no fight math (net worth already encodes that power), so
+# falls out of the already-calibrated economy; these constants match what
+# `dm-builds` reports (networth_thresholds). The 6th+ are extrapolated by the
+# step, since fewer than half of real players ever finish that many. Items are
+# NARRATIVE ONLY — they feed no fight math (net worth already encodes that power), so
 # they stay rng-free and cannot change an outcome.
 _ITEM_NETWORTH_THRESHOLDS = (5_420, 8_857, 12_027, 14_655, 17_478, 20_500)
 _ITEM_THRESHOLD_STEP = 3_000  # beyond the measured range, each item costs about this
