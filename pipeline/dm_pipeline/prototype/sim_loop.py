@@ -14,6 +14,7 @@ a byte-identical timeline (see tests/test_sim_determinism.py).
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
 from typing import Any
@@ -80,6 +81,17 @@ _FIGHT_XP_ASSIST_SHARE = 0.16  # assisters earn a sliver; kills are the level en
 _MAX_LEVEL = 30
 _MILESTONE_LEVELS = (6, 12, 18, 25)  # ult + big talent tiers; only these are emitted
 
+# Items: heroes complete their k-th big item when net worth crosses these
+# thresholds, calibrated against parsed Divine games. T_k is the net worth at
+# which P(a real player owns >= k big items | that net worth) crosses 0.5 —
+# a DURATION-INDEPENDENT target (sampled every 2 min across all games), so it's
+# unaffected by the short-game skew in the current details sample. Timing then
+# falls out of the already-calibrated economy. Items are NARRATIVE
+# ONLY — they feed no fight math (net worth already encodes that power), so
+# they stay rng-free and cannot change an outcome.
+_ITEM_NETWORTH_THRESHOLDS = (5_420, 8_857, 12_027, 14_655, 17_478, 20_500)
+_ITEM_THRESHOLD_STEP = 3_000  # beyond the measured range, each item costs about this
+
 # Power spikes: an ultimate (and each upgrade tier) online is worth real fight
 # strength, expressed in gold-equivalent like the draft edge. A full 5-ult
 # advantage (~min 4-9 vs a slower-leveling draft) is a ~61% fight favorite.
@@ -107,6 +119,8 @@ class HeroState:
     kills: int = 0
     deaths: int = 0
     assists: int = 0
+    build: list[dict[str, Any]] = field(default_factory=list)  # real item order
+    items: list[str] = field(default_factory=list)  # completed, in order
 
 
 @dataclass
@@ -148,6 +162,7 @@ def simulate(
     seed: int,
     draft_prior: float | None = None,
     ratings: dict[int, float] | None = None,
+    builds: dict[str, Any] | None = None,
 ) -> tuple[Timeline, GameState]:
     """Run one full match for a scenario. Returns timeline and final state.
 
@@ -156,8 +171,8 @@ def simulate(
     """
     rng = SeededRng(seed)
     state = GameState(
-        radiant=_build_team("radiant", scenario.radiant, heroes, ratings),
-        dire=_build_team("dire", scenario.dire, heroes, ratings),
+        radiant=_build_team("radiant", scenario.radiant, heroes, ratings, builds),
+        dire=_build_team("dire", scenario.dire, heroes, ratings, builds),
     )
     timeline = Timeline()
     timeline.emit(
@@ -180,6 +195,7 @@ def simulate(
         state.t += TICK_SECONDS
         _economy_tick(state, rng, timeline)
         _level_tick(state, timeline)
+        _item_tick(state, timeline)
         _laning_tick(state, timeline)
         _maybe_fight(state, rng, timeline)
         _roshan_tick(state, rng, timeline)
@@ -209,16 +225,28 @@ def simulate(
 
 
 def run_scenario(
-    scenario: Scenario, *, seed: int, ratings: dict[int, float] | None = None
+    scenario: Scenario,
+    *,
+    seed: int,
+    ratings: dict[int, float] | None = None,
+    builds: dict[str, Any] | None = None,
 ) -> tuple[Timeline, GameState]:
     """Convenience: load the scenario's patch heroes from disk, then simulate."""
     return simulate(
-        scenario, load_heroes(scenario.patch_id), seed=seed, ratings=ratings
+        scenario,
+        load_heroes(scenario.patch_id),
+        seed=seed,
+        ratings=ratings,
+        builds=builds,
     )
 
 
 def run_with_model(
-    scenario: Scenario, *, seed: int, ratings: dict[int, float] | None = None
+    scenario: Scenario,
+    *,
+    seed: int,
+    ratings: dict[int, float] | None = None,
+    builds: dict[str, Any] | None = None,
 ) -> tuple[Timeline, GameState]:
     """Like run_scenario, but seed a draft prior from the trained win-prob model.
 
@@ -235,7 +263,23 @@ def run_with_model(
     radiant_ids = [heroes[key]["id"] for key in scenario.radiant]
     dire_ids = [heroes[key]["id"] for key in scenario.dire]
     prior = predict_draft(bundle, radiant_ids, dire_ids)
-    return simulate(scenario, heroes, seed=seed, draft_prior=prior, ratings=ratings)
+    return simulate(
+        scenario, heroes, seed=seed, draft_prior=prior, ratings=ratings, builds=builds
+    )
+
+
+def load_default_builds() -> dict[str, Any] | None:
+    """Real per-hero item builds + completion thresholds, or None if not built.
+
+    Produced by ``dm-builds`` from parsed match purchase logs. Absent on a fresh
+    clone (or before any details are backfilled) — the sim just narrates no item
+    beats in that case.
+    """
+    try:
+        path = config.FEATURES_DIR / "hero_builds.json"
+        return json.loads(path.read_text())
+    except Exception:
+        return None
 
 
 def load_default_ratings() -> dict[int, float] | None:
@@ -291,8 +335,11 @@ def _build_team(
     keys: list[str],
     heroes: dict[str, dict[str, Any]],
     ratings: dict[int, float] | None = None,
+    builds: dict[str, Any] | None = None,
 ) -> TeamState:
     ratings = ratings or {}
+    by_hero = (builds or {}).get("heroes", {})
+    generic = (builds or {}).get("generic", [])
     states: list[HeroState] = []
     hero_dicts: list[dict[str, Any]] = []
     for key in keys:
@@ -307,6 +354,7 @@ def _build_team(
                 farm_priority=farm_priority(hero.get("roles", [])),
                 strength=ratings.get(hero.get("id"), 1.0),
                 net_worth=_STARTING_GOLD,
+                build=by_hero.get(str(hero.get("id")), generic),
             )
         )
     # Rank the lineup into positions 1-5: role priority breaks into a smooth
@@ -348,6 +396,7 @@ def _hero_networths(team: TeamState) -> list[dict[str, Any]]:
             "kills": h.kills,
             "deaths": h.deaths,
             "assists": h.assists,
+            "items": list(h.items),
         }
         for h in team.heroes
     ]
@@ -361,6 +410,44 @@ def _team_economy(team: TeamState, rng: SeededRng, minutes: float) -> float:
         hero.xp += _XP_BASE_PER_TICK + _XP_PER_PRIORITY * hero.farm_priority
         total += gain
     return total
+
+
+def _item_networth_threshold(k: int) -> float:
+    """Net worth at which a hero completes their k-th (1-based) big item."""
+    if k <= len(_ITEM_NETWORTH_THRESHOLDS):
+        return float(_ITEM_NETWORTH_THRESHOLDS[k - 1])
+    extra = k - len(_ITEM_NETWORTH_THRESHOLDS)
+    return float(_ITEM_NETWORTH_THRESHOLDS[-1] + _ITEM_THRESHOLD_STEP * extra)
+
+
+def _item_tick(state: GameState, timeline: Timeline) -> None:
+    """Complete big items as net worth crosses the measured thresholds.
+
+    Deliberately rng-free (like positions and K/D/A): items are narrative — the
+    power they represent is already in net worth, so buying one cannot change a
+    fight. Which items a hero buys, and in what order, comes from real builds
+    (dm-builds); when they land comes from the calibrated economy.
+    """
+    for team in (state.radiant, state.dire):
+        for hero in team.heroes:
+            while len(hero.items) < len(hero.build) and hero.net_worth >= (
+                _item_networth_threshold(len(hero.items) + 1)
+            ):
+                item = hero.build[len(hero.items)]
+                hero.items.append(item["display_name"])
+                timeline.emit(
+                    Event(
+                        t=state.t,
+                        type=EventType.ITEM,
+                        payload={
+                            "team": team.name,
+                            "hero": hero.display_name,
+                            "item": item["display_name"],
+                            "cost": item.get("cost", 0),
+                            "nth": len(hero.items),
+                        },
+                    )
+                )
 
 
 def _level_tick(state: GameState, timeline: Timeline) -> None:
@@ -785,10 +872,15 @@ def main(argv: list[str] | None = None) -> None:
         scenario = _DEMO_SCENARIO
 
     ratings = None if args.no_ratings else load_default_ratings()
+    builds = load_default_builds()
     if args.model:
-        timeline, state = run_with_model(scenario, seed=args.seed, ratings=ratings)
+        timeline, state = run_with_model(
+            scenario, seed=args.seed, ratings=ratings, builds=builds
+        )
     else:
-        timeline, state = run_scenario(scenario, seed=args.seed, ratings=ratings)
+        timeline, state = run_scenario(
+            scenario, seed=args.seed, ratings=ratings, builds=builds
+        )
     if args.timeline:
         print(json.dumps(timeline.to_list(), indent=2))
     if args.export:
