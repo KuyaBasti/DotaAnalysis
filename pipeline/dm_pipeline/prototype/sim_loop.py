@@ -71,6 +71,13 @@ _ROSHAN_CHANCE = 0.15  # per-tick chance the leader takes an available Roshan
 _ROSHAN_REWARD = 2_500.0  # net-worth value of the Aegis + bounty
 
 _FIGHT_CHANCE = 0.36  # skirmish cadence: ~one fight per 1.4 min, like real mid-game (swings halved to keep the economy calibrated)
+# First blood: real Divine games draw first blood very early (median ~0.9 min,
+# 60% inside the first minute) from rune/lane-contact skirmishes. Until first
+# blood is drawn, the opening window uses an elevated fight chance so the sim's
+# distribution matches — swings are tiny at starting net worth, so the economy
+# is unaffected.
+_FIRST_BLOOD_WINDOW_SECONDS = 90
+_FIRST_BLOOD_FIGHT_CHANCE = 0.62
 _DRAFT_PRIOR_NETWORTH = 8_000.0  # starting net-worth edge a decisive draft (p=1) is worth
 _STRENGTH_TO_NETWORTH = 16_000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
 
@@ -533,7 +540,10 @@ def _spike_edge(state: GameState) -> float:
 
 
 def _maybe_fight(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
-    if not rng.chance(_FIGHT_CHANCE):
+    chance = _FIGHT_CHANCE
+    if not state.first_blood_done and state.t <= _FIRST_BLOOD_WINDOW_SECONDS:
+        chance = _FIRST_BLOOD_FIGHT_CHANCE  # the opening skirmish for first blood
+    if not rng.chance(chance):
         return
     strength_edge = _STRENGTH_TO_NETWORTH * (
         state.radiant.strength_edge - state.dire.strength_edge
