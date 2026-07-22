@@ -221,3 +221,29 @@ def _econ_at(timeline, t):
         e.payload for e in reversed(timeline.events)
         if e.type.value == "economy" and e.t <= t
     )
+
+
+def test_first_blood_lands_in_the_opening_window() -> None:
+    from dm_pipeline.prototype.sim_loop import (
+        _FIGHT_CHANCE,
+        _FIRST_BLOOD_FIGHT_CHANCE,
+        _FIRST_BLOOD_WINDOW_SECONDS,
+    )
+
+    assert _FIRST_BLOOD_FIGHT_CHANCE > _FIGHT_CHANCE  # opening is elevated
+
+    # Across seeds, most first bloods fall inside the opening window (real
+    # Divine: ~86% within 2 min). Two-hero teams still skirmish early.
+    early = total = 0
+    for seed in range(30):
+        timeline, _ = simulate(SCENARIO, HEROES, seed=seed)
+        fb = next(
+            (e for e in timeline.events
+             if e.type.value == "fight" and e.payload.get("first_blood")),
+            None,
+        )
+        if fb is None:
+            continue
+        total += 1
+        early += fb.t <= _FIRST_BLOOD_WINDOW_SECONDS
+    assert total and early / total >= 0.7  # front-loaded like real games
