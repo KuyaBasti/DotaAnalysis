@@ -47,6 +47,14 @@ _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
 # difficulty below this puts the fastest possible finish near real Dota's
 # floor (~3% of ranked games end under 18 minutes, none in 16).
 _OBJECTIVE_COOLDOWN_SECONDS = 150
+# Late-game surge: a stalled high-ground siege doesn't last forever — mega
+# creeps, buyback disadvantage, and item exhaustion eventually break it. Past
+# _LATE_PUSH_RAMP_START the leader's push chance ramps up, so the extreme
+# duration tail concludes with an Ancient instead of stalling to the time cap.
+# It only touches games past ~42 min (real p75 ~41m), so the bulk distribution
+# is unaffected.
+_LATE_PUSH_RAMP_START = 42 * 60
+_LATE_PUSH_MAX_MULTIPLIER = 4.0  # reached at the time cap
 # Deeper structures are harder to take (glyph, high ground, fountain range).
 _STRUCTURE_TOUGHNESS = {
     "tier-1 tower": 1.0,
@@ -204,12 +212,27 @@ def simulate(
         _objectives_tick(state, rng, timeline)
         _positions_tick(state, timeline)
 
-    if state.winner is None:  # time cap, no Ancient fell — decide on objectives, then net worth
+    if state.winner is None:
+        # Time cap with no Ancient down (rare — the late-game ramp usually
+        # closes it first). Whoever's ahead finally storms the base: the game
+        # ends on a throne, never an abstract decision.
         radiant, dire = state.radiant, state.dire
         if radiant.objectives != dire.objectives:
-            state.winner = "radiant" if radiant.objectives > dire.objectives else "dire"
+            leader = radiant if radiant.objectives > dire.objectives else dire
         else:
-            state.winner = "radiant" if radiant.net_worth >= dire.net_worth else "dire"
+            leader = radiant if radiant.net_worth >= dire.net_worth else dire
+        while leader.objectives < len(_STRUCTURES):
+            structure = _STRUCTURES[leader.objectives]
+            leader.objectives += 1
+            payload: dict[str, Any] = {
+                "team": leader.name,
+                "structure": structure,
+                "destroyed": leader.objectives,
+            }
+            if structure != "ancient":
+                payload["lane"] = _LANES[leader.objectives % len(_LANES)]
+            timeline.emit(Event(t=state.t, type=EventType.OBJECTIVE, payload=payload))
+        state.winner = leader.name
         state.game_over = True
 
     timeline.emit(
@@ -772,6 +795,15 @@ def _push_pressure(own_lead: float, t: int) -> float:
     return pressure
 
 
+def _late_push_multiplier(t: int) -> float:
+    """1.0 until the ramp starts, then climbs linearly to the cap multiplier."""
+    if t <= _LATE_PUSH_RAMP_START:
+        return 1.0
+    span = MAX_TIME - _LATE_PUSH_RAMP_START
+    frac = min(1.0, (t - _LATE_PUSH_RAMP_START) / span)
+    return 1.0 + (_LATE_PUSH_MAX_MULTIPLIER - 1.0) * frac
+
+
 def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     """Both teams push and take enemy structures over time.
 
@@ -793,6 +825,7 @@ def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> No
             _OBJECTIVE_BASE_CHANCE
             * _STRUCTURE_TOUGHNESS[structure]
             * _push_pressure(own_lead, state.t)
+            * _late_push_multiplier(state.t)
         )
         if not rng.chance(chance):
             continue
