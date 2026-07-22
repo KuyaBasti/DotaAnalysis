@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dm_pipeline.prototype.scenario import Scenario
-from dm_pipeline.prototype.sim_loop import simulate
+from dm_pipeline.prototype.sim_loop import _STRUCTURES, simulate
 
 HEROES = {
     f"h{i}": {
@@ -96,3 +96,26 @@ def test_losing_team_takes_structures_sometimes() -> None:
         loser = state.dire if state.winner == "radiant" else state.radiant
         total_loser_structures += loser.objectives
     assert total_loser_structures >= 2
+
+
+def test_every_game_ends_on_a_throne() -> None:
+    # No game ends by abstract decision: the winner always razed the Ancient.
+    for seed in range(25):
+        _, state = simulate(SCENARIO, HEROES, seed=seed)
+        winner = state.radiant if state.winner == "radiant" else state.dire
+        assert winner.objectives == len(_STRUCTURES)  # Ancient fell
+
+
+def test_late_push_ramp_is_flat_early_then_climbs() -> None:
+    from dm_pipeline.prototype.sim_loop import (
+        _LATE_PUSH_MAX_MULTIPLIER,
+        _LATE_PUSH_RAMP_START,
+        MAX_TIME,
+        _late_push_multiplier,
+    )
+
+    assert _late_push_multiplier(0) == 1.0
+    assert _late_push_multiplier(_LATE_PUSH_RAMP_START) == 1.0
+    assert _late_push_multiplier(MAX_TIME) == _LATE_PUSH_MAX_MULTIPLIER
+    mid = (_LATE_PUSH_RAMP_START + MAX_TIME) // 2
+    assert 1.0 < _late_push_multiplier(mid) < _LATE_PUSH_MAX_MULTIPLIER
