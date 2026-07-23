@@ -64,15 +64,16 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
 
 - Discrete-event loop (30s ticks), single seeded RNG.
 - Per-hero economy (by farm position, time-ramped), laning, analytic fight
-  resolver, Roshan, XP/levels, two-sided objectives (towers → Ancient), hero
-  positions, K/D/A.
+  resolver, Roshan, XP/levels, item timings (real builds at calibrated net
+  worth), two-sided objectives (towers → Ancient), hero positions, K/D/A.
 
 **Exit criteria:**
 
 - **Determinism** — same draft + same seed ⇒ a byte-identical timeline
   (golden-replay test). ✅
-- **A real game** — every match ends with a winner (Ancient falls, or a decision
-  at the time cap); no impossible states. ✅
+- **A real game** — every match ends with the Ancient falling (a late-game push
+  ramp guarantees it, even at the time cap — never an abstract decision); no
+  impossible states. ✅
 - **Presentational purity** — positions and K/D/A consume no RNG, so adding them
   cannot change any outcome (asserted in tests). ✅
 - **Calibrated** — against the real corpus, sim game-duration is within ±3 min of
