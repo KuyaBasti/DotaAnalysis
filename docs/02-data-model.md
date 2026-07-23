@@ -92,7 +92,8 @@ Not serialized, but the shape the timeline is derived from:
 
 - **`HeroState`** — `key`, `display_name`, `farm_priority` (position 1–5 ladder),
   `strength` (data-derived rating, ~1.0), `net_worth`, `xp`, `level`, `kills`,
-  `deaths`, `assists`.
+  `deaths`, `assists`, `build` (the hero's real item order, from `dm-builds`),
+  `items` (completed so far).
 - **`TeamState`** — `name`, `heroes[]`, `lane_power`, `objectives`, `kill_rotation`;
   properties `net_worth`, `strength_edge`.
 - **`GameState`** — `radiant`, `dire`, `t`, `game_over`, `winner`,
@@ -113,6 +114,10 @@ Not serialized, but the shape the timeline is derived from:
 These feed hero win rates, hero strength ratings, and the win-prob model's
 training matrix. See [04-ml-engine.md](04-ml-engine.md).
 
+`dm-builds` writes one more artifact here — **`hero_builds.json`** (per-hero real
+item builds + net-worth completion thresholds, from parsed `purchase_log`s) — the
+engine loads it to narrate item timings.
+
 ---
 
 ## On-disk layout (`data/`, git-ignored)
@@ -123,6 +128,7 @@ training matrix. See [04-ml-engine.md](04-ml-engine.md).
 | `data/matches/` | `<match_id>.json` (raw publicMatches records) | `dm-harvest` |
 | `data/details/` | `<match_id>.json` (parsed detail: `gold_t`, `purchase_log`) + unparsed ledger | `dm-backfill` |
 | `data/features/` | `matches.parquet`, `match_heroes.parquet` | `dm-features` |
+| `data/features/` | `hero_builds.json` (real item builds + thresholds) | `dm-builds` |
 | `data/models/` | `win_probability.joblib`, `.coef.json`, `metrics.json` | `dm-train-winprob` |
 | `data/sims/` | `sim.<id>.json` (SimResult) | sim CLI `--export`, `POST /sims` |
 | `data/calibration/` | `report.<patch>.json` | `dm-calibrate` |

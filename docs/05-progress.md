@@ -6,8 +6,8 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **46 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch**.
+- **50 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
@@ -75,14 +75,24 @@ net-worth completion thresholds from parsed purchase logs; the engine narrates
 them (`item` events) as heroes finish their real builds at calibrated net worth,
 shown in the match feed and on the scoreboard. Rng-free (items are narrative).
 
-## Next (from the latest audit)
+**Audit close-out.** The last refinements from the 12-random-sim audits:
+**always a throne** — a late-game push ramp (plus a cap safety net) so every
+game ends with the Ancient falling, never an abstract time-cap decision;
+**first-blood timing** — the data overturned the hunch (real Divine first bloods
+are *very* early: median ~0.9 min, 60% inside the first minute), so the sim was
+front-loaded to match. No known realism defects remain.
 
-Minor refinements, no longer structural:
+## Next — the additive roadmap
 
-1. **60-minute games end by decision, not a throne** — raise/remove the time cap
-   or add a late-game surge so someone takes the Ancient.
-2. **First bloods skew very early** (many in minute 1) — ramp fight chance in from
-   a lower early value.
+The engine's realism work is done; what's left adds new capability (nothing is a
+fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-Larger roadmap (Stages 4/6/7): Monte-Carlo orchestrator, per-rank models, Rust
-engine port, Coach Lab. See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md).
+1. **Monte-Carlo orchestrator** (Stage 4) — run a draft N times → a
+   win-probability distribution + duration spread, not one game. Most of the
+   compute already exists (`calibrate/run_corpus.py` runs N sims per draft); the
+   `SimAggregate` schema is defined. The biggest capability jump for the least new
+   machinery.
+2. **Per-rank models** (Stage 6) — train the win-prob model + hero ratings by rank
+   tier so players pick their bracket (the reason all-rank data is retained).
+3. **Rust engine port** (Stage 3) — speed for large Monte-Carlo runs.
+4. **Coach Lab** (Stage 7) — turn watchable sims into teaching.
