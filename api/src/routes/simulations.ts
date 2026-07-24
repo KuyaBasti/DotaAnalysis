@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { SimStore } from "../simStore.js";
-import type { SimRunner } from "../simRunner.js";
+import type { AggregateRunner, SimRunner } from "../simRunner.js";
 
 interface SimParams {
   id: string;
@@ -12,7 +12,12 @@ interface SimulateBody {
   dire?: string[];
 }
 
+interface AggregateBody extends SimulateBody {
+  runs?: number;
+}
+
 const TEAM_SIZE = 5;
+const MAX_RUNS = 500;
 
 function validateDraft(body: SimulateBody): string | null {
   if (!body.patch || typeof body.patch !== "string") {
@@ -35,15 +40,49 @@ function validateDraft(body: SimulateBody): string | null {
   return null;
 }
 
-// Simulation results: list, fetch, and — when a runner is configured — create.
-// POST runs the Python engine for a custom draft and returns the new sim id.
+function engineErrorStatus(detail: string): number {
+  return detail.includes("unknown hero key") ? 400 : 500;
+}
+
+// Simulation results: list, fetch, simulate one draft, or Monte-Carlo a draft.
 export function simulationRoutes(
   store: SimStore,
   runSim?: SimRunner,
+  runAggregate?: AggregateRunner,
 ): FastifyPluginAsync {
   return async function (app: FastifyInstance) {
     app.get("/sims", async () => {
       return { sims: store.listSims() };
+    });
+
+    // Monte Carlo: run the draft N times → win/duration distribution + a
+    // representative game (exported so it's watchable via GET /sims/:id).
+    app.post<{ Body: AggregateBody }>("/sims/aggregate", async (req, reply) => {
+      if (!runAggregate) {
+        return reply.code(501).send({ error: "aggregate runner not configured" });
+      }
+      const body = req.body ?? {};
+      const invalid = validateDraft(body);
+      if (invalid) {
+        return reply.code(400).send({ error: invalid });
+      }
+      const runs = Math.min(MAX_RUNS, Math.max(1, Math.floor(body.runs ?? 200)));
+      const seed = 1 + Math.floor(Math.random() * 9_999_999);
+      try {
+        const aggregate = await runAggregate({
+          patch: body.patch!,
+          radiant: body.radiant!,
+          dire: body.dire!,
+          runs,
+          seed,
+        });
+        return reply.code(200).send(aggregate);
+      } catch (e) {
+        const detail = e instanceof Error ? e.message : String(e);
+        return reply
+          .code(engineErrorStatus(detail))
+          .send({ error: "aggregation failed", detail: detail.slice(-400) });
+      }
     });
 
     app.get<{ Params: SimParams }>("/sims/:id", async (req, reply) => {
@@ -76,9 +115,8 @@ export function simulationRoutes(
         });
       } catch (e) {
         const detail = e instanceof Error ? e.message : String(e);
-        const status = detail.includes("unknown hero key") ? 400 : 500;
         return reply
-          .code(status)
+          .code(engineErrorStatus(detail))
           .send({ error: "simulation failed", detail: detail.slice(-400) });
       }
 
