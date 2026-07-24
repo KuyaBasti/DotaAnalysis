@@ -140,3 +140,81 @@ describe("POST /sims (simulate a draft)", () => {
     await app.close();
   });
 });
+
+describe("POST /sims/aggregate (Monte Carlo)", () => {
+  const RADIANT = ["juggernaut", "crystal_maiden", "axe", "invoker", "lion"];
+  const DIRE = ["phantom_assassin", "lich", "tidehunter", "storm_spirit", "witch_doctor"];
+
+  function makeApp(runner?: (req: unknown) => Promise<unknown>) {
+    return buildApp({
+      snapshotDir: fixturesDir,
+      simDir: fixturesDir,
+      modelsDir: fixturesDir,
+      aggregateRunner:
+        runner ??
+        (async (req) => {
+          const { patch, runs } = req as { patch: string; runs: number };
+          return {
+            scenario: { patch_id: patch, radiant: RADIANT, dire: DIRE },
+            runs,
+            radiant_win_rate: 0.62,
+            duration_seconds: { mean: 2000, p25: 1710, median: 1950, p75: 2280 },
+            duration_histogram: [{ minute: 30, count: runs }],
+            representative_sim_id: `${patch}-seed123`,
+          };
+        }),
+    });
+  }
+
+  it("returns an aggregate for a valid draft", async () => {
+    const app = makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE, runs: 100 },
+    });
+    expect(res.statusCode).toBe(200);
+    const agg = res.json();
+    expect(agg.runs).toBe(100);
+    expect(agg.radiant_win_rate).toBeCloseTo(0.62);
+    expect(agg.representative_sim_id).toBe("7.41d-seed123");
+    await app.close();
+  });
+
+  it("clamps runs to the max", async () => {
+    let seenRuns = 0;
+    const app = makeApp(async (req) => {
+      seenRuns = (req as { runs: number }).runs;
+      return { scenario: {}, runs: seenRuns, radiant_win_rate: 0.5, representative_sim_id: "x" };
+    });
+    await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE, runs: 99999 },
+    });
+    expect(seenRuns).toBe(500); // MAX_RUNS
+    await app.close();
+  });
+
+  it("rejects an invalid draft", async () => {
+    const app = makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT.slice(0, 4), dire: DIRE },
+    });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("501s when no aggregate runner is configured", async () => {
+    const app = buildApp({ snapshotDir: fixturesDir, simDir: fixturesDir, modelsDir: fixturesDir });
+    const res = await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE },
+    });
+    expect(res.statusCode).toBe(501);
+    await app.close();
+  });
+});
