@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://draftmaster.dev/schemas/sim-aggregate.schema.json",
   "title": "SimAggregate",
-  "description": "PLANNED (not yet produced). The output of a Monte-Carlo run: one scenario simulated N times, reduced to a win-probability distribution and summary statistics. A single representative timeline may be attached for playback. Until the orchestrator (Stage 4) lands, only single-match SimResult (sim-result.schema.json) is produced.",
+  "description": "The output of a Monte-Carlo run: one scenario simulated N times, reduced to a win-probability distribution and duration statistics, plus a representative stored SimResult for playback. Produced by the sim CLI --aggregate and served at POST /sims/aggregate.",
   "type": "object",
-  "required": ["scenario", "runs", "radiant_win_rate"],
+  "required": ["scenario", "runs", "radiant_win_rate", "representative_sim_id"],
   "additionalProperties": false,
   "properties": {
     "scenario": {
@@ -25,11 +25,25 @@
     "duration_seconds": {
       "type": "object",
       "description": "Game-length distribution across runs.",
+      "additionalProperties": false,
       "properties": {
         "mean": { "type": "number" },
         "p25": { "type": "number" },
         "median": { "type": "number" },
         "p75": { "type": "number" }
+      }
+    },
+    "duration_histogram": {
+      "type": "array",
+      "description": "Counts of games ending in each 5-minute bucket (for a chart).",
+      "items": {
+        "type": "object",
+        "required": ["minute", "count"],
+        "additionalProperties": false,
+        "properties": {
+          "minute": { "type": "integer", "description": "Lower edge of the 5-min bucket." },
+          "count": { "type": "integer", "minimum": 0 }
+        }
       }
     },
     "representative_sim_id": {
