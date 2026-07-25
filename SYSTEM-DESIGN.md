@@ -54,6 +54,7 @@ flowchart TD
         patchesAPI["GET /patches/:id<br/>heroes &amp; items"]:::api
         simsAPI["GET /sims/:id<br/>match timeline"]:::api
         makeSim["POST /sims<br/>simulate a draft (spawns the engine)"]:::api
+        aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution"]:::api
         draftAPI["POST /analysis/draft<br/>live win% (native sigmoid)"]:::api
     end
 
@@ -65,7 +66,7 @@ flowchart TD
 
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
-        orch["Orchestrator<br/>job queue + Monte Carlo (N sims / draft)"]:::planned
+        orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
         bracket["Per-rank models<br/>pick your bracket to learn at"]:::planned
         coach["Coach Lab<br/>education / premium tier"]:::planned
     end
@@ -102,11 +103,14 @@ flowchart TD
     patchesAPI --> studio
     draftAPI --> studio
     studio -->|Simulate this draft| makeSim
+    studio -->|Analyze N sims| aggAPI
     makeSim --> viewer
+    aggAPI -->|runs| engine
+    aggAPI -->|representative game| viewer
     simsAPI --> viewer
 
     engine -.->|port| rust
-    makeSim -.->|batch| orch
+    aggAPI -.->|batch| orch
     feats -.->|by rank tier| bracket
 
     classDef py fill:#E1F5EE,stroke:#0F6E56,color:#085041;
@@ -179,13 +183,14 @@ Longer rationale for the load-bearing calls lives in
 | Patch Data API | API | TypeScript · Fastify | ✅ built | `api/src/routes/patches.ts` |
 | Sims API (`GET`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` |
 | Simulate-a-draft (`POST /sims`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` + `simRunner.ts` |
+| Monte Carlo (`POST /sims/aggregate`) | API + Engine | TS · Fastify + Python | ✅ built | `simulations.ts` + `prototype/montecarlo.py` (`dm-montecarlo`) |
 | Draft eval API | API | TypeScript · Fastify | ✅ built | `api/src/routes/analysis.ts` |
 | Patch Explorer | Web | React · Vite | ✅ built | `web/src/pages/PatchExplorer.tsx` |
 | Draft Studio | Web | React · Vite | ✅ built | `web/src/pages/DraftStudio/` |
 | Match Viewer (playback) | Web | React · Vite | ✅ built | `web/src/pages/MatchViewer/` |
 | Minimap w/ moving heroes | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/Minimap.tsx` |
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
-| Orchestrator / Monte Carlo | Backend | — | ⬜ planned | — |
+| Job queue (batch Monte Carlo) | Backend | — | ⬜ planned | — *(on-demand aggregation is built; queue is for scale)* |
 | Per-rank models | ML | Python | ⬜ planned | — |
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab | Web | — | ⬜ planned | `web/src/pages/CoachLab/` *(placeholder)* |
@@ -221,7 +226,7 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 1 | Feasibility spikes | ✅ draft→win signal proven |
 | 2 | Data foundation | ✅ snapshots + auto-harvesting 100k+ ranked corpus + parsed details |
 | 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
-| 4 | Orchestrator / API | 🟡 read-only API + draft eval + simulate-a-draft; ⬜ job queue / Monte Carlo |
+| 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
 | 6 | ML &amp; calibration | 🟡 feature store, win-prob model, four-metric calibration harness; ⬜ per-rank / fight-outcome models |
 | 7 | Coach Lab / education | ⬜ not started |
