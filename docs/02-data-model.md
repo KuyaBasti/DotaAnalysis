@@ -21,7 +21,7 @@ Validate the schemas with:
 | `scenario.schema.json` | `SimScenario` | ✅ used | the sim input; `POST /sims` body |
 | `timeline-event.schema.json` | `TimelineEvent` | ✅ used | every event inside a sim |
 | `sim-result.schema.json` | `SimResult` | ✅ used | sim CLI `--export` → `data/sims/`; `GET /sims/:id` |
-| `sim-aggregate.schema.json` | `SimAggregate` | ⬜ planned | Monte-Carlo output (Stage 4, not yet produced) |
+| `sim-aggregate.schema.json` | `SimAggregate` | ✅ used | Monte-Carlo output; `dm-montecarlo` / `POST /sims/aggregate` |
 
 ### PatchSnapshot
 
@@ -78,11 +78,13 @@ One simulated match: `id` (`"<patch>-seed<seed>"`), `patch_id`, `seed`, the two
 drafts, a `summary` (`winner`, `duration_seconds`, per-side `net_worth` and
 `objectives`), and the full `timeline[]`. Everything the Match Viewer needs.
 
-### SimAggregate *(planned)*
+### SimAggregate
 
-The Stage-4 Monte-Carlo output: one scenario run N times → `radiant_win_rate`,
-duration distribution, and a representative sim id for playback. Not produced yet
-(the single-match `SimResult` is what exists today).
+The Monte-Carlo output: one scenario run N times → `radiant_win_rate`,
+`duration_seconds` (mean / p25 / median / p75), a `duration_histogram` (counts per
+5-minute bucket), and `representative_sim_id` — a stored `SimResult` (majority-side
+winner nearest the median duration) exported so it's watchable. Produced by
+`dm-montecarlo` and served at `POST /sims/aggregate`.
 
 ---
 
