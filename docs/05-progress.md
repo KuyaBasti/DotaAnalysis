@@ -6,8 +6,8 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **50 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch**, and every realism issue from the audits is closed.
+- **52 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch → analyze**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
@@ -26,7 +26,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 1 Feasibility | ✅ done |
 | 2 Data foundation | ✅ done |
 | 3 Engine core | ✅ Python engine complete · ⬜ Rust port |
-| 4 Orchestrator/API | 🟡 API + simulate-a-draft · ⬜ Monte Carlo |
+| 4 Orchestrator/API | 🟡 API + simulate + Monte Carlo · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
 | 6 ML & calibration | 🟡 four-metric harness · ⬜ per-rank / fight-outcome models |
 | 7 Coach Lab | ⬜ not started |
@@ -82,17 +82,23 @@ game ends with the Ancient falling, never an abstract time-cap decision;
 are *very* early: median ~0.9 min, 60% inside the first minute), so the sim was
 front-loaded to match. No known realism defects remain.
 
+**Monte-Carlo analysis (Stage 4).** `prototype/montecarlo.py` (`dm-montecarlo`)
+runs a draft N times → win-probability distribution + duration spread + a
+representative game (majority-side winner nearest the median), exported so it's
+watchable. Served at `POST /sims/aggregate`; Draft Studio's **📊 Analyze (200
+sims)** button shows the win bar, a duration histogram, and a "watch a
+representative game" jump into the viewer. 200 sims ≈ 1.3s — fast enough on
+demand, so the Rust port stays a future optimization.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Monte-Carlo orchestrator** (Stage 4) — run a draft N times → a
-   win-probability distribution + duration spread, not one game. Most of the
-   compute already exists (`calibrate/run_corpus.py` runs N sims per draft); the
-   `SimAggregate` schema is defined. The biggest capability jump for the least new
-   machinery.
-2. **Per-rank models** (Stage 6) — train the win-prob model + hero ratings by rank
-   tier so players pick their bracket (the reason all-rank data is retained).
-3. **Rust engine port** (Stage 3) — speed for large Monte-Carlo runs.
-4. **Coach Lab** (Stage 7) — turn watchable sims into teaching.
+1. **Per-rank models** (Stage 6) — train the win-prob model + hero ratings by rank
+   tier so players pick their bracket (the reason all-rank data is retained). Now
+   pairs well with Monte Carlo: "wins 68% in Herald, 51% in Divine."
+2. **Coach Lab** (Stage 7) — turn watchable sims + analysis into teaching (why a
+   draft loses, timing windows, item advice — `dm-builds` data is ready).
+3. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
+4. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
