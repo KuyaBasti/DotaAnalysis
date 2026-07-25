@@ -84,21 +84,24 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
 
 ---
 
-## Stage 4 — Orchestrator / API 🟡
+## Stage 4 — Orchestrator / API 🟡 (Monte Carlo ✅; job queue ⬜)
 
 **Goal:** serve data and run sims on demand.
 
 - Read-only API: snapshots, sims, draft eval. ✅
 - `POST /sims`: simulate a user's draft on demand (spawns the engine). ✅
-- ⬜ Orchestrator: a job queue running **Monte Carlo** (N sims per draft →
-  win-probability distribution, not one game).
+- `POST /sims/aggregate`: **Monte Carlo** — run a draft N times → win-probability
+  distribution, not one game (`prototype/montecarlo.py`, `dm-montecarlo`). ✅
+- ⬜ Job queue: batch Monte Carlo at scale (only needed beyond on-demand).
 
 **Exit criteria:**
 
 - **Simulate-a-draft round-trips** — `POST /sims {radiant, dire}` validates the
   draft, runs the engine, and returns a sim id that `GET /sims/:id` can fetch. ✅
-- ⬜ **Monte Carlo** — a draft can be run N times and the aggregate
-  (win rate, duration distribution) served. *Not started.*
+- **Monte Carlo served** — `POST /sims/aggregate` runs N sims and returns win
+  rate + duration distribution + a representative sim id (watchable). ✅
+- ⬜ **Job queue** — long batch runs enqueued rather than run inline. *Not needed
+  yet (200 sims ≈ 1.3s on demand).*
 
 ---
 

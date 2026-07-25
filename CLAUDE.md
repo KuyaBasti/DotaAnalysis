@@ -59,6 +59,7 @@ staged plan first.
 source .venv/bin/activate && pip install -e pipeline
 PYTHONPATH=pipeline .venv/bin/python -m pytest pipeline/tests/     # tests
 python -m dm_pipeline.prototype.sim_loop --seed 42 --export        # one sim
+dm-montecarlo --radiant a,b,c,d,e --dire f,g,h,i,j --runs 200      # N-sim distribution
 dm-calibrate --sample 2000                                         # calibration
 
 # API (TypeScript) on :3000
