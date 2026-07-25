@@ -20,6 +20,7 @@ dm-ingest = "dm_pipeline.ingest.cli:main"
 dm-harvest = "dm_pipeline.harvest.daemon:main"
 dm-features = "dm_pipeline.features.build_dataset:main"
 dm-builds = "dm_pipeline.features.builds:main"
+dm-montecarlo = "dm_pipeline.prototype.montecarlo:main"
 dm-train-winprob = "dm_pipeline.models.win_probability.train:main"
 dm-calibrate = "dm_pipeline.calibrate.report:main"
 

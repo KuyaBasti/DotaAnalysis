@@ -2,6 +2,7 @@ import type {
   DraftEvalResponse,
   HeroesResponse,
   PatchesResponse,
+  SimAggregate,
   SimResult,
   SimsResponse,
 } from "../types";
@@ -61,6 +62,20 @@ export function simulateDraft(
     patch: patchId,
     radiant,
     dire,
+  });
+}
+
+export function aggregateDraft(
+  radiant: string[],
+  dire: string[],
+  patchId: string,
+  runs = 200,
+): Promise<SimAggregate> {
+  return postJSON<SimAggregate>("/sims/aggregate", {
+    patch: patchId,
+    radiant,
+    dire,
+    runs,
   });
 }
 

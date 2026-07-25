@@ -43,6 +43,15 @@ export interface SimResult {
   timeline: TimelineEvent[];
 }
 
+export interface SimAggregate {
+  scenario: { patch_id: string; radiant: string[]; dire: string[] };
+  runs: number;
+  radiant_win_rate: number;
+  duration_seconds: { mean: number; p25: number; median: number; p75: number };
+  duration_histogram: { minute: number; count: number }[];
+  representative_sim_id: string;
+}
+
 export interface SimsResponse {
   sims: string[];
 }

@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { evaluateDraft, getHeroes, latestPatch, listPatches, simulateDraft } from "../../api/client";
+import {
+  aggregateDraft,
+  evaluateDraft,
+  getHeroes,
+  latestPatch,
+  listPatches,
+  simulateDraft,
+} from "../../api/client";
 import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
-import type { Hero } from "../../types";
+import { AggregatePanel } from "./AggregatePanel";
+import type { Hero, SimAggregate } from "../../types";
 
 const TEAM_SIZE = 5;
 
@@ -20,6 +28,8 @@ export function DraftStudio({
   const [winProb, setWinProb] = useState<number | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aggregate, setAggregate] = useState<SimAggregate | null>(null);
 
   // Load the patch's heroes once.
   useEffect(() => {
@@ -125,9 +135,44 @@ export function DraftStudio({
         >
           {simulating ? "Simulating…" : "▶ Simulate this draft"}
         </button>
+        <button
+          disabled={
+            radiant.length !== TEAM_SIZE ||
+            dire.length !== TEAM_SIZE ||
+            analyzing
+          }
+          onClick={async () => {
+            if (!patch) return;
+            setAnalyzing(true);
+            setSimError(null);
+            setAggregate(null);
+            try {
+              setAggregate(await aggregateDraft(radiant, dire, patch, 200));
+            } catch (e) {
+              setSimError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setAnalyzing(false);
+            }
+          }}
+          style={{
+            marginLeft: 8,
+            padding: "0.5rem 1rem",
+            border: "1px solid #2e7d32",
+            borderRadius: 6,
+            background: "#fff",
+            color:
+              radiant.length === TEAM_SIZE && dire.length === TEAM_SIZE
+                ? "#2e7d32"
+                : "#bbb",
+            cursor: "pointer",
+            fontSize: "0.95rem",
+          }}
+        >
+          {analyzing ? "Analyzing 200 sims…" : "📊 Analyze (200 sims)"}
+        </button>
         {radiant.length !== TEAM_SIZE || dire.length !== TEAM_SIZE ? (
           <span style={{ marginLeft: 10, fontSize: "0.8rem", color: "#888" }}>
-            pick 5 heroes per side to simulate
+            pick 5 heroes per side
           </span>
         ) : null}
         {simError && (
@@ -136,6 +181,10 @@ export function DraftStudio({
           </span>
         )}
       </div>
+
+      {aggregate && (
+        <AggregatePanel aggregate={aggregate} onWatch={onSimulated} />
+      )}
 
       {/* win-probability bar */}
       <div style={{ margin: "1rem 0" }}>
