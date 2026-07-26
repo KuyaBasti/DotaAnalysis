@@ -109,6 +109,7 @@ def run_and_export(
     runs: int = 200,
     base_seed: int = 1,
     sim_dir: Path | str | None = None,
+    bracket: str = "all",
     heroes: dict[str, dict[str, Any]] | None = None,
     ratings: dict[int, float] | None = None,
     builds: dict[str, Any] | None = None,
@@ -121,11 +122,12 @@ def run_and_export(
     """
     if heroes is None:
         heroes = load_heroes(scenario.patch_id)
-        ratings = load_default_ratings() if ratings is None else ratings
+        ratings = load_default_ratings(bracket) if ratings is None else ratings
         builds = load_default_builds() if builds is None else builds
     aggregate, rep_seed = aggregate_scenario(
         scenario, heroes, runs=runs, base_seed=base_seed, ratings=ratings, builds=builds
     )
+    aggregate["bracket"] = bracket
 
     # Re-run the representative seed and export its full timeline for playback.
     timeline, state = simulate(
@@ -151,12 +153,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--patch", default=config.DEFAULT_PATCH_ID)
     parser.add_argument("--runs", type=int, default=200)
     parser.add_argument("--seed", type=int, default=1, help="base seed (per-run seeds derive from it)")
+    parser.add_argument("--bracket", default="all", help="rank bracket: all/low/mid/high")
     args = parser.parse_args(argv)
 
     radiant = [k.strip() for k in args.radiant.split(",") if k.strip()]
     dire = [k.strip() for k in args.dire.split(",") if k.strip()]
     scenario = Scenario(patch_id=args.patch, radiant=radiant, dire=dire)
-    aggregate = run_and_export(scenario, runs=args.runs, base_seed=args.seed)
+    aggregate = run_and_export(
+        scenario, runs=args.runs, base_seed=args.seed, bracket=args.bracket
+    )
     print(json.dumps(aggregate))
 
 

@@ -314,7 +314,7 @@ def load_default_builds() -> dict[str, Any] | None:
         return None
 
 
-def load_default_ratings() -> dict[int, float] | None:
+def load_default_ratings(bracket: str = "all") -> dict[int, float] | None:
     """Data-derived hero strength for watched sims, or None before any
     features have been built (fresh clone, offline tests) — the bare engine.
 
@@ -325,7 +325,7 @@ def load_default_ratings() -> dict[int, float] | None:
     try:
         from dm_pipeline.features.build_dataset import hero_strength_ratings
 
-        return hero_strength_ratings(config.FEATURES_DIR)
+        return hero_strength_ratings(config.FEATURES_DIR, bracket=bracket)
     except Exception:
         return None
 
@@ -899,6 +899,11 @@ def main(argv: list[str] | None = None) -> None:
         help="patch snapshot to draft from",
     )
     parser.add_argument(
+        "--bracket",
+        default="all",
+        help="rank bracket for hero ratings: all/low/mid/high",
+    )
+    parser.add_argument(
         "--no-ratings",
         action="store_true",
         help="ignore data-derived hero strength (run the bare engine)",
@@ -916,7 +921,7 @@ def main(argv: list[str] | None = None) -> None:
     else:
         scenario = _DEMO_SCENARIO
 
-    ratings = None if args.no_ratings else load_default_ratings()
+    ratings = None if args.no_ratings else load_default_ratings(args.bracket)
     builds = load_default_builds()
     if args.model:
         timeline, state = run_with_model(
