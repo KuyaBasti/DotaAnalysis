@@ -31,14 +31,14 @@ flowchart TD
         matches[("matches/ raw")]:::data
         details[("details/ parsed")]:::data
         feats[("features/ *.parquet")]:::data
-        models[("models/")]:::data
+        models[("models/<br/>per-bracket")]:::data
         sims[("sims/")]:::data
         calib[("calibration/")]:::data
     end
 
     subgraph ML["Features &amp; ML — scikit-learn + DuckDB"]
         features["dm-features<br/>matches → parquet, hero win rates + ratings"]:::py
-        train["dm-train-winprob<br/>logistic draft→win"]:::py
+        train["dm-train-winprob<br/>logistic draft→win, per rank bracket"]:::py
         builds["dm-builds<br/>parsed purchases → per-hero item builds"]:::py
     end
 
@@ -55,19 +55,18 @@ flowchart TD
         simsAPI["GET /sims/:id<br/>match timeline"]:::api
         makeSim["POST /sims<br/>simulate a draft (spawns the engine)"]:::api
         aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution"]:::api
-        draftAPI["POST /analysis/draft<br/>live win% (native sigmoid)"]:::api
+        draftAPI["POST /analysis/draft<br/>live win% per bracket (native sigmoid)"]:::api
     end
 
     subgraph WEB["Web app — React + Vite"]
         explorer["Patch Explorer<br/>browse heroes &amp; items"]:::web
-        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) → win% → Simulate"]:::web
+        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) · rank bracket<br/>→ win% → Simulate / Analyze"]:::web
         viewer["Match Viewer ★<br/>PLAY the match: clock · scoreboard · minimap · win-prob · feed"]:::web
     end
 
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        bracket["Per-rank models<br/>pick your bracket to learn at"]:::planned
         coach["Coach Lab<br/>education / premium tier"]:::planned
     end
 
@@ -111,7 +110,6 @@ flowchart TD
 
     engine -.->|port| rust
     aggAPI -.->|batch| orch
-    feats -.->|by rank tier| bracket
 
     classDef py fill:#E1F5EE,stroke:#0F6E56,color:#085041;
     classDef engine fill:#EEEDFE,stroke:#534AB7,color:#3C3489,stroke-width:2px;
@@ -140,6 +138,8 @@ flowchart TD
 3. **The model and ratings loop back into the engine.** The win-prob model seeds
    the engine's *draft prior* (a stronger draft starts ahead), and data-derived
    *hero ratings* make a simulated Anti-Mage differ from a simulated Invoker.
+   Both are **bracket-aware**: models and ratings are trained per rank band, so
+   Draft Studio can score a draft at the rank the player actually plays.
 4. **Calibration is a feedback loop, not a serving path.** `dm-calibrate` sims
    real drafts offline and scores four things — win accuracy, per-hero win-rate
    correlation, game duration, and economy checkpoints against parsed details —
@@ -158,7 +158,8 @@ flowchart TD
 | Determinism | Single seeded RNG; same draft+seed ⇒ byte-identical timeline | Reproducibility, golden-replay tests, and a stable thing to calibrate. |
 | Presentational state (positions, K/D/A) | **rng-free**, pure functions of game state | Adding a scoreboard or moving dots can never change a match outcome. |
 | Data source | **OpenDota** free tier | No cost, rich enough (drafts, outcomes, parsed gold/purchase logs). |
-| Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket enables future "pick your rank" models. |
+| Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket is what made the per-rank models below possible. |
+| Rank granularity | **Three bands** (Herald–Crusader / Archon–Legend / Ancient+), not eight medals | Eight medals leave too few matches each to train 127-hero models; three bands each clear ~9k matches and still separate the play patterns. |
 | Win prediction in the API | Native `sigmoid(intercept + weights·draft)` in TS | The logistic model exports coefficients — no ONNX/sklearn runtime in the API. |
 | Engine's real target | **Distributional realism** (per-hero r, duration, economy), not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. The Draft Studio uses the model for win%. |
 | Storage | Files under `data/` (Parquet/JSON), DuckDB for queries | Zero infra for a solo alpha; a database is a deploy-time concern. |
@@ -191,7 +192,7 @@ Longer rationale for the load-bearing calls lives in
 | Minimap w/ moving heroes | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/Minimap.tsx` |
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
 | Job queue (batch Monte Carlo) | Backend | — | ⬜ planned | — *(on-demand aggregation is built; queue is for scale)* |
-| Per-rank models | ML | Python | ⬜ planned | — |
+| Per-rank models | ML + API + Web | Python · TS · React | ✅ built | `features/brackets.py`, `models/win_probability/`, `analysis.ts`, Draft Studio |
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab | Web | — | ⬜ planned | `web/src/pages/CoachLab/` *(placeholder)* |
 
@@ -228,6 +229,6 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
 | 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
-| 6 | ML &amp; calibration | 🟡 feature store, win-prob model, four-metric calibration harness; ⬜ per-rank / fight-outcome models |
+| 6 | ML &amp; calibration | 🟡 feature store, four-metric calibration harness, **per-bracket win-prob models + ratings**; ⬜ fight-outcome model |
 | 7 | Coach Lab / education | ⬜ not started |
 | 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |
