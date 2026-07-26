@@ -6,15 +6,17 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **52 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch → analyze**, and every realism issue from the audits is closed.
+- **54 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch → analyze**, now **at the rank bracket you play**, and every realism
+  issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
 - **Calibration (n=2000):** duration exact-to-median (sim ≈ 35.5m vs real 35.5m),
   economy within ±1% of parsed real gold at min 10/20, win edge ≥ baseline.
   Per-hero win-rate `r` ≈ 0.56 is the open realism target (0.8 goal).
-- **Data:** 100k+ ranked matches banked (all brackets), plus a growing sample of
+- **Data:** 127k matches banked / **59.4k ranked** in the feature store (every
+  bracket viable to train on), plus a growing sample of
   parsed details (gold curves + purchase logs) in `data/details/`.
 - **Not shipped.** Personal project; no deploy.
 
@@ -28,7 +30,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 3 Engine core | ✅ Python engine complete · ⬜ Rust port |
 | 4 Orchestrator/API | 🟡 API + simulate + Monte Carlo · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
-| 6 ML & calibration | 🟡 four-metric harness · ⬜ per-rank / fight-outcome models |
+| 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** · ⬜ fight-outcome model |
 | 7 Coach Lab | ⬜ not started |
 | 8 Beta & launch | ⬜ not started |
 
@@ -90,15 +92,32 @@ sims)** button shows the win bar, a duration histogram, and a "watch a
 representative game" jump into the viewer. 200 sims ≈ 1.3s — fast enough on
 demand, so the Rust port stays a future optimization.
 
+**Per-rank models (Stage 6).** `features/brackets.py` defines three bands
+(Herald–Crusader / Archon–Legend / Ancient+ — eight medals are too thin to train
+on, three each clear ~9k matches). Hero win rates, strength ratings, and the
+win-prob model are all bracket-aware; `dm-train-winprob` trains one model per
+band plus the blend. **Every bracket model beats the blend, and the ordering is
+the finding:** AUC 0.663 low / 0.650 mid / 0.584 high vs 0.614 blended — *draft
+matters most at low ranks and least at high ranks*, which finally explains the
+long-standing "draft explains less at higher skill" ceiling (it was two
+different games averaged together). Real hero swings back it up: Sniper +9.5
+points low-vs-high, Clockwerk −12.8. The API serves any bracket
+(`POST /analysis/draft {bracket}`, falling back to blended) and Draft Studio has
+a rank selector. Honest negative result recorded: bracket-matched *ratings* did
+not improve the sim's win accuracy, so the sim's default stays blended
+(`--bracket` is opt-in).
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Per-rank models** (Stage 6) — train the win-prob model + hero ratings by rank
-   tier so players pick their bracket (the reason all-rank data is retained). Now
-   pairs well with Monte Carlo: "wins 68% in Herald, 51% in Divine."
-2. **Coach Lab** (Stage 7) — turn watchable sims + analysis into teaching (why a
-   draft loses, timing windows, item advice — `dm-builds` data is ready).
-3. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
-4. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
+1. **Coach Lab** (Stage 7) — turn watchable sims + per-bracket analysis into
+   teaching (why a draft loses, timing windows, item advice — `dm-builds` data is
+   ready, and the bracket models give advice that fits the player's rank).
+2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
+   teamfight data instead of the analytic logistic.
+3. **Bracket-aware Monte Carlo** — surface the aggregate per bracket
+   ("wins 68% in Herald, 51% in Divine") now that both halves exist.
+4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
+5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
