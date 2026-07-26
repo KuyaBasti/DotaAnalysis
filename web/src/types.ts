@@ -50,6 +50,7 @@ export interface SimAggregate {
   duration_seconds: { mean: number; p25: number; median: number; p75: number };
   duration_histogram: { minute: number; count: number }[];
   representative_sim_id: string;
+  bracket?: string;
 }
 
 export interface SimsResponse {
@@ -60,5 +61,6 @@ export interface SimsResponse {
 
 export interface DraftEvalResponse {
   patch_id: string;
+  bracket?: string;
   radiant_win_probability: number;
 }

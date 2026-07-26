@@ -70,12 +70,14 @@ export function aggregateDraft(
   dire: string[],
   patchId: string,
   runs = 200,
+  bracket?: string,
 ): Promise<SimAggregate> {
   return postJSON<SimAggregate>("/sims/aggregate", {
     patch: patchId,
     radiant,
     dire,
     runs,
+    bracket,
   });
 }
 
@@ -83,10 +85,12 @@ export function evaluateDraft(
   radiant: string[],
   dire: string[],
   patchId?: string,
+  bracket?: string,
 ): Promise<DraftEvalResponse> {
   return postJSON<DraftEvalResponse>("/analysis/draft", {
     radiant,
     dire,
     patch_id: patchId,
+    bracket,
   });
 }

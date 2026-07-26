@@ -28,6 +28,7 @@ export function DraftStudio({
   const [winProb, setWinProb] = useState<number | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
+  const [bracket, setBracket] = useState<string>("all");
   const [analyzing, setAnalyzing] = useState(false);
   const [aggregate, setAggregate] = useState<SimAggregate | null>(null);
 
@@ -62,13 +63,13 @@ export function DraftStudio({
       return;
     }
     let cancelled = false;
-    evaluateDraft(radiant, dire, patch ?? undefined)
+    evaluateDraft(radiant, dire, patch ?? undefined, bracket)
       .then((r) => !cancelled && setWinProb(r.radiant_win_probability))
       .catch(() => !cancelled && setWinProb(null));
     return () => {
       cancelled = true;
     };
-  }, [radiant, dire, patch]);
+  }, [radiant, dire, patch, bracket]);
 
   const picked = new Set([...radiant, ...dire]);
 
@@ -98,6 +99,27 @@ export function DraftStudio({
         Patch <strong>{patch}</strong> — pick a draft, see the live win
         probability from the trained model.
       </p>
+
+      {/* which rank the analysis is for */}
+      <div style={{ margin: "0.75rem 0 0.25rem", fontSize: "0.85rem" }}>
+        <label>
+          Analyze for rank{" "}
+          <select
+            aria-label="Rank bracket"
+            value={bracket}
+            onChange={(e) => setBracket(e.target.value)}
+            style={{ padding: "0.3rem", borderRadius: 6, marginLeft: 4 }}
+          >
+            <option value="all">All ranks</option>
+            <option value="low">Herald–Crusader</option>
+            <option value="mid">Archon–Legend</option>
+            <option value="high">Ancient+</option>
+          </select>
+        </label>
+        <span style={{ marginLeft: 10, color: "#888", fontSize: "0.78rem" }}>
+          heroes perform differently by bracket
+        </span>
+      </div>
 
       {/* simulate the drafted match */}
       <div style={{ margin: "0.75rem 0" }}>
@@ -147,7 +169,7 @@ export function DraftStudio({
             setSimError(null);
             setAggregate(null);
             try {
-              setAggregate(await aggregateDraft(radiant, dire, patch, 200));
+              setAggregate(await aggregateDraft(radiant, dire, patch, 200, bracket));
             } catch (e) {
               setSimError(e instanceof Error ? e.message : String(e));
             } finally {

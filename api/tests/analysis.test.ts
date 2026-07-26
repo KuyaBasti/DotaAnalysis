@@ -54,3 +54,40 @@ describe("draft analysis api", () => {
     await app.close();
   });
 });
+
+describe("bracket-aware draft evaluation", () => {
+  it("scores with the requested bracket's model", async () => {
+    const app = makeApp();
+    const body = { radiant: ["juggernaut"], dire: ["lich"], patch_id: "7.39c" };
+    const res = await app.inject({
+      method: "POST",
+      url: "/analysis/draft",
+      payload: { ...body, bracket: "low" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().bracket).toBe("low");
+    await app.close();
+  });
+
+  it("defaults to the blended model", async () => {
+    const app = makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/analysis/draft",
+      payload: { radiant: ["juggernaut"], dire: ["lich"], patch_id: "7.39c" },
+    });
+    expect(res.json().bracket).toBe("all");
+    await app.close();
+  });
+
+  it("rejects an unknown bracket", async () => {
+    const app = makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/analysis/draft",
+      payload: { radiant: ["juggernaut"], dire: ["lich"], patch_id: "7.39c", bracket: "immortal" },
+    });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+});

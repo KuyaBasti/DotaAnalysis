@@ -29,10 +29,24 @@ A logistic regression over the draft.
   sklearn/ONNX runtime in the API.** This powers `POST /analysis/draft` and the
   Draft Studio's live win% bar.
 
-**On the numbers.** On the current all-rank corpus, held-out AUC ≈ 0.60. Earlier,
-smaller, mixed-rank samples read higher (~0.63–0.68) — the honest read is that
-**draft alone explains less at higher skill** (Divine hero balance is tighter). A
-model can't beat that ceiling without richer-than-draft signal; see Roadmap.
+**Per-bracket models.** `dm-train-winprob` trains one model per rank band plus
+the blended one (`--bracket every`, the default), writing
+`win_probability[.<bracket>].coef.json`. The API serves whichever the caller asks
+for (`POST /analysis/draft {bracket}`), falling back to blended.
+
+| model | held-out AUC |
+|---|---|
+| Herald–Crusader (`low`) | **0.663** |
+| Archon–Legend (`mid`) | 0.650 |
+| Ancient+ (`high`) | 0.584 |
+| blended (`all`) | 0.614 |
+
+**Every bracket beats the blend**, and the ordering is the finding: *draft
+matters most at low ranks and least at high ranks*. That resolves the
+long-standing "draft explains less at higher skill" ceiling — it was never a
+modelling failure, it was two different games averaged together. Example: a
+Sniper/Pudge/Broodmother draft scores 98% in Herald–Crusader and 58% at Ancient+
+(blended says 83%, describing neither).
 
 ---
 
@@ -52,6 +66,13 @@ simulated Anti-Mage differ from a simulated Invoker — proven directly: a
 meta-top-5 vs meta-bottom-5 draft goes from a 40% (ratings off) to 100% (ratings
 on) win rate over fixed seeds. The sim CLI/API load these by default
 (`load_default_ratings()`, graceful when no features exist yet).
+
+Ratings are also **bracket-aware** (`hero_strength_ratings(bracket=...)`): Sniper
+rates 1.185 in Herald–Crusader but 0.999 at Ancient+; Clockwerk 0.825 → 1.053.
+The sim can opt in with `--bracket`, but **the default stays blended** — measured
+honestly, bracket-matched ratings did *not* improve the sim's win accuracy
+(edge −0.029 vs −0.020 blended, n=800). Per-rank sharpens *hero identity*, which
+helps prediction and analysis; it adds no side-specific signal the engine lacks.
 
 The win-prob model also feeds the engine a **draft prior** (`--model`): its
 predicted P(radiant) seeds a starting net-worth edge.
@@ -110,8 +131,8 @@ thresholds that drive the viewer's item-timing beats):
 
 - **Fight-outcome model** — replace the analytic fight resolver with one learned
   from parsed teamfight data (same interface: game-state in, win-prob + swing out).
-- **Per-rank models** — train the win-prob model and hero ratings by rank tier so
-  players pick their bracket to learn at (the reason all-rank data is retained).
+- ~~Per-rank models~~ — **done** (see above): per-bracket win-prob models and
+  hero ratings, selectable in Draft Studio.
 - **Build advice** — recommend items for a draft (Coach Lab), extending the
   item builds `dm-builds` already extracts (see below).
 - **Gradient boosting** — once the corpus supports richer feature sets (rank, mode,

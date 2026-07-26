@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { SnapshotStore } from "../snapshotStore.js";
-import type { WinProbModel } from "../winProbModel.js";
+import { isBracket, type WinProbModel } from "../winProbModel.js";
 import type { DraftEvalRequest } from "../types.js";
 
 // Instant draft evaluation: score a draft with the win-probability model, no
@@ -19,7 +19,10 @@ export function analysisRoutes(
             .send({ error: "win-probability model not loaded" });
         }
 
-        const { radiant = [], dire = [], patch_id } = req.body ?? {};
+        const { radiant = [], dire = [], patch_id, bracket } = req.body ?? {};
+        if (bracket !== undefined && !isBracket(bracket)) {
+          return reply.code(400).send({ error: `unknown bracket: ${bracket}` });
+        }
         const id = patch_id ?? snapshots.listPatches()[0];
         if (!id) return reply.code(404).send({ error: "no patches available" });
         const snap = snapshots.getSnapshot(id);
@@ -35,12 +38,15 @@ export function analysisRoutes(
             .send({ error: `unknown hero key(s): ${missing.join(", ")}` });
         }
 
+        const scoredBracket = bracket ?? "all";
         const prob = model.predict(
           radiant.map((k) => heroId.get(k)!),
           dire.map((k) => heroId.get(k)!),
+          scoredBracket,
         );
         return {
           patch_id: id,
+          bracket: scoredBracket,
           radiant_win_probability: Number(prob.toFixed(4)),
         };
       },

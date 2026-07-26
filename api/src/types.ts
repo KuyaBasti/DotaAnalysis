@@ -69,6 +69,8 @@ export interface SimResult {
 // --- Draft evaluation (win-prob model, no full sim) --------------------------
 
 export interface DraftEvalRequest {
+  /** Rank band to score with: all | low | mid | high (default all). */
+  bracket?: string;
   radiant: string[]; // hero keys
   dire: string[];
   patch_id?: string;
