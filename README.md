@@ -53,9 +53,10 @@ cd web && npm install && npm run dev
 ```
 
 Then open <http://localhost:5173>, go to **Draft Studio**, pick five heroes per
-side, and either **▶ Simulate this draft** (watch one game in the **Match
-Viewer**) or **📊 Analyze (200 sims)** — a Monte-Carlo win-probability
-distribution + duration spread, with a representative game to watch.
+side, choose your **rank bracket**, and either **▶ Simulate this draft** (watch
+one game in the **Match Viewer**) or **📊 Analyze (200 sims)** — a Monte-Carlo
+win-probability distribution + duration spread, with a representative game to
+watch. The win% is scored by a model trained on *your* bracket.
 
 ### The pipeline CLIs (`pip install -e pipeline`)
 
@@ -67,7 +68,7 @@ distribution + duration spread, with a representative game to watch.
 | `dm-features` | banked matches → Parquet feature tables + hero win rates |
 | `dm-builds` | parsed purchase logs → per-hero item builds + completion thresholds |
 | `dm-montecarlo --radiant … --dire …` | run a draft N times → win/duration distribution (JSON) |
-| `dm-train-winprob` | train the draft→win logistic model |
+| `dm-train-winprob` | train the draft→win model — one per rank bracket + blended |
 | `dm-calibrate --sample N` | score the sim against the real corpus (win / realism / economy) |
 
 Generated artifacts land in `data/` (git-ignored). See
@@ -88,6 +89,6 @@ Generated artifacts land in `data/` (git-ignored). See
 
 A working alpha, developed as a personal project — **not shipped or deployed**.
 The core loop (draft → predict → simulate → watch → analyze) works end-to-end,
-including Monte-Carlo matchup analysis. The remaining roadmap (per-rank models,
-Rust engine, batch job queue, Coach Lab) is tracked in
+including Monte-Carlo matchup analysis and per-rank models. The remaining roadmap
+(Coach Lab, fight-outcome model, Rust engine, batch job queue) is tracked in
 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md).
