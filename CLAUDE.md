@@ -46,7 +46,10 @@ staged plan first.
 
 - **Ranked All Draft only** for training/calibration (`is_ranked` = game_mode 22 +
   lobby_type 7). **All rank tiers are banked** — don't narrow the harvester's
-  default; per-bracket models are a planned feature.
+  default; the per-bracket models train on those tiers.
+- **Rebuild before you measure.** `data/features/*.parquet` is a snapshot, not a
+  live view — run `dm-features` first. A stale parquet once under-reported the
+  corpus by 18k matches and nearly sank per-rank models as "not enough data."
 - **Public data only.** OpenDota public matches; no PII. Everything in `data/` is
   git-ignored and regenerable — never commit it.
 - **Never commit secrets.** No API tokens/PATs in files or command history; use
@@ -60,6 +63,7 @@ source .venv/bin/activate && pip install -e pipeline
 PYTHONPATH=pipeline .venv/bin/python -m pytest pipeline/tests/     # tests
 python -m dm_pipeline.prototype.sim_loop --seed 42 --export        # one sim
 dm-montecarlo --radiant a,b,c,d,e --dire f,g,h,i,j --runs 200      # N-sim distribution
+dm-features && dm-train-winprob                                    # rebuild data + per-bracket models
 dm-calibrate --sample 2000                                         # calibration
 
 # API (TypeScript) on :3000
