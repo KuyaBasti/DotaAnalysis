@@ -57,8 +57,9 @@ deeper to fill a quota.)
 
 `--min-rank <tier>` (OpenDota tier: 70 = Divine, 80 = Immortal) filters
 **server-side** — zero wasted API budget. Default is **all ranks** (`0`); every
-bracket is retained on purpose, so a future "pick your rank to learn at" feature
-can train per-bracket models.
+bracket is retained on purpose, and that policy paid off: the per-bracket models
+(see [04-ml-engine.md](04-ml-engine.md)) train on those rank tiers, so a player
+can analyze a draft at the rank they actually play.
 
 ### Dedup & resumability (the load-bearing property)
 
