@@ -128,8 +128,10 @@ steps. ✅
 - Feature store (Parquet + DuckDB), win-prob model, hero strength ratings.
 - Calibration harness scoring win accuracy, per-hero win-rate correlation, game
   duration, and economy checkpoints.
-- ⬜ Richer models: fight-outcome from parsed details; **per-rank models** so
-  players pick their bracket; gradient boosting once data supports it.
+- **Per-rank models**: three rank bands (`features/brackets.py`); bracket-aware
+  win rates, ratings, and one win-prob model per band, selectable end to end.
+- ⬜ Richer models: fight-outcome from parsed details; gradient boosting once
+  data supports it.
 
 **Exit criteria:**
 
@@ -137,8 +139,10 @@ steps. ✅
   in one run, validated on n ≥ 2000 drafts. ✅
 - **Realism gates** — duration within ±3 min and economy within ±5% (both met).
   Per-hero win-rate correlation is tracked as the open research target. 🟡
-- ⬜ **Per-rank models** — training/ratings selectable by rank tier. *Not started
-  (all-rank data retained for exactly this).*
+- **Per-rank models** — every band trains on enough matches (≥ ~9k), each
+  bracket model **beats the blended one** on held-out AUC (0.663 / 0.650 / 0.584
+  vs 0.614), and a bracket is selectable from Draft Studio through to the served
+  win%. ✅
 
 ---
 
@@ -147,7 +151,9 @@ steps. ✅
 **Goal:** turn watchable sims into teaching — "why is this draft losing?", timing
 windows, per-bracket advice.
 
-**Exit criterion:** *(to be defined when Stage 6 per-rank models land.)*
+**Exit criterion:** a player can pick their rank, draft a matchup, and get an
+explanation they can act on — not just a number. *(Substance is now in place:
+per-bracket models, Monte-Carlo distributions, and real item builds.)*
 
 ---
 
