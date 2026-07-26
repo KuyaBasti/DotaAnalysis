@@ -13,8 +13,11 @@ staged plan first.
   file. Push as you go. Don't batch a dozen files into one commit.
 - **No AI attribution in commits or PRs.** No `Co-Authored-By`, no "Generated
   with…" trailer. Just the change.
+- **Docs ship in their own PR — always.** A code PR contains code and tests,
+  nothing else. When the vertical merges, branch `docs/<what>` and update the
+  README / SYSTEM-DESIGN / `docs/*` / this file there. Never mix the two.
 - **Update the progress log.** When a vertical lands, add it to
-  [docs/05-progress.md](docs/05-progress.md).
+  [docs/05-progress.md](docs/05-progress.md) — in that docs PR.
 - **Follow the stages in order** (docs/01). Later stages assume earlier exit
   criteria hold.
 
