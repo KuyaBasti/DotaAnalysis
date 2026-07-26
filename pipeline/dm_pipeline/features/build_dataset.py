@@ -21,6 +21,7 @@ from typing import Any
 import polars as pl
 
 from dm_pipeline import config
+from dm_pipeline.features.brackets import ALL_BRACKETS, bracket_bounds
 
 RANKED_GAME_MODE = 22  # All Draft (the ranked pick mode)
 RANKED_LOBBY_TYPE = 7  # ranked matchmaking
@@ -115,9 +116,16 @@ def build_dataset(
 
 
 def hero_win_rates(
-    features_dir: Path | str | None = None, *, min_games: int = 20
+    features_dir: Path | str | None = None,
+    *,
+    min_games: int = 20,
+    bracket: str = ALL_BRACKETS,
 ) -> pl.DataFrame:
-    """Per-hero win rate over the dataset (a calibration staple), via DuckDB."""
+    """Per-hero win rate over the dataset (a calibration staple), via DuckDB.
+
+    ``bracket`` restricts to a rank band (see features.brackets); the default
+    'all' blends every rank.
+    """
     import duckdb
 
     features_dir = (
@@ -125,6 +133,7 @@ def hero_win_rates(
     )
     matches = features_dir / "matches.parquet"
     heroes = features_dir / "match_heroes.parquet"
+    lo, hi = bracket_bounds(bracket)
     relation = duckdb.sql(
         f"""
         SELECT
@@ -134,6 +143,8 @@ def hero_win_rates(
                            THEN 1.0 ELSE 0.0 END), 4) AS win_rate
         FROM read_parquet('{heroes}') AS h
         JOIN read_parquet('{matches}') AS m USING (match_id)
+        WHERE COALESCE(m.avg_rank_tier, 0) >= {lo}
+          AND COALESCE(m.avg_rank_tier, 0) < {hi}
         GROUP BY h.hero_id
         HAVING COUNT(*) >= {min_games}
         ORDER BY win_rate DESC
@@ -149,6 +160,7 @@ def hero_strength_ratings(
     *,
     prior_games: int = 50,
     scale: float = 2.0,
+    bracket: str = ALL_BRACKETS,
 ) -> dict[int, float]:
     """Per-hero strength multiplier (~1.0) from shrunk real win rates.
 
@@ -156,6 +168,10 @@ def hero_strength_ratings(
     are ~neutral), then mapped to a multiplier: strong heroes (win rate > 0.5)
     farm a bit more, weak heroes a bit less. This is how real data enters the
     engine's economy.
+
+    ``bracket`` selects the rank band the rates are computed from (see
+    features.brackets) — the same hero can rate very differently by bracket
+    (Sniper is far stronger low, Clockwerk far stronger high).
     """
     import duckdb
 
@@ -164,6 +180,7 @@ def hero_strength_ratings(
     )
     matches = features_dir / "matches.parquet"
     heroes = features_dir / "match_heroes.parquet"
+    lo, hi = bracket_bounds(bracket)
     rows = duckdb.sql(
         f"""
         SELECT
@@ -172,6 +189,8 @@ def hero_strength_ratings(
             SUM(CASE WHEN (h.team = 'radiant') = m.radiant_win THEN 1 ELSE 0 END) AS wins
         FROM read_parquet('{heroes}') AS h
         JOIN read_parquet('{matches}') AS m USING (match_id)
+        WHERE COALESCE(m.avg_rank_tier, 0) >= {lo}
+          AND COALESCE(m.avg_rank_tier, 0) < {hi}
         GROUP BY h.hero_id
         """
     ).fetchall()
