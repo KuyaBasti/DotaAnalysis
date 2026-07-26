@@ -24,15 +24,21 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
 from dm_pipeline import config
+from dm_pipeline.features.brackets import ALL_BRACKETS, bracket_bounds
 
 
 def load_draft_matrix(
     features_dir: Path | str | None = None,
+    *,
+    bracket: str = ALL_BRACKETS,
 ) -> tuple[np.ndarray, np.ndarray, list[int]]:
     """Build (X, y, hero_ids) from the features dataset.
 
     X[i, j] = +1 if hero j is on radiant in match i, -1 if on dire, else 0.
     y[i]    = 1 if radiant won.
+
+    ``bracket`` restricts training to one rank band (see features.brackets);
+    the hero columns stay the full roster so every model shares a layout.
     """
     features_dir = (
         Path(features_dir) if features_dir is not None else config.FEATURES_DIR
@@ -41,6 +47,12 @@ def load_draft_matrix(
     heroes = pl.read_parquet(features_dir / "match_heroes.parquet")
 
     hero_ids = sorted(heroes["hero_id"].unique().to_list())
+    lo, hi = bracket_bounds(bracket)
+    if bracket != ALL_BRACKETS:
+        matches = matches.filter(
+            (pl.col("avg_rank_tier").fill_null(0) >= lo)
+            & (pl.col("avg_rank_tier").fill_null(0) < hi)
+        )
     hero_col = {hero_id: j for j, hero_id in enumerate(hero_ids)}
     match_row = {mid: i for i, mid in enumerate(matches["match_id"].to_list())}
 
@@ -71,8 +83,9 @@ def train(
     *,
     test_size: float = 0.2,
     seed: int = 42,
+    bracket: str = ALL_BRACKETS,
 ) -> TrainResult:
-    X, y, hero_ids = load_draft_matrix(features_dir)
+    X, y, hero_ids = load_draft_matrix(features_dir, bracket=bracket)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=seed, stratify=y
     )
@@ -91,28 +104,40 @@ def train(
     )
 
 
+def model_basename(bracket: str = ALL_BRACKETS) -> str:
+    """Artifact stem for a bracket. 'all' keeps the original (legacy) names."""
+    return (
+        "win_probability"
+        if bracket == ALL_BRACKETS
+        else f"win_probability.{bracket}"
+    )
+
+
 def save_model(
-    result: TrainResult, out_dir: Path | str | None = None
+    result: TrainResult,
+    out_dir: Path | str | None = None,
+    *,
+    bracket: str = ALL_BRACKETS,
 ) -> dict[str, Any]:
     """Persist the model + a metrics JSON. Returns the metrics."""
     import joblib
 
     out_dir = Path(out_dir) if out_dir is not None else config.MODELS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
+    stem = model_basename(bracket)
     joblib.dump(
         {"model": result.model, "hero_ids": result.hero_ids},
-        out_dir / "win_probability.joblib",
+        out_dir / f"{stem}.joblib",
     )
     metrics = {
+        "bracket": bracket,
         "auc": round(result.auc, 4),
         "accuracy": round(result.accuracy, 4),
         "n_train": result.n_train,
         "n_test": result.n_test,
         "n_heroes": result.n_heroes,
     }
-    (out_dir / "win_probability.metrics.json").write_text(
-        json.dumps(metrics, indent=2)
-    )
+    (out_dir / f"{stem}.metrics.json").write_text(json.dumps(metrics, indent=2))
 
     # Servable coefficients: a consumer can score a draft directly as
     # sigmoid(intercept + weights . draft) without loading sklearn (the API does
@@ -122,29 +147,36 @@ def save_model(
         "weights": [round(float(w), 6) for w in result.model.coef_[0]],
         "intercept": round(float(result.model.intercept_[0]), 6),
     }
-    (out_dir / "win_probability.coef.json").write_text(json.dumps(coefficients))
+    (out_dir / f"{stem}.coef.json").write_text(json.dumps(coefficients))
     return metrics
 
 
 def main(argv: list[str] | None = None) -> None:
-    result = train()
-    metrics = save_model(result)
-    print(
-        f"AUC {metrics['auc']:.4f} | accuracy {metrics['accuracy']:.4f} | "
-        f"trained {metrics['n_train']}, tested {metrics['n_test']} "
-        f"({metrics['n_heroes']} heroes)"
-    )
+    import argparse
 
-    weights = result.model.coef_[0]
-    ranked = sorted(range(len(weights)), key=lambda j: weights[j], reverse=True)
-    strongest = [
-        (result.hero_ids[j], round(float(weights[j]), 3)) for j in ranked[:5]
-    ]
-    weakest = [
-        (result.hero_ids[j], round(float(weights[j]), 3)) for j in ranked[-5:]
-    ]
-    print(f"strongest heroes (hero_id, weight): {strongest}")
-    print(f"weakest heroes (hero_id, weight): {weakest}")
+    from dm_pipeline.features.brackets import BRACKET_KEYS, bracket_label
+
+    parser = argparse.ArgumentParser(
+        description="Train the draft->win model, per rank bracket.",
+    )
+    parser.add_argument(
+        "--bracket",
+        default="every",
+        help=f"one of {ALL_BRACKETS}/{'/'.join(BRACKET_KEYS)}, or 'every' (default: train all)",
+    )
+    args = parser.parse_args(argv)
+
+    targets = (
+        [ALL_BRACKETS, *BRACKET_KEYS] if args.bracket == "every" else [args.bracket]
+    )
+    for bracket in targets:
+        result = train(bracket=bracket)
+        metrics = save_model(result, bracket=bracket)
+        print(
+            f"{bracket_label(bracket):16} AUC {metrics['auc']:.4f} | "
+            f"acc {metrics['accuracy']:.4f} | "
+            f"trained {metrics['n_train']:,}, tested {metrics['n_test']:,}"
+        )
 
 
 if __name__ == "__main__":
