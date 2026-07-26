@@ -114,7 +114,8 @@ Not serialized, but the shape the timeline is derived from:
   (`radiant`/`dire`), `hero_id`.
 
 These feed hero win rates, hero strength ratings, and the win-prob model's
-training matrix. See [04-ml-engine.md](04-ml-engine.md).
+training matrix. `avg_rank_tier` is what makes all three **bracket-aware** — see
+[04-ml-engine.md](04-ml-engine.md) and `features/brackets.py` for the bands.
 
 `dm-builds` writes one more artifact here — **`hero_builds.json`** (per-hero real
 item builds + net-worth completion thresholds, from parsed `purchase_log`s) — the
@@ -131,7 +132,7 @@ engine loads it to narrate item timings.
 | `data/details/` | `<match_id>.json` (parsed detail: `gold_t`, `purchase_log`) + unparsed ledger | `dm-backfill` |
 | `data/features/` | `matches.parquet`, `match_heroes.parquet` | `dm-features` |
 | `data/features/` | `hero_builds.json` (real item builds + thresholds) | `dm-builds` |
-| `data/models/` | `win_probability.joblib`, `.coef.json`, `metrics.json` | `dm-train-winprob` |
+| `data/models/` | `win_probability[.<bracket>].{joblib,coef.json,metrics.json}` — one set per rank band plus the blend | `dm-train-winprob` |
 | `data/sims/` | `sim.<id>.json` (SimResult) | sim CLI `--export`, `POST /sims` |
 | `data/calibration/` | `report.<patch>.json` | `dm-calibrate` |
 
