@@ -20,6 +20,8 @@ export interface AggregateRequest {
   dire: string[];
   runs: number;
   seed: number;
+  /** Rank band whose hero ratings the sims use ('all' = blended). */
+  bracket: string;
 }
 
 /** Runs N sims and returns the aggregate JSON (throws on failure). */
@@ -61,7 +63,7 @@ export function createPythonSimRunner(repoRoot: string): SimRunner {
 export function createPythonAggregateRunner(repoRoot: string): AggregateRunner {
   const python =
     process.env.DM_PYTHON ?? path.join(repoRoot, ".venv", "bin", "python");
-  return async ({ patch, radiant, dire, runs, seed }) => {
+  return async ({ patch, radiant, dire, runs, seed, bracket }) => {
     const { stdout } = await execFileAsync(
       python,
       [
@@ -77,6 +79,8 @@ export function createPythonAggregateRunner(repoRoot: string): AggregateRunner {
         String(runs),
         "--seed",
         String(seed),
+        "--bracket",
+        bracket,
       ],
       {
         cwd: repoRoot,
