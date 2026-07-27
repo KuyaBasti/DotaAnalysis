@@ -6,9 +6,9 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **54 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch → analyze**, now **at the rank bracket you play**, and every realism
-  issue from the audits is closed.
+- **58 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch → analyze**, all of it **at the rank bracket you play**, and every
+  realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
@@ -28,7 +28,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 1 Feasibility | ✅ done |
 | 2 Data foundation | ✅ done |
 | 3 Engine core | ✅ Python engine complete · ⬜ Rust port |
-| 4 Orchestrator/API | 🟡 API + simulate + Monte Carlo · ⬜ batch job queue |
+| 4 Orchestrator/API | 🟡 API + simulate + **bracket-aware Monte Carlo** · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
 | 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** · ⬜ fight-outcome model |
 | 7 Coach Lab | ⬜ not started |
@@ -115,6 +115,20 @@ so an agent learns where code lives without searching. Added
 companions, which finally surfaces `decisions/` and `runbooks/`. Principle:
 root = concise routing, `docs/` = explanation, code = final source of truth.
 
+**Bracket-aware Monte Carlo.** Wired the two halves together — Monte Carlo and
+the per-bracket models shipped days apart without talking. It began as a bug:
+Draft Studio already sent `bracket` with every Analyze request and the API
+dropped it (`AggregateRequest` had no such field, the runner never passed
+`--bracket`), so the rank selector moved the win% but every 200-sim run used
+blended ratings. Now the bracket reaches the engine, the panel names the rank it
+analyzed, and `bracket` is part of the `SimAggregate` contract. The payoff: one
+hero swapped per side swings **99.5% (Herald–Crusader) → 60.0% (Ancient+)**,
+where blended says 81% — wrong at both ends. This also qualified an earlier
+negative result: bracket ratings don't help *win accuracy*, but they move the
+*distribution* a lot, which is what analysis actually reads. Caveat recorded in
+[04-ml-engine.md](04-ml-engine.md): extreme drafts saturate at 100%, so the tails
+over-amplify.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
@@ -125,7 +139,8 @@ fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
    ready, and the bracket models give advice that fits the player's rank).
 2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic.
-3. **Bracket-aware Monte Carlo** — surface the aggregate per bracket
-   ("wins 68% in Herald, 51% in Divine") now that both halves exist.
+3. **Soften rating amplification at the tails** — extreme drafts saturate at
+   100%; `_STRENGTH_TO_NETWORTH` turns a large rating edge into ~28k
+   gold-equivalent. Direction is right, magnitude isn't.
 4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
 5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
