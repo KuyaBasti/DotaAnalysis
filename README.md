@@ -10,7 +10,7 @@ Roshan, towers, the Ancient). Not a replay of a real game — a *generated* one.
 > happens, like being benched in NBA 2K MyCareer. That experience exists today
 > (the Match Viewer); everything else serves making it believable.
 
-The engine is validated against a live corpus of **100k+ ranked matches** and
+The engine is validated against a live corpus of **127k+ banked matches** and
 sits within ~1% of real Divine-bracket gold curves, exact on median game length.
 See [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) for the full map and
 [docs/05-progress.md](docs/05-progress.md) for where things stand.
@@ -56,7 +56,8 @@ Then open <http://localhost:5173>, go to **Draft Studio**, pick five heroes per
 side, choose your **rank bracket**, and either **▶ Simulate this draft** (watch
 one game in the **Match Viewer**) or **📊 Analyze (200 sims)** — a Monte-Carlo
 win-probability distribution + duration spread, with a representative game to
-watch. The win% is scored by a model trained on *your* bracket.
+watch. Both the win% and the 200-sim analysis are scored at *your* bracket —
+the same draft can win 99% in Herald–Crusader and 60% at Ancient+.
 
 ### The pipeline CLIs (`pip install -e pipeline`)
 

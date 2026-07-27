@@ -54,7 +54,7 @@ flowchart TD
         patchesAPI["GET /patches/:id<br/>heroes &amp; items"]:::api
         simsAPI["GET /sims/:id<br/>match timeline"]:::api
         makeSim["POST /sims<br/>simulate a draft (spawns the engine)"]:::api
-        aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution"]:::api
+        aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution, per bracket"]:::api
         draftAPI["POST /analysis/draft<br/>live win% per bracket (native sigmoid)"]:::api
     end
 
@@ -184,7 +184,7 @@ Longer rationale for the load-bearing calls lives in
 | Patch Data API | API | TypeScript · Fastify | ✅ built | `api/src/routes/patches.ts` |
 | Sims API (`GET`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` |
 | Simulate-a-draft (`POST /sims`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` + `simRunner.ts` |
-| Monte Carlo (`POST /sims/aggregate`) | API + Engine | TS · Fastify + Python | ✅ built | `simulations.ts` + `prototype/montecarlo.py` (`dm-montecarlo`) |
+| Monte Carlo (`POST /sims/aggregate`) | API + Engine | TS · Fastify + Python | ✅ built | `simulations.ts` + `prototype/montecarlo.py` (`dm-montecarlo`); bracket-selectable |
 | Draft eval API | API | TypeScript · Fastify | ✅ built | `api/src/routes/analysis.ts` |
 | Patch Explorer | Web | React · Vite | ✅ built | `web/src/pages/PatchExplorer.tsx` |
 | Draft Studio | Web | React · Vite | ✅ built | `web/src/pages/DraftStudio/` |
