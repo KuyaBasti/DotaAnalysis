@@ -86,6 +86,8 @@ The Monte-Carlo output: one scenario run N times → `radiant_win_rate`,
 winner nearest the median duration) exported so it's watchable. Produced by
 `dm-montecarlo` and served at `POST /sims/aggregate`.
 
+Carries `bracket` — the rank band whose hero ratings the sims used (`all` = blended). The Draft Studio panel names it so a result is never ambiguous about which rank it describes.
+
 ---
 
 ## Engine state (in-memory, `pipeline/dm_pipeline/prototype/sim_loop.py`)
