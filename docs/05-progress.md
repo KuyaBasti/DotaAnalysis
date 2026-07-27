@@ -69,7 +69,7 @@ five fixes: watched sims now load hero ratings; real kill volume + core-weighted
 K/D/A; losing teams take towers (two-sided pressure); fight XP for real late-game
 levels.
 
-**Documentation refresh.** README, SYSTEM-DESIGN, the `docs/` suite, `CLAUDE.md`,
+**Documentation refresh.** README, SYSTEM-DESIGN, the `docs/` suite, the root agent file,
 filled schemas — brought up to reality.
 
 **Item timings.** `dm-builds` extracts real per-hero item builds and
@@ -106,6 +106,14 @@ points low-vs-high, Clockwerk −12.8. The API serves any bracket
 a rank selector. Honest negative result recorded: bracket-matched *ratings* did
 not improve the sim's win accuracy, so the sim's default stays blended
 (`--bracket` is opt-in).
+
+**Agent-facing docs restructure.** The always-loaded root file is now
+`AGENTS.md` (portable to non-Claude agents; `CLAUDE.md` is a one-line
+`@AGENTS.md` alias), and it leads with a **routing table** — Area → Location —
+so an agent learns where code lives without searching. Added
+[`docs/README.md`](README.md), a hub with an explicit read order plus topical
+companions, which finally surfaces `decisions/` and `runbooks/`. Principle:
+root = concise routing, `docs/` = explanation, code = final source of truth.
 
 ## Next — the additive roadmap
 
