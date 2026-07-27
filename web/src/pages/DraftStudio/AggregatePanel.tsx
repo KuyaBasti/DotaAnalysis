@@ -1,4 +1,5 @@
 import type { SimAggregate } from "../../types";
+import { bracketLabel } from "./brackets";
 
 function mmss(seconds: number): string {
   const s = Math.round(seconds);
@@ -30,7 +31,8 @@ export function AggregatePanel({
       }}
     >
       <div style={{ fontSize: "0.85rem", color: "#666", marginBottom: 8 }}>
-        Over <strong>{aggregate.runs}</strong> simulations:
+        Over <strong>{aggregate.runs}</strong> simulations at{" "}
+        <strong>{bracketLabel(aggregate.bracket)}</strong>:
       </div>
 
       {/* win-rate bar */}

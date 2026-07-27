@@ -9,6 +9,7 @@ import {
 } from "../../api/client";
 import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
 import { AggregatePanel } from "./AggregatePanel";
+import { BRACKET_KEYS, BRACKET_LABELS } from "./brackets";
 import type { Hero, SimAggregate } from "../../types";
 
 const TEAM_SIZE = 5;
@@ -110,10 +111,11 @@ export function DraftStudio({
             onChange={(e) => setBracket(e.target.value)}
             style={{ padding: "0.3rem", borderRadius: 6, marginLeft: 4 }}
           >
-            <option value="all">All ranks</option>
-            <option value="low">Herald–Crusader</option>
-            <option value="mid">Archon–Legend</option>
-            <option value="high">Ancient+</option>
+            {BRACKET_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {BRACKET_LABELS[k]}
+              </option>
+            ))}
           </select>
         </label>
         <span style={{ marginLeft: 10, color: "#888", fontSize: "0.78rem" }}>
