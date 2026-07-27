@@ -83,7 +83,8 @@ Generated artifacts land in `data/` (git-ignored). See
 - [docs/03-ingestion-spec.md](docs/03-ingestion-spec.md) — OpenDota ingestion, harvesting, dedup, details backfill
 - [docs/04-ml-engine.md](docs/04-ml-engine.md) — win-prob model, hero ratings, and the calibration harness
 - [docs/05-progress.md](docs/05-progress.md) — living log of what's shipped
-- [CLAUDE.md](CLAUDE.md) — conventions for working in this repo
+- [AGENTS.md](AGENTS.md) — always-loaded routing + conventions (`CLAUDE.md` aliases it)
+- [docs/README.md](docs/README.md) — docs hub: read order and topical companions
 
 ## Status
 
