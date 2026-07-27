@@ -69,10 +69,29 @@ on) win rate over fixed seeds. The sim CLI/API load these by default
 
 Ratings are also **bracket-aware** (`hero_strength_ratings(bracket=...)`): Sniper
 rates 1.185 in Herald–Crusader but 0.999 at Ancient+; Clockwerk 0.825 → 1.053.
-The sim can opt in with `--bracket`, but **the default stays blended** — measured
-honestly, bracket-matched ratings did *not* improve the sim's win accuracy
-(edge −0.029 vs −0.020 blended, n=800). Per-rank sharpens *hero identity*, which
-helps prediction and analysis; it adds no side-specific signal the engine lacks.
+The sim takes `--bracket`; the *default* stays blended.
+
+Two measurements, and they say different things — both worth keeping:
+
+- **Win accuracy: no gain.** Bracket-matched ratings did not improve the sim's
+  ability to pick the real winner (edge −0.029 vs −0.020 blended, n=800).
+- **Distribution: large effect.** Over 400 sims per bracket, the same draft with
+  one hero swapped per side (Sniper vs Clockwerk) wins **99.5% at low, 93.8% mid,
+  60.0% high** — a 39.5-point swing. Blended says 81%, which is wrong at both
+  ends.
+
+These aren't in conflict. Win accuracy is capped by draft-only information and
+was never the engine's job; the *distribution* is what Monte-Carlo analysis
+consumes, and there the bracket matters a great deal. Hence: blended by default
+for a single sim, bracket-selectable for analysis.
+
+> **Known limitation.** The effect over-amplifies at the tails. Five
+> low-bracket heroes vs five high-bracket heroes gives a rating edge of +1.737,
+> which `_STRENGTH_TO_NETWORTH` (16,000) turns into ~28k gold-equivalent and
+> saturates the result at 100%. Real Dota is never 100%. Typical drafts behave
+> sensibly (88.5% → 80.5% across brackets); extreme ones should be read as
+> "heavily favored", not as a literal probability. Softening that amplification
+> is an open follow-up.
 
 The win-prob model also feeds the engine a **draft prior** (`--model`): its
 predicted P(radiant) seeds a starting net-worth edge.
