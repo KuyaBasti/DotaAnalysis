@@ -218,3 +218,57 @@ describe("POST /sims/aggregate (Monte Carlo)", () => {
     await app.close();
   });
 });
+
+describe("POST /sims/aggregate — bracket", () => {
+  const RADIANT = ["juggernaut", "crystal_maiden", "axe", "invoker", "lion"];
+  const DIRE = ["phantom_assassin", "lich", "tidehunter", "storm_spirit", "witch_doctor"];
+
+  function appCapturing(seen: { bracket?: string }) {
+    return buildApp({
+      snapshotDir: fixturesDir,
+      simDir: fixturesDir,
+      modelsDir: fixturesDir,
+      aggregateRunner: async (req) => {
+        seen.bracket = (req as { bracket: string }).bracket;
+        return { scenario: {}, runs: 1, radiant_win_rate: 0.5, representative_sim_id: "x" };
+      },
+    });
+  }
+
+  it("forwards the requested bracket to the runner", async () => {
+    const seen: { bracket?: string } = {};
+    const app = appCapturing(seen);
+    await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE, bracket: "low" },
+    });
+    expect(seen.bracket).toBe("low"); // regression: the web sent it, the API dropped it
+    await app.close();
+  });
+
+  it("defaults to the blended model when no bracket is given", async () => {
+    const seen: { bracket?: string } = {};
+    const app = appCapturing(seen);
+    await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE },
+    });
+    expect(seen.bracket).toBe("all");
+    await app.close();
+  });
+
+  it("rejects an unknown bracket", async () => {
+    const seen: { bracket?: string } = {};
+    const app = appCapturing(seen);
+    const res = await app.inject({
+      method: "POST",
+      url: "/sims/aggregate",
+      payload: { patch: "7.41d", radiant: RADIANT, dire: DIRE, bracket: "immortal" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(seen.bracket).toBeUndefined(); // never reached the engine
+    await app.close();
+  });
+});

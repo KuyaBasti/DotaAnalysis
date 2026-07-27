@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type { SimStore } from "../simStore.js";
 import type { AggregateRunner, SimRunner } from "../simRunner.js";
+import { isBracket } from "../winProbModel.js";
 
 interface SimParams {
   id: string;
@@ -14,6 +15,8 @@ interface SimulateBody {
 
 interface AggregateBody extends SimulateBody {
   runs?: number;
+  /** Rank band whose hero ratings the sims use; omitted/'all' = blended. */
+  bracket?: string;
 }
 
 const TEAM_SIZE = 5;
@@ -66,6 +69,11 @@ export function simulationRoutes(
       if (invalid) {
         return reply.code(400).send({ error: invalid });
       }
+      if (body.bracket !== undefined && !isBracket(body.bracket)) {
+        return reply
+          .code(400)
+          .send({ error: `unknown bracket: ${body.bracket}` });
+      }
       const runs = Math.min(MAX_RUNS, Math.max(1, Math.floor(body.runs ?? 200)));
       const seed = 1 + Math.floor(Math.random() * 9_999_999);
       try {
@@ -75,6 +83,7 @@ export function simulationRoutes(
           dire: body.dire!,
           runs,
           seed,
+          bracket: body.bracket ?? "all",
         });
         return reply.code(200).send(aggregate);
       } catch (e) {
