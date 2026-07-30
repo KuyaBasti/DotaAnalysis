@@ -6,15 +6,16 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **58 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **60 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze**, all of it **at the rank bracket you play**, and every
   realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
-- **Calibration (n=2000):** duration exact-to-median (sim ≈ 35.5m vs real 35.5m),
-  economy within ±1% of parsed real gold at min 10/20, win edge ≥ baseline.
-  Per-hero win-rate `r` ≈ 0.56 is the open realism target (0.8 goal).
+- **Calibration (n=2000):** Brier 0.296 (the win gate, best measured), duration
+  +0.8m of real, economy within ±1.3% of parsed real gold at min 10/20. The sim's
+  draft-edge→win curve now tracks the one measured on 59,410 real matches to
+  ~1pp.
 - **Data:** 127k matches banked / **59.4k ranked** in the feature store (every
   bracket viable to train on), plus a growing sample of
   parsed details (gold curves + purchase logs) in `data/details/`.
@@ -125,9 +126,30 @@ analyzed, and `bracket` is part of the `SimAggregate` contract. The payoff: one
 hero swapped per side swings **99.5% (Herald–Crusader) → 60.0% (Ancient+)**,
 where blended says 81% — wrong at both ends. This also qualified an earlier
 negative result: bracket ratings don't help *win accuracy*, but they move the
-*distribution* a lot, which is what analysis actually reads. Caveat recorded in
-[04-ml-engine.md](04-ml-engine.md): extreme drafts saturate at 100%, so the tails
-over-amplify.
+*distribution* a lot, which is what analysis actually reads. (Those percentages
+were measured before the amplification fix below — the bracket *separation* held
+up, the magnitudes did not.)
+
+**Rating amplification, and a lesson about the metrics.** The roadmap called
+this "soften the tails"; measuring it showed the diagnosis was wrong. Hero
+strength was paid out **twice** — stronger heroes already farm more, growing a
+net-worth lead the fight logistic reads directly, and the fight resolver then
+added 16,000 gold per rating point on top. So the over-confidence was never
+confined to absurd drafts: a draft real players win 63% of the time simulated at
+87%, and that edge sits at only the ~60th percentile of real drafts. The target
+came from data — over 59,410 ranked matches a draft's rating edge maps to
+`P(win) = sigmoid(2.07 * edge)` — and dropping the fight term 16,000 → **2,000**
+reproduces that curve within ~1pp (it was off by 16pp). No cap or squash was
+needed; saturation was a symptom, not the disease. Ordinary drafts benefited
+most: a one-hero-per-side swap went from 99.5%/60.0% (low/high) to a usable
+**64.5%/40.0%**, bracket separation intact. The twist: **win accuracy and
+per-hero `r` both got worse** — and that turned out to be correct. Both metrics
+are maximized by over-confidence, since ratings derive from real win rates;
+pushing the constant to 64,000 gives the *best* accuracy and `r` while pinning
+every lopsided draft at 100%. Brier (the only proper scoring rule in the
+harness) improved, 0.308 → 0.296. The engine-discipline rule in
+[AGENTS.md](../AGENTS.md) was corrected accordingly: **Brier is the gate; those
+two are diagnostics.**
 
 ## Next — the additive roadmap
 
@@ -139,8 +161,11 @@ fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
    ready, and the bracket models give advice that fits the player's rank).
 2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic.
-3. **Soften rating amplification at the tails** — extreme drafts saturate at
-   100%; `_STRENGTH_TO_NETWORTH` turns a large rating edge into ~28k
-   gold-equivalent. Direction is right, magnitude isn't.
+3. **Per-bracket amplification** — each bracket has its own measured edge→win
+   slope (low 1.119, mid 1.237, high 2.261, blended 2.071), but
+   `_STRENGTH_TO_NETWORTH` is one global constant tuned to the blend. The
+   default and `high` are calibrated; `low`/`mid` analysis is still ~1.7–1.9×
+   too steep. Fix: scale each bracket's rating deviations by
+   `k_bracket / k_blended`.
 4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
 5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
