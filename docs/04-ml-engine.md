@@ -62,10 +62,34 @@ rating    = 1.0 + scale · (shrunk_wr − 0.5)             # e.g. 0.90 (weak) �
 
 This is **the seam where real data enters the engine**: a stronger hero farms a
 bit more (economy) and is favored a bit more in fights. It's what makes a
-simulated Anti-Mage differ from a simulated Invoker — proven directly: a
-meta-top-5 vs meta-bottom-5 draft goes from a 40% (ratings off) to 100% (ratings
-on) win rate over fixed seeds. The sim CLI/API load these by default
-(`load_default_ratings()`, graceful when no features exist yet).
+simulated Anti-Mage differ from a simulated Invoker. The sim CLI/API load these
+by default (`load_default_ratings()`, graceful when no features exist yet).
+
+**How hard should a rating edge swing the result?** Not a matter of taste — it's
+measured. Define a draft's *edge* as summed hero strength above neutral, radiant
+minus dire. Over 59,410 real ranked matches that edge maps to the real win rate
+as a clean logistic:
+
+```
+P(radiant win) = sigmoid(2.07 * edge)        # blended ratings, n = 59,410
+```
+
+| real edge | −0.5 | −0.25 | ~0 | +0.25 | +0.5 |
+|---|---|---|---|---|---|
+| real radiant win rate | 37.8% | 43.9% | 55.9% | 67.7% | 78.3% |
+
+Real drafts are far tamer than intuition suggests: the median |edge| is 0.17 and
+99% fall under 0.53. `_STRENGTH_TO_NETWORTH` is tuned so the sim reproduces that
+curve (mean error ~1pp across edge 0.14–1.74).
+
+> **The double-count that made the sim over-confident.** Strength used to be paid
+> out twice — once through the economy (stronger heroes farm more, growing a
+> net-worth lead the fight logistic already reads) and again as a separate
+> 16,000-gold fight edge on top. A draft real players win 63% of the time
+> simulated at 87%; a p95 draft, 74% real, simulated at 98%; lopsided drafts
+> pinned at a flat 100%. The fix was to recognise the economy already carries
+> most of the signal and drop the fight term to 2,000. No cap or squash was
+> needed — saturation was a symptom of the double-count, not of the curve shape.
 
 Ratings are also **bracket-aware** (`hero_strength_ratings(bracket=...)`): Sniper
 rates 1.185 in Herald–Crusader but 0.999 at Ancient+; Clockwerk 0.825 → 1.053.
@@ -76,22 +100,31 @@ Two measurements, and they say different things — both worth keeping:
 - **Win accuracy: no gain.** Bracket-matched ratings did not improve the sim's
   ability to pick the real winner (edge −0.029 vs −0.020 blended, n=800).
 - **Distribution: large effect.** Over 400 sims per bracket, the same draft with
-  one hero swapped per side (Sniper vs Clockwerk) wins **99.5% at low, 93.8% mid,
-  60.0% high** — a 39.5-point swing. Blended says 81%, which is wrong at both
-  ends.
+  one hero swapped per side (Sniper vs Clockwerk) wins **64.5% at low and 40.0%
+  at high** — a 24.5-point swing on a single swap.
 
 These aren't in conflict. Win accuracy is capped by draft-only information and
 was never the engine's job; the *distribution* is what Monte-Carlo analysis
 consumes, and there the bracket matters a great deal. Hence: blended by default
 for a single sim, bracket-selectable for analysis.
 
-> **Known limitation.** The effect over-amplifies at the tails. Five
-> low-bracket heroes vs five high-bracket heroes gives a rating edge of +1.737,
-> which `_STRENGTH_TO_NETWORTH` (16,000) turns into ~28k gold-equivalent and
-> saturates the result at 100%. Real Dota is never 100%. Typical drafts behave
-> sensibly (88.5% → 80.5% across brackets); extreme ones should be read as
-> "heavily favored", not as a literal probability. Softening that amplification
-> is an open follow-up.
+> **Known limitation — one global constant, three real slopes.** Each bracket
+> has its *own* measured edge→win curve, and they differ a lot:
+>
+> | bracket | real slope | sim slope | |
+> |---|---|---|---|
+> | blended (`all`) | 2.071 | ~2.07 | matched |
+> | Ancient+ (`high`) | 2.261 | ~2.07 | close |
+> | Archon–Legend (`mid`) | 1.237 | ~2.07 | 1.7× too steep |
+> | Herald–Crusader (`low`) | 1.119 | ~2.07 | 1.9× too steep |
+>
+> `_STRENGTH_TO_NETWORTH` is a single global constant tuned to the blended
+> slope, so the default and `high` are well calibrated while `low`/`mid`
+> analysis is still over-confident — a top-5-vs-bottom-5 draft reads ~99% at
+> `low` where that bracket's own curve implies ~91%. Note the shape of the
+> finding: draft edge decides *less* at low ranks, not more (individual play
+> varies more), which is the opposite of the naive guess. The fix is to scale
+> each bracket's rating deviations by `k_bracket / k_blended`; open follow-up.
 
 The win-prob model also feeds the engine a **draft prior** (`--model`): its
 predicted P(radiant) seeds a starting net-worth edge.
@@ -104,12 +137,13 @@ The offline loop that keeps the engine truthful. It sims a sample of **real
 drafts** from the corpus and scores four things in one run
 (`--sample N`, validate on n ≥ 2000):
 
-| Metric | What it asks | Where |
-|---|---|---|
-| **Win accuracy / Brier** | does the sim pick the real winner? (capped by draft-only info) | `calibrate/compare.py` |
-| **Per-hero win-rate `r`** | does the sim reproduce *which heroes win*? (Pearson vs real) | `calibrate/compare.py` |
-| **Duration** | do games last as long as real ones? | `calibrate/compare.py` |
-| **Economy** | is team net worth right at min 10/20 vs **parsed real curves**? | `calibrate/economy.py` |
+| Metric | What it asks | Gate? | Where |
+|---|---|---|---|
+| **Brier** | are the sim's *probabilities* honest? | ✅ **the win gate** | `calibrate/compare.py` |
+| **Duration** | do games last as long as real ones? | ✅ within ±3 min | `calibrate/compare.py` |
+| **Economy** | is team net worth right at min 10/20 vs **parsed real curves**? | ✅ within ±5% | `calibrate/economy.py` |
+| Win accuracy | does the sim pick the real winner? (capped by draft-only info) | ⚠️ diagnostic only | `calibrate/compare.py` |
+| Per-hero win-rate `r` | does the sim reproduce *which heroes win*? (Pearson vs real) | ⚠️ diagnostic only | `calibrate/compare.py` |
 
 The last one is a permanent guardrail added after the economy was calibrated to
 `data/details`: it reports sim-vs-real team net worth so a future engine change
@@ -118,16 +152,13 @@ can't silently drift the gold.
 Example output:
 
 ```
-win:      acc 0.554 vs favorite 0.544 (edge +0.010), Brier 0.307
-realism:  per-hero win-rate r = 0.560 (target >0.8, n=124 heroes); duration sim 35.2m vs real 35.5m (gap -0.3m)
-economy:  team net worth — min 10: sim 15,432 vs real 15,370 (x1.004), min 20: sim 38,467 vs real 38,803 (x0.991)
+win:      acc 0.514 vs favorite 0.567 (edge -0.052), Brier 0.296
+realism:  per-hero win-rate r = 0.454 (target >0.8, n=125 heroes); duration sim 35.1m vs real 34.2m (gap +0.8m)
+economy:  team net worth — min 10: sim 15,569 vs real 15,370 (x1.013), min 20: sim 38,643 vs real 38,803 (x0.996)
 ```
 
-**Current state:** duration exact-to-median, economy ±1% (both realism gates met);
-per-hero `r` ≈ 0.56 is the tracked open target (0.8 goal). A recurring result
-worth stating: **modeling reality more faithfully has improved win accuracy every
-time** — real economy, comeback gold, more fights, fight XP each nudged the edge
-up, not down.
+**Current state:** Brier 0.296 (best measured), duration +0.8m, economy ±1.3% —
+all three gates met.
 
 ### Rigor lessons (baked into the harness)
 
@@ -138,6 +169,22 @@ up, not down.
 - **Ranked-only, all brackets.** Turbo pollution wrecked hero-rate correlation and
   duration; filtering to ranked fixed it. All rank tiers are kept for per-bracket
   models later.
+- **Win accuracy and per-hero `r` reward over-confidence — don't gate on them.**
+  Hero ratings are derived from real win rates, so a sim that merely ranks by
+  rating scores well on both. Sweeping `_STRENGTH_TO_NETWORTH` shows it plainly:
+
+  | constant | accuracy | per-hero `r` | Brier |
+  |---|---|---|---|
+  | **2,000** (calibrated) | 0.514 | 0.454 | **0.296** |
+  | 16,000 (old) | 0.548 | 0.506 | 0.308 |
+  | 32,000 | 0.570 | 0.531 | 0.341 |
+  | 64,000 | **0.574** | **0.531** | 0.373 |
+
+  At 64,000 every lopsided draft pins at 100% — a visibly broken sim, and
+  precisely where accuracy and `r` peak. Brier, the only proper scoring rule
+  here, moves the right way. An honest realism fix should be *expected* to cost
+  accuracy: reproducing a 74%-real matchup means losing 26% of those games,
+  while always backing the favorite does not.
 
 ---
 
