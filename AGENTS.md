@@ -57,10 +57,17 @@ remains the final source of truth.
 - **Presentational state is rng-free.** Positions, K/D/A, and anything that only
   affects how a match is *shown* must be pure functions of game state, so adding
   them cannot change an outcome. Tests assert this — preserve it.
-- **Calibrate every engine change.** Run `dm-calibrate --sample 2000` and keep the
-  four metrics healthy: duration within ±3 min, economy within ±5% of real
-  (currently ±1%), win edge ≥ baseline, and don't tank per-hero `r`. The engine is
-  tuned to **reality**, not to intuition — measure, don't guess.
+- **Calibrate every engine change.** Run `dm-calibrate --sample 2000`: duration
+  within ±3 min, economy within ±5% of real (currently ±1%), and **Brier at or
+  below baseline**. The engine is tuned to **reality**, not to intuition —
+  measure, don't guess.
+- **Win accuracy and per-hero `r` are not gates — they reward over-confidence.**
+  Hero ratings are derived from real win rates, so a sim that merely ranks by
+  rating scores well on both. Cranking `_STRENGTH_TO_NETWORTH` to 64,000 gives
+  the *best* accuracy (0.574) and `r` (0.531) while pinning every lopsided draft
+  at 100% — a visibly broken sim. Brier is the only proper scoring rule in the
+  harness; when it disagrees with those two, trust Brier. Read them as
+  diagnostics, and expect an honest realism fix to cost you some of both.
 - **Constants are the knobs.** Engine behaviour lives in named module constants
   (`_FIGHT_CHANCE`, `_OBJECTIVE_BASE_CHANCE`, `_STRENGTH_TO_NETWORTH`, …). Tune
   those; comment what they were calibrated against.
