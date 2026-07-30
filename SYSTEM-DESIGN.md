@@ -141,10 +141,10 @@ flowchart TD
    Both are **bracket-aware**: models and ratings are trained per rank band, so
    Draft Studio can score a draft at the rank the player actually plays.
 4. **Calibration is a feedback loop, not a serving path.** `dm-calibrate` sims
-   real drafts offline and scores four things — win accuracy, per-hero win-rate
-   correlation, game duration, and economy checkpoints against parsed details —
-   and that result is how the engine's constants get tuned. It never touches the
-   API.
+   real drafts offline and scores probability quality (Brier), game duration, and
+   economy checkpoints against parsed details — plus win accuracy and per-hero
+   win-rate correlation as diagnostics — and that result is how the engine's
+   constants get tuned. It never touches the API.
 
 ---
 
@@ -161,7 +161,7 @@ flowchart TD
 | Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket is what made the per-rank models below possible. |
 | Rank granularity | **Three bands** (Herald–Crusader / Archon–Legend / Ancient+), not eight medals | Eight medals leave too few matches each to train 127-hero models; three bands each clear ~9k matches and still separate the play patterns. |
 | Win prediction in the API | Native `sigmoid(intercept + weights·draft)` in TS | The logistic model exports coefficients — no ONNX/sklearn runtime in the API. |
-| Engine's real target | **Distributional realism** (per-hero r, duration, economy), not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. The Draft Studio uses the model for win%. |
+| Engine's real target | **Distributional realism** — Brier, duration, economy, and the measured draft-edge→win curve — not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. Worse: accuracy and per-hero `r` both *reward over-confidence* (ratings derive from real win rates), so they're diagnostics, not gates. |
 | Storage | Files under `data/` (Parquet/JSON), DuckDB for queries | Zero infra for a solo alpha; a database is a deploy-time concern. |
 
 Longer rationale for the load-bearing calls lives in
