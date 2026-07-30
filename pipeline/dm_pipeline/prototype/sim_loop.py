@@ -79,7 +79,19 @@ _FIGHT_CHANCE = 0.36  # skirmish cadence: ~one fight per 1.4 min, like real mid-
 _FIRST_BLOOD_WINDOW_SECONDS = 90
 _FIRST_BLOOD_FIGHT_CHANCE = 0.62
 _DRAFT_PRIOR_NETWORTH = 8_000.0  # starting net-worth edge a decisive draft (p=1) is worth
-_STRENGTH_TO_NETWORTH = 16_000.0  # net-worth-equivalent value of one point of draft strength in fights (tuned on n=1500)
+# Net-worth-equivalent value of one point of draft strength in fights.
+#
+# Kept deliberately small because this is the *second* place hero strength is
+# paid out: stronger heroes already farm more (economy.hero_gold_gain), which
+# grows a real net-worth lead that the fight logistic reads directly. The old
+# 16,000 double-counted that advantage and made the sim wildly over-confident —
+# 98% for a draft real data wins 74% of the time.
+#
+# Calibrated against the measured curve: over 59,410 real ranked matches, a
+# draft's rating edge maps to P(win) = sigmoid(2.07 * edge). At 2,000 the sim
+# reproduces that curve within Monte-Carlo noise (mean error ~1pp over
+# edge 0.14..1.74); at 16,000 it was off by 16pp.
+_STRENGTH_TO_NETWORTH = 2_000.0
 
 # Experience: unlike gold (which ramps with items/farm efficiency), real XP
 # flows steadily from creep waves, so XP is flat in time — a passive floor
