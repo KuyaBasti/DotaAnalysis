@@ -64,3 +64,25 @@ export interface DraftEvalResponse {
   bracket?: string;
   radiant_win_probability: number;
 }
+
+/** One hero's share of the credit or blame for a draft's win probability. */
+export interface HeroContribution {
+  /** Hero key, e.g. "sniper". */
+  hero: string;
+  hero_id: number;
+  team: "radiant" | "dire";
+  /**
+   * Percentage points this hero adds to their own team's win probability,
+   * versus an average hero in the same slot. Leave-one-out counterfactuals, so
+   * they do not sum to the total.
+   */
+  swing: number;
+}
+
+export interface DraftExplanation {
+  patch_id: string;
+  bracket?: string;
+  radiant_win_probability: number;
+  /** Sorted by absolute swing, biggest mover first. */
+  contributions: HeroContribution[];
+}

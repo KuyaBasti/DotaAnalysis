@@ -1,5 +1,6 @@
 import type {
   DraftEvalResponse,
+  DraftExplanation,
   HeroesResponse,
   PatchesResponse,
   SimAggregate,
@@ -88,6 +89,21 @@ export function evaluateDraft(
   bracket?: string,
 ): Promise<DraftEvalResponse> {
   return postJSON<DraftEvalResponse>("/analysis/draft", {
+    radiant,
+    dire,
+    patch_id: patchId,
+    bracket,
+  });
+}
+
+/** The same win probability, broken down by hero (Coach Lab). */
+export function explainDraft(
+  radiant: string[],
+  dire: string[],
+  patchId?: string,
+  bracket?: string,
+): Promise<DraftExplanation> {
+  return postJSON<DraftExplanation>("/analysis/explain", {
     radiant,
     dire,
     patch_id: patchId,
