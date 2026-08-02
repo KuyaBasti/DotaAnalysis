@@ -6,9 +6,9 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **60 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch → analyze**, all of it **at the rank bracket you play**, and every
-  realism issue from the audits is closed.
+- **63 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch → analyze → understand**, all of it **at the rank bracket you play**,
+  and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
@@ -32,7 +32,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 4 Orchestrator/API | 🟡 API + simulate + **bracket-aware Monte Carlo** · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
 | 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** · ⬜ fight-outcome model |
-| 7 Coach Lab | ⬜ not started |
+| 7 Coach Lab | 🟡 **draft explanation** (per-hero swings) · ⬜ timing windows · ⬜ draft suggestions |
 | 8 Beta & launch | ⬜ not started |
 
 ## The arc so far (grouped)
@@ -169,14 +169,34 @@ ordering sitting three paragraphs above it in the same doc, which should have
 caught it; both guards are now written into the rigor lessons in
 [04-ml-engine.md](04-ml-engine.md).
 
+**Coach Lab opens: why a draft wins (Stage 7).** Draft Studio has always shown
+*a number*; now it shows **who is moving it**. `POST /analysis/explain` returns a
+per-hero swing — the percentage points that hero adds to their own side versus
+an average pick in the same slot — and an `ExplanationPanel` draws them as
+diverging bars under the win bar, riding the same effect as the live win% so the
+two can never disagree. The decomposition is **exact, not a heuristic**: the
+win-prob model is a logistic regression, linear in log-odds, so dropping a
+hero's weight is a genuine counterfactual. Two honesty choices baked in — swings
+read from the hero's own team's side (a strong hero is positive on either team),
+and they deliberately *don't* sum to the total, because the model is linear in
+log-odds, not in probability; the panel says so instead of implying a tidy
+decomposition. **This is where the per-bracket work finally becomes visible to a
+player:** same draft, rank selector moved, Sniper goes **+10.2pp
+(Herald–Crusader) → −0.1pp (Ancient+)** while Clockwerk goes **−5.5 → +4.0** —
+the long-standing bracket finding surfaced per hero instead of buried in an AUC
+table. Known limit, stated in the UI: the model scores heroes individually, so
+there is no notion of synergies or counters.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Coach Lab** (Stage 7) — turn watchable sims + per-bracket analysis into
-   teaching (why a draft loses, timing windows, item advice — `dm-builds` data is
-   ready, and the bracket models give advice that fits the player's rank).
+1. **Coach Lab** (Stage 7) — *why a draft wins* is in. The two remaining slices:
+   **timing windows** (when a draft is strongest/weakest, from the Monte-Carlo
+   runs plus `dm-builds` item spikes) and **draft suggestions** (rank the next
+   pick against the current partial draft at the player's bracket). Both build
+   on the explanation seam rather than replacing it.
 2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic.
 3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
