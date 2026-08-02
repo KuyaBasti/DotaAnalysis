@@ -56,18 +56,19 @@ flowchart TD
         makeSim["POST /sims<br/>simulate a draft (spawns the engine)"]:::api
         aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution, per bracket"]:::api
         draftAPI["POST /analysis/draft<br/>live win% per bracket (native sigmoid)"]:::api
+        explainAPI["POST /analysis/explain<br/>per-hero swings: why that win%"]:::api
     end
 
     subgraph WEB["Web app — React + Vite"]
         explorer["Patch Explorer<br/>browse heroes &amp; items"]:::web
-        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) · rank bracket<br/>→ win% → Simulate / Analyze"]:::web
+        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) · rank bracket<br/>→ win% + why → Simulate / Analyze"]:::web
         viewer["Match Viewer ★<br/>PLAY the match: clock · scoreboard · minimap · win-prob · feed"]:::web
     end
 
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        coach["Coach Lab<br/>education / premium tier"]:::planned
+        coach["Coach Lab — rest of it<br/>timing windows · draft suggestions"]:::planned
     end
 
     OD -->|REST| ingest
@@ -96,11 +97,13 @@ flowchart TD
     snaps --> patchesAPI
     sims --> simsAPI
     models --> draftAPI
+    models --> explainAPI
     makeSim -->|runs| engine
 
     patchesAPI --> explorer
     patchesAPI --> studio
     draftAPI --> studio
+    explainAPI -->|why: per-hero swings| studio
     studio -->|Simulate this draft| makeSim
     studio -->|Analyze N sims| aggAPI
     makeSim --> viewer
@@ -186,6 +189,7 @@ Longer rationale for the load-bearing calls lives in
 | Simulate-a-draft (`POST /sims`) | API | TypeScript · Fastify | ✅ built | `api/src/routes/simulations.ts` + `simRunner.ts` |
 | Monte Carlo (`POST /sims/aggregate`) | API + Engine | TS · Fastify + Python | ✅ built | `simulations.ts` + `prototype/montecarlo.py` (`dm-montecarlo`); bracket-selectable |
 | Draft eval API | API | TypeScript · Fastify | ✅ built | `api/src/routes/analysis.ts` |
+| Draft explanation (`POST /analysis/explain`) | API + Web | TS · Fastify + React | ✅ built | `analysis.ts` + `winProbModel.explain()` + `DraftStudio/ExplanationPanel.tsx` |
 | Patch Explorer | Web | React · Vite | ✅ built | `web/src/pages/PatchExplorer.tsx` |
 | Draft Studio | Web | React · Vite | ✅ built | `web/src/pages/DraftStudio/` |
 | Match Viewer (playback) | Web | React · Vite | ✅ built | `web/src/pages/MatchViewer/` |
@@ -194,7 +198,8 @@ Longer rationale for the load-bearing calls lives in
 | Job queue (batch Monte Carlo) | Backend | — | ⬜ planned | — *(on-demand aggregation is built; queue is for scale)* |
 | Per-rank models | ML + API + Web | Python · TS · React | ✅ built | `features/brackets.py`, `models/win_probability/`, `analysis.ts`, Draft Studio |
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
-| Coach Lab | Web | — | ⬜ planned | `web/src/pages/CoachLab/` *(placeholder)* |
+| Coach Lab — draft explanation | API + Web | TS · React | ✅ built | `ExplanationPanel.tsx`, served from `analysis.ts` |
+| Coach Lab — timing windows, suggestions | Web | — | ⬜ planned | — |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
 > `SimDashboard`, `replays.ts`, `scenarios.ts`) are scaffolded placeholders, not
