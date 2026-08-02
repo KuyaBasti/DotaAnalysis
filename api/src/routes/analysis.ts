@@ -8,6 +8,8 @@ interface ResolvedDraft {
   bracket: Bracket;
   radiantIds: number[];
   direIds: number[];
+  /** Reverse of the key→id lookup, for naming heroes in responses. */
+  keyOf: Map<number, string>;
 }
 
 // Shared by both analysis routes: validate the bracket, resolve the patch, and
@@ -42,6 +44,7 @@ function resolveDraft(
     bracket: bracket ?? "all",
     radiantIds: radiant.map((k) => heroId.get(k)!),
     direIds: dire.map((k) => heroId.get(k)!),
+    keyOf: new Map(snap.heroes.map((h) => [h.id, h.key])),
   };
 }
 
@@ -89,10 +92,21 @@ export function analysisRoutes(
         const draft = resolveDraft(snapshots, req.body, reply);
         if (!("patchId" in draft)) return draft;
 
+        const { radiant_win_probability, contributions } = model.explain(
+          draft.radiantIds,
+          draft.direIds,
+          draft.bracket,
+        );
         return {
           patch_id: draft.patchId,
           bracket: draft.bracket,
-          ...model.explain(draft.radiantIds, draft.direIds, draft.bracket),
+          radiant_win_probability,
+          // Callers work in hero keys everywhere else; carry the id too, since
+          // that's the id space the model is trained on.
+          contributions: contributions.map((c) => ({
+            hero: draft.keyOf.get(c.hero_id) ?? String(c.hero_id),
+            ...c,
+          })),
         };
       },
     );

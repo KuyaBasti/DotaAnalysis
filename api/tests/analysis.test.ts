@@ -123,6 +123,14 @@ describe("draft explanation", () => {
     expect(teams).toEqual({ 8: "radiant", 5: "radiant", 31: "dire" });
   });
 
+  it("names each hero by key, since callers work in keys", async () => {
+    const res = await explain({ radiant: ["juggernaut"], dire: ["lich"] });
+    const byKey = Object.fromEntries(
+      res.json().contributions.map((c: { hero: string; hero_id: number }) => [c.hero, c.hero_id]),
+    );
+    expect(byKey).toEqual({ juggernaut: 8, lich: 31 });
+  });
+
   it("agrees with the win probability the draft route reports", async () => {
     const payload = { radiant: ["juggernaut"], dire: ["lich"], patch_id: "7.39c" };
     const app = makeApp();
