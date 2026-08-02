@@ -56,8 +56,14 @@ Then open <http://localhost:5173>, go to **Draft Studio**, pick five heroes per
 side, choose your **rank bracket**, and either **▶ Simulate this draft** (watch
 one game in the **Match Viewer**) or **📊 Analyze (200 sims)** — a Monte-Carlo
 win-probability distribution + duration spread, with a representative game to
-watch. Both the win% and the 200-sim analysis are scored at *your* bracket —
-the same draft can win 99% in Herald–Crusader and 60% at Ancient+.
+watch.
+
+Under the win bar you also get **why**: a per-hero breakdown of who is moving
+the draft, measured as the percentage points each hero adds to their own side
+versus an average pick in that slot. Everything is scored at *your* bracket, and
+that is where it earns its keep — move the rank selector and Sniper goes from
+**+10.2 points** in Herald–Crusader to **−0.1** at Ancient+, while Clockwerk
+goes **−5.5 → +4.0**.
 
 ### The pipeline CLIs (`pip install -e pipeline`)
 
@@ -90,7 +96,9 @@ Generated artifacts land in `data/` (git-ignored). See
 ## Status
 
 A working alpha, developed as a personal project — **not shipped or deployed**.
-The core loop (draft → predict → simulate → watch → analyze) works end-to-end,
-including Monte-Carlo matchup analysis and per-rank models. The remaining roadmap
-(Coach Lab, fight-outcome model, Rust engine, batch job queue) is tracked in
+The core loop (draft → predict → simulate → watch → analyze → understand) works
+end-to-end, including Monte-Carlo matchup analysis, per-rank models, and the
+per-hero draft explanation. The remaining roadmap (the rest of Coach Lab —
+timing windows and draft suggestions — plus the fight-outcome model, Rust
+engine, and batch job queue) is tracked in
 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md).

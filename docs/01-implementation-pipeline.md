@@ -92,6 +92,8 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
 - `POST /sims`: simulate a user's draft on demand (spawns the engine). ✅
 - `POST /sims/aggregate`: **Monte Carlo** — run a draft N times → win-probability
   distribution, not one game (`prototype/montecarlo.py`, `dm-montecarlo`). ✅
+- `POST /analysis/explain`: the win probability broken down per hero (Stage 7's
+  first slice; see below). ✅
 - ⬜ Job queue: batch Monte Carlo at scale (only needed beyond on-demand).
 
 **Exit criteria:**
@@ -146,14 +148,28 @@ steps. ✅
 
 ---
 
-## Stage 7 — Coach Lab / education ⬜
+## Stage 7 — Coach Lab / education 🟡
 
 **Goal:** turn watchable sims into teaching — "why is this draft losing?", timing
 windows, per-bracket advice.
 
 **Exit criterion:** a player can pick their rank, draft a matchup, and get an
-explanation they can act on — not just a number. *(Substance is now in place:
-per-bracket models, Monte-Carlo distributions, and real item builds.)*
+explanation they can act on — not just a number.
+
+- ✅ **Why a draft wins** — `POST /analysis/explain` breaks the win probability
+  into per-hero swings (percentage points that hero adds to their own side
+  versus an average pick in the slot), drawn under the win bar in Draft Studio.
+  Exact rather than heuristic: the model is linear in log-odds, so dropping a
+  hero's weight is a real counterfactual. Reading the same draft at two ranks is
+  the teaching moment — Sniper +10.2pp at Herald–Crusader, −0.1pp at Ancient+.
+- ⬜ **Timing windows** — when a draft is strongest/weakest, from the
+  Monte-Carlo runs plus `dm-builds` item spikes.
+- ⬜ **Draft suggestions** — rank the next pick against the current partial
+  draft at the player's bracket.
+
+Known limit of the explanation: the win-prob model scores heroes individually,
+so it has no notion of synergies or counters. The panel says so rather than
+implying more than the model knows.
 
 ---
 
