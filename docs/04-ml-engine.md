@@ -29,6 +29,23 @@ A logistic regression over the draft.
   sklearn/ONNX runtime in the API.** This powers `POST /analysis/draft` and the
   Draft Studio's live win% bar.
 
+**Explaining the number.** Being linear in log-odds makes this model *auditable*,
+which is what Coach Lab is built on. Dropping one hero's weight is an exact
+counterfactual — "an average hero played this slot instead" — so
+`winProbModel.explain()` reports each hero's swing in percentage points, served
+at `POST /analysis/explain` and drawn under Draft Studio's win bar:
+
+```
+swing(hero) = P(win | draft) − P(win | draft with that hero's weight zeroed)
+```
+
+Two properties worth knowing before reading one: swings are expressed from the
+hero's **own team's** side (a strong hero is positive whichever side drafts
+them), and they **do not sum to the total** — the model is linear in log-odds,
+not in probability, so leave-one-out effects genuinely don't add up. And because
+the features are one column per hero, the explanation covers hero *identity*
+only; there is no synergy or counter term to attribute.
+
 **Per-bracket models.** `dm-train-winprob` trains one model per rank band plus
 the blended one (`--bracket every`, the default), writing
 `win_probability[.<bracket>].coef.json`. The API serves whichever the caller asks
@@ -47,6 +64,14 @@ long-standing "draft explains less at higher skill" ceiling — it was never a
 modelling failure, it was two different games averaged together. Example: a
 Sniper/Pudge/Broodmother draft scores 98% in Herald–Crusader and 58% at Ancient+
 (blended says 83%, describing neither).
+
+Per-hero swings (above) make that concrete for a player rather than a modeller —
+the same draft read at two ranks:
+
+| hero | Herald–Crusader | Ancient+ |
+|---|---|---|
+| Sniper | **+10.2 pp** | −0.1 pp |
+| Clockwerk | **−5.5 pp** | +4.0 pp |
 
 ---
 
