@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   aggregateDraft,
   evaluateDraft,
+  explainDraft,
   getHeroes,
   latestPatch,
   listPatches,
@@ -9,8 +10,9 @@ import {
 } from "../../api/client";
 import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
 import { AggregatePanel } from "./AggregatePanel";
+import { ExplanationPanel } from "./ExplanationPanel";
 import { BRACKET_KEYS, BRACKET_LABELS } from "./brackets";
-import type { Hero, SimAggregate } from "../../types";
+import type { DraftExplanation, Hero, SimAggregate } from "../../types";
 
 const TEAM_SIZE = 5;
 
@@ -27,6 +29,7 @@ export function DraftStudio({
   const [dire, setDire] = useState<string[]>([]);
   const [side, setSide] = useState<"radiant" | "dire">("radiant");
   const [winProb, setWinProb] = useState<number | null>(null);
+  const [explanation, setExplanation] = useState<DraftExplanation | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
   const [bracket, setBracket] = useState<string>("all");
@@ -57,16 +60,22 @@ export function DraftStudio({
     };
   }, []);
 
-  // Re-evaluate whenever either side changes (both must be non-empty).
+  // Re-evaluate whenever either side changes (both must be non-empty). The
+  // breakdown rides along on the same picks so it can never disagree with the
+  // bar above it; both are model-only calls, no simulation.
   useEffect(() => {
     if (radiant.length === 0 || dire.length === 0) {
       setWinProb(null);
+      setExplanation(null);
       return;
     }
     let cancelled = false;
     evaluateDraft(radiant, dire, patch ?? undefined, bracket)
       .then((r) => !cancelled && setWinProb(r.radiant_win_probability))
       .catch(() => !cancelled && setWinProb(null));
+    explainDraft(radiant, dire, patch ?? undefined, bracket)
+      .then((r) => !cancelled && setExplanation(r))
+      .catch(() => !cancelled && setExplanation(null));
     return () => {
       cancelled = true;
     };
@@ -260,6 +269,11 @@ export function DraftStudio({
             : `Radiant ${radiantPct}% — Dire ${100 - radiantPct}%`}
         </div>
       </div>
+
+      {/* why the bar sits where it does */}
+      {explanation && (
+        <ExplanationPanel explanation={explanation} heroes={heroes} />
+      )}
 
       {/* the two teams */}
       <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>

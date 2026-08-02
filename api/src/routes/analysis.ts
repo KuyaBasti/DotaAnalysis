@@ -1,7 +1,52 @@
-import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from "fastify";
 import type { SnapshotStore } from "../snapshotStore.js";
-import { isBracket, type WinProbModel } from "../winProbModel.js";
+import { isBracket, type Bracket, type WinProbModel } from "../winProbModel.js";
 import type { DraftEvalRequest } from "../types.js";
+
+interface ResolvedDraft {
+  patchId: string;
+  bracket: Bracket;
+  radiantIds: number[];
+  direIds: number[];
+  /** Reverse of the key→id lookup, for naming heroes in responses. */
+  keyOf: Map<number, string>;
+}
+
+// Shared by both analysis routes: validate the bracket, resolve the patch, and
+// map hero keys to the numeric ids the model is trained on. On failure it sends
+// the error and returns the reply, so the caller just hands that back.
+function resolveDraft(
+  snapshots: SnapshotStore,
+  body: DraftEvalRequest | undefined,
+  reply: FastifyReply,
+): ResolvedDraft | FastifyReply {
+  const { radiant = [], dire = [], patch_id, bracket } = body ?? {};
+  if (bracket !== undefined && !isBracket(bracket)) {
+    return reply.code(400).send({ error: `unknown bracket: ${bracket}` });
+  }
+  const id = patch_id ?? snapshots.listPatches()[0];
+  if (!id) return reply.code(404).send({ error: "no patches available" });
+  const snap = snapshots.getSnapshot(id);
+  if (!snap) {
+    return reply.code(404).send({ error: `unknown patch: ${id}` });
+  }
+
+  const heroId = new Map(snap.heroes.map((h) => [h.key, h.id]));
+  const missing = [...radiant, ...dire].filter((k) => !heroId.has(k));
+  if (missing.length > 0) {
+    return reply
+      .code(400)
+      .send({ error: `unknown hero key(s): ${missing.join(", ")}` });
+  }
+
+  return {
+    patchId: id,
+    bracket: bracket ?? "all",
+    radiantIds: radiant.map((k) => heroId.get(k)!),
+    direIds: dire.map((k) => heroId.get(k)!),
+    keyOf: new Map(snap.heroes.map((h) => [h.id, h.key])),
+  };
+}
 
 // Instant draft evaluation: score a draft with the win-probability model, no
 // full simulation. Hero keys are resolved to ids via the snapshot.
@@ -18,36 +63,50 @@ export function analysisRoutes(
             .code(503)
             .send({ error: "win-probability model not loaded" });
         }
+        const draft = resolveDraft(snapshots, req.body, reply);
+        if (!("patchId" in draft)) return draft;
 
-        const { radiant = [], dire = [], patch_id, bracket } = req.body ?? {};
-        if (bracket !== undefined && !isBracket(bracket)) {
-          return reply.code(400).send({ error: `unknown bracket: ${bracket}` });
-        }
-        const id = patch_id ?? snapshots.listPatches()[0];
-        if (!id) return reply.code(404).send({ error: "no patches available" });
-        const snap = snapshots.getSnapshot(id);
-        if (!snap) {
-          return reply.code(404).send({ error: `unknown patch: ${id}` });
-        }
-
-        const heroId = new Map(snap.heroes.map((h) => [h.key, h.id]));
-        const missing = [...radiant, ...dire].filter((k) => !heroId.has(k));
-        if (missing.length > 0) {
-          return reply
-            .code(400)
-            .send({ error: `unknown hero key(s): ${missing.join(", ")}` });
-        }
-
-        const scoredBracket = bracket ?? "all";
         const prob = model.predict(
-          radiant.map((k) => heroId.get(k)!),
-          dire.map((k) => heroId.get(k)!),
-          scoredBracket,
+          draft.radiantIds,
+          draft.direIds,
+          draft.bracket,
         );
         return {
-          patch_id: id,
-          bracket: scoredBracket,
+          patch_id: draft.patchId,
+          bracket: draft.bracket,
           radiant_win_probability: Number(prob.toFixed(4)),
+        };
+      },
+    );
+
+    // Coach Lab: the same number, broken down by hero — who is carrying this
+    // draft and who is dragging it, at the rank the player actually plays.
+    app.post<{ Body: DraftEvalRequest }>(
+      "/analysis/explain",
+      async (req, reply) => {
+        if (!model) {
+          return reply
+            .code(503)
+            .send({ error: "win-probability model not loaded" });
+        }
+        const draft = resolveDraft(snapshots, req.body, reply);
+        if (!("patchId" in draft)) return draft;
+
+        const { radiant_win_probability, contributions } = model.explain(
+          draft.radiantIds,
+          draft.direIds,
+          draft.bracket,
+        );
+        return {
+          patch_id: draft.patchId,
+          bracket: draft.bracket,
+          radiant_win_probability,
+          // Callers work in hero keys everywhere else; carry the id too, since
+          // that's the id space the model is trained on.
+          contributions: contributions.map((c) => ({
+            hero: draft.keyOf.get(c.hero_id) ?? String(c.hero_id),
+            ...c,
+          })),
         };
       },
     );
