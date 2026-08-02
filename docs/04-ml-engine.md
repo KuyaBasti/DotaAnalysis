@@ -71,7 +71,7 @@ minus dire. Over 59,410 real ranked matches that edge maps to the real win rate
 as a clean logistic:
 
 ```
-P(radiant win) = sigmoid(2.07 * edge)        # blended ratings, n = 59,410
+P(radiant win) = sigmoid(1.94 * edge)        # blended, n = 59,410, split-half
 ```
 
 | real edge | −0.5 | −0.25 | ~0 | +0.25 | +0.5 |
@@ -80,7 +80,12 @@ P(radiant win) = sigmoid(2.07 * edge)        # blended ratings, n = 59,410
 
 Real drafts are far tamer than intuition suggests: the median |edge| is 0.17 and
 99% fall under 0.53. `_STRENGTH_TO_NETWORTH` is tuned so the sim reproduces that
-curve (mean error ~1pp across edge 0.14–1.74).
+curve (mean error ~1pp across edge 0.14–1.0).
+
+**Fit it out-of-sample.** Ratings are derived from win rates, so fitting the
+slope on the same matches that produced the ratings is circular and inflates it
+(2.07 in-sample vs **1.94** split-half — ratings from one half of the corpus,
+slope fit on the other). Always split.
 
 > **The double-count that made the sim over-confident.** Strength used to be paid
 > out twice — once through the economy (stronger heroes farm more, growing a
@@ -108,23 +113,26 @@ was never the engine's job; the *distribution* is what Monte-Carlo analysis
 consumes, and there the bracket matters a great deal. Hence: blended by default
 for a single sim, bracket-selectable for analysis.
 
-> **Known limitation — one global constant, three real slopes.** Each bracket
-> has its *own* measured edge→win curve, and they differ a lot:
->
-> | bracket | real slope | sim slope | |
-> |---|---|---|---|
-> | blended (`all`) | 2.071 | ~2.07 | matched |
-> | Ancient+ (`high`) | 2.261 | ~2.07 | close |
-> | Archon–Legend (`mid`) | 1.237 | ~2.07 | 1.7× too steep |
-> | Herald–Crusader (`low`) | 1.119 | ~2.07 | 1.9× too steep |
->
-> `_STRENGTH_TO_NETWORTH` is a single global constant tuned to the blended
-> slope, so the default and `high` are well calibrated while `low`/`mid`
-> analysis is still over-confident — a top-5-vs-bottom-5 draft reads ~99% at
-> `low` where that bracket's own curve implies ~91%. Note the shape of the
-> finding: draft edge decides *less* at low ranks, not more (individual play
-> varies more), which is the opposite of the naive guess. The fix is to scale
-> each bracket's rating deviations by `k_bracket / k_blended`; open follow-up.
+**Does each bracket need its own amplification?** Measured: **no.** Fit
+out-of-sample, per bracket, on that bracket's own matches:
+
+| bracket | matches | edge→win slope |
+|---|---|---|
+| blended (`all`) | 59,410 | 1.936 |
+| Herald–Crusader (`low`) | 9,711 | 1.810 |
+| Archon–Legend (`mid`) | 11,255 | 1.805 |
+| Ancient+ (`high`) | 38,444 | 1.699 |
+
+The slopes are flat across brackets (1.70–1.81), so **one global
+`_STRENGTH_TO_NETWORTH` is correct** — no per-bracket gain is needed. What
+changes by bracket is *which heroes* are strong, not how much a given edge is
+worth. That's the useful shape: the bracket models earn their keep through hero
+identity, not through a different response curve.
+
+If anything `low` sits marginally *above* `high`, consistent with the per-bracket
+AUC ordering above (draft matters most at low ranks) — and understated here,
+since `low` has a quarter of `high`'s matches, so its ratings are noisier and
+noisy ratings attenuate a fitted slope.
 
 The win-prob model also feeds the engine a **draft prior** (`--model`): its
 predicted P(radiant) seeds a starting net-worth edge.
@@ -169,6 +177,16 @@ all three gates met.
 - **Ranked-only, all brackets.** Turbo pollution wrecked hero-rate correlation and
   duration; filtering to ranked fixed it. All rank tiers are kept for per-bracket
   models later.
+- **Filter to the bracket, and fit out-of-sample.** A per-bracket slope table
+  once reported low 1.119 vs high 2.261 — a "brackets need different
+  amplification" finding that sent a whole vertical down the wrong path. Two
+  bugs: the matches were never filtered to the bracket (only the *ratings* were,
+  so every row silently used all 59,410 matches), and ratings and slope were fit
+  on the same data. Filtered and split-half, the slopes are flat (1.70–1.81) and
+  no per-bracket gain is needed. Two cheap guards: **check the row counts** — all
+  four brackets reporting an identical `n` is the tell — and **check the result
+  against what the repo already knows**; that table contradicted the per-bracket
+  AUC ordering three paragraphs above it, which should have stopped it.
 - **Win accuracy and per-hero `r` reward over-confidence — don't gate on them.**
   Hero ratings are derived from real win rates, so a sim that merely ranks by
   rating scores well on both. Sweeping `_STRENGTH_TO_NETWORTH` shows it plainly:

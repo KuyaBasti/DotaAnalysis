@@ -138,7 +138,7 @@ added 16,000 gold per rating point on top. So the over-confidence was never
 confined to absurd drafts: a draft real players win 63% of the time simulated at
 87%, and that edge sits at only the ~60th percentile of real drafts. The target
 came from data — over 59,410 ranked matches a draft's rating edge maps to
-`P(win) = sigmoid(2.07 * edge)` — and dropping the fight term 16,000 → **2,000**
+`P(win) = sigmoid(1.94 * edge)` — and dropping the fight term 16,000 → **2,000**
 reproduces that curve within ~1pp (it was off by 16pp). No cap or squash was
 needed; saturation was a symptom, not the disease. Ordinary drafts benefited
 most: a one-hero-per-side swap went from 99.5%/60.0% (low/high) to a usable
@@ -151,6 +151,24 @@ harness) improved, 0.308 → 0.296. The engine-discipline rule in
 [AGENTS.md](../AGENTS.md) was corrected accordingly: **Brier is the gate; those
 two are diagnostics.**
 
+**The follow-up that measured itself out of existence.** That vertical closed by
+naming a successor: each bracket supposedly had its own edge→win slope (low
+1.119 … high 2.261), so `low`/`mid` analysis was ~1.9× too steep and wanted a
+per-bracket gain. Re-measuring before building it killed it. The table had two
+flaws — the matches were never filtered to the bracket (only the *ratings* were,
+so all four rows silently used the whole 59,410-match corpus, which is why they
+all reported an identical `n`), and ratings and slope were fit on the same data,
+which is circular. Filtered and split-half, the slopes are **flat: 1.810 low /
+1.805 mid / 1.699 high / 1.936 blended.** So one global constant is right, no
+per-bracket gain is needed, and `_STRENGTH_TO_NETWORTH = 2,000` is still the
+best fit against the honest blended slope (1.0pp). No code changed. The
+worthwhile part is the shape: brackets differ in *which heroes* are strong, not
+in how much a given edge is worth — the per-bracket models earn their keep
+through hero identity. The bogus table also contradicted the per-bracket AUC
+ordering sitting three paragraphs above it in the same doc, which should have
+caught it; both guards are now written into the rigor lessons in
+[04-ml-engine.md](04-ml-engine.md).
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
@@ -161,11 +179,8 @@ fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
    ready, and the bracket models give advice that fits the player's rank).
 2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic.
-3. **Per-bracket amplification** — each bracket has its own measured edge→win
-   slope (low 1.119, mid 1.237, high 2.261, blended 2.071), but
-   `_STRENGTH_TO_NETWORTH` is one global constant tuned to the blend. The
-   default and `high` are calibrated; `low`/`mid` analysis is still ~1.7–1.9×
-   too steep. Fix: scale each bracket's rating deviations by
-   `k_bracket / k_blended`.
+3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
+   motivated it was a measurement bug (see the arc entry above); measured
+   properly the per-bracket slopes are flat, so one global constant is correct.
 4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
 5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
