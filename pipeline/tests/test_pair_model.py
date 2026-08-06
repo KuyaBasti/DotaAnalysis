@@ -180,7 +180,7 @@ def test_saved_coefficients_are_keyed_by_hero_id(tmp_path) -> None:
     save_pairs(result, out_dir=tmp_path)
     coef = json.loads((tmp_path / f"{PAIRS_STEM}.coef.json").read_text())
 
-    assert set(coef) == {"synergy", "counter", "alpha"}
+    assert set(coef) == {"synergy", "counter", "alpha", "calibration"}
     known = set(RADIANT_POOL) | set(DIRE_POOL)
     for a, b, w in coef["synergy"]:
         # Hero ids, not column indices — the artifact is self-describing so the
@@ -188,3 +188,17 @@ def test_saved_coefficients_are_keyed_by_hero_id(tmp_path) -> None:
         assert a in known and b in known and a < b
         assert isinstance(w, float)
     assert coef["alpha"]["mid"] > 0
+    # A rescale ships alongside alpha, or the served probabilities drift off
+    # the log-odds scale (alpha is chosen on AUC, which can't see scale).
+    scale, _offset = coef["calibration"]["mid"]
+    assert scale > 0
+
+
+def test_rescaling_beats_the_raw_hybrid_on_brier(tmp_path) -> None:
+    # AUC is blind to probability scale, so the raw hybrid can rank better
+    # while being worse-calibrated. Brier is the gate; the rescale is what
+    # makes the hybrid pass it.
+    metrics = train_pairs(_pair_driven_dataset(tmp_path), seed=1).metrics
+    mid = metrics["brackets"]["mid"]
+    assert mid["hybrid_brier"] < mid["hybrid_raw_brier"]
+    assert mid["hybrid_brier"] < mid["hero_only_brier"]

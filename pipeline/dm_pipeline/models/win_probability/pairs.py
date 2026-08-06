@@ -25,6 +25,15 @@ weights**, combined with a per-bracket weighting ``alpha``:
 ``alpha`` absorbs the scale difference between two separately-fit models. It is
 tuned on a validation split, and the optimum is flat (2–3), so it is not a
 sensitive knob.
+
+**Then the result must be re-calibrated, and this is the trap.** ``alpha`` is
+chosen on AUC, which is rank-based and completely blind to probability scale, so
+the combined score ranks better while drifting off the log-odds scale — the raw
+hybrid is *more over-confident* than the hero model (mean |p−0.5| 0.097 → 0.135
+blended) and its Brier is worse, even though its AUC is better. A one-dimensional
+Platt rescale fitted on validation, ``p = sigmoid(a * combined + b)``, restores
+it: Brier then beats hero-only at every bracket, and being monotone it leaves
+AUC untouched. Brier is the gate here, exactly as in AGENTS.md.
 """
 
 from __future__ import annotations
@@ -39,7 +48,7 @@ import numpy as np
 import polars as pl
 from scipy import sparse
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 
 from dm_pipeline import config
@@ -54,6 +63,10 @@ HERO_C = 0.1
 ALPHA_GRID = (0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0, 9.0)
 # Below this a pair weight is noise; dropping them keeps the artifact small.
 WEIGHT_EPSILON = 1e-4
+
+
+def _sigmoid(z: np.ndarray) -> np.ndarray:
+    return 1.0 / (1.0 + np.exp(-z))
 
 
 def _condensed(i: int, j: int, n: int) -> int:
@@ -136,6 +149,8 @@ class PairResult:
     synergy: list[tuple[int, int, float]]  # (hero_id_a, hero_id_b, weight), a < b
     counter: list[tuple[int, int, float]]  # a on radiant vs b on dire, a < b
     alpha: dict[str, float]
+    # Per-bracket Platt rescale (a, b) applied to the combined score.
+    calibration: dict[str, tuple[float, float]] = field(default_factory=dict)
     metrics: dict[str, Any] = field(default_factory=dict)
 
 
@@ -160,6 +175,7 @@ def train_pairs(
     pair_score = np.asarray(pm.X[:, pm.n_heroes :] @ pair_w).ravel()
 
     alpha: dict[str, float] = {}
+    calibration: dict[str, tuple[float, float]] = {}
     per_bracket: dict[str, Any] = {}
     for bracket in (ALL_BRACKETS, *BRACKET_KEYS):
         lo, hi = bracket_bounds(bracket)
@@ -172,9 +188,13 @@ def train_pairs(
         hero_m = LogisticRegression(max_iter=2000, C=HERO_C).fit(
             pm.X[b_tr][:, : pm.n_heroes], pm.y[b_tr]
         )
+        intercept = float(hero_m.intercept_[0])
 
         def hero_score(rows: np.ndarray) -> np.ndarray:
-            return np.asarray(pm.X[rows][:, : pm.n_heroes] @ hero_m.coef_[0]).ravel()
+            return (
+                np.asarray(pm.X[rows][:, : pm.n_heroes] @ hero_m.coef_[0]).ravel()
+                + intercept
+            )
 
         best_a, best_val = 0.0, -1.0
         for a in ALPHA_GRID:
@@ -182,16 +202,35 @@ def train_pairs(
             if auc > best_val:
                 best_a, best_val = a, auc
 
-        base = roc_auc_score(pm.y[b_te], hero_score(b_te))
-        hybrid = roc_auc_score(
-            pm.y[b_te], hero_score(b_te) + best_a * pair_score[b_te]
-        )
+        # alpha was picked on AUC, which cannot see probability scale — rescale
+        # the combined score back onto the log-odds scale before it is served.
+        combined_va = (hero_score(b_va) + best_a * pair_score[b_va]).reshape(-1, 1)
+        platt = LogisticRegression(max_iter=1000).fit(combined_va, pm.y[b_va])
+        cal_a = float(platt.coef_[0][0])
+        cal_b = float(platt.intercept_[0])
+
+        combined_te = hero_score(b_te) + best_a * pair_score[b_te]
+        p_hero = _sigmoid(hero_score(b_te))
+        p_raw = _sigmoid(combined_te)
+        p_cal = _sigmoid(cal_a * combined_te + cal_b)
+
         alpha[bracket] = best_a
+        calibration[bracket] = (round(cal_a, 6), round(cal_b, 6))
         per_bracket[bracket] = {
             "alpha": best_a,
-            "hero_only_auc": round(base, 4),
-            "hybrid_auc": round(hybrid, 4),
-            "gain": round(hybrid - base, 4),
+            "calibration": [round(cal_a, 4), round(cal_b, 4)],
+            "hero_only_auc": round(roc_auc_score(pm.y[b_te], p_hero), 4),
+            "hybrid_auc": round(roc_auc_score(pm.y[b_te], p_cal), 4),
+            "gain": round(
+                roc_auc_score(pm.y[b_te], p_cal)
+                - roc_auc_score(pm.y[b_te], p_hero),
+                4,
+            ),
+            # Brier is the gate: the raw hybrid is worse-calibrated than
+            # hero-only despite ranking better, and the rescale is what fixes it.
+            "hero_only_brier": round(brier_score_loss(pm.y[b_te], p_hero), 4),
+            "hybrid_raw_brier": round(brier_score_loss(pm.y[b_te], p_raw), 4),
+            "hybrid_brier": round(brier_score_loss(pm.y[b_te], p_cal), 4),
             "n_test": int(len(b_te)),
         }
 
@@ -201,6 +240,7 @@ def train_pairs(
         synergy=synergy,
         counter=counter,
         alpha=alpha,
+        calibration=calibration,
         metrics={
             "n_train": int(len(tr)),
             "n_val": int(len(va)),
@@ -247,6 +287,7 @@ def save_pairs(
                 "synergy": [list(t) for t in result.synergy],
                 "counter": [list(t) for t in result.counter],
                 "alpha": result.alpha,
+                "calibration": {k: list(v) for k, v in result.calibration.items()},
             }
         )
     )

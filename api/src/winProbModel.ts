@@ -79,6 +79,13 @@ interface PairCoefficients {
   synergy: [number, number, number][];
   counter: [number, number, number][];
   alpha: Record<string, number>;
+  /**
+   * Per-bracket Platt rescale [a, b] applied to the combined score. alpha is
+   * chosen on AUC, which is blind to probability scale, so without this the
+   * hybrid ranks better while reading *more* over-confident than the hero
+   * model. Absent for a bracket => identity.
+   */
+  calibration?: Record<string, [number, number]>;
 }
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
@@ -144,7 +151,7 @@ export function createWinProbModel(modelsDir: string): WinProbModel | null {
     return score;
   }
 
-  /** Log-odds of a radiant win: hero terms + alpha * pair terms. */
+  /** Log-odds of a radiant win: (hero terms + alpha * pair terms), rescaled. */
   function logOdds(
     bracket: Bracket,
     radiantIds: number[],
@@ -154,7 +161,10 @@ export function createWinProbModel(modelsDir: string): WinProbModel | null {
     let score = intercept;
     for (const id of radiantIds) score += weightOf.get(id) ?? 0;
     for (const id of direIds) score -= weightOf.get(id) ?? 0;
-    return score + alphaFor(bracket) * pairLogOdds(radiantIds, direIds);
+    score += alphaFor(bracket) * pairLogOdds(radiantIds, direIds);
+
+    const [a, b] = pairs?.calibration?.[bracket] ?? [1, 0];
+    return a * score + b;
   }
 
   return {

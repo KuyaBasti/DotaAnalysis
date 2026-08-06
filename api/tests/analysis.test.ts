@@ -293,3 +293,47 @@ describe("synergy and counter terms", () => {
     expect(res.json().contributions).toHaveLength(2);
   });
 });
+
+describe("hybrid calibration", () => {
+  // alpha is chosen on AUC, which is blind to probability scale, so the
+  // combined score is rescaled back onto the log-odds scale before serving.
+  const calDir = path.join(fixturesDir, "with-pairs-calibrated");
+
+  it("applies the per-bracket rescale, pulling the probability toward 0.5", async () => {
+    const draft = { radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"], patch_id: "7.39c" };
+    const score = async (dir: string) => {
+      const app = makeApp(dir);
+      const res = await app.inject({ method: "POST", url: "/analysis/draft", payload: draft });
+      await app.close();
+      return res.json().radiant_win_probability;
+    };
+    const uncalibrated = await score(path.join(fixturesDir, "with-pairs"));
+    const calibrated = await score(calDir);
+
+    // The fixture's rescale is a=0.5, b=0 — halving the log-odds must move a
+    // confident prediction back toward a coin flip, without crossing it.
+    expect(calibrated).toBeLessThan(uncalibrated);
+    expect(calibrated).toBeGreaterThan(0.5);
+  });
+
+  it("leaves a bracket with no rescale entry untouched", async () => {
+    const payload = {
+      radiant: ["juggernaut", "crystal_maiden"],
+      dire: ["lich"],
+      patch_id: "7.39c",
+      bracket: "mid",
+    };
+    const app = makeApp(calDir);
+    const withCal = await app.inject({ method: "POST", url: "/analysis/draft", payload });
+    await app.close();
+
+    const plain = makeApp(path.join(fixturesDir, "with-pairs"));
+    const without = await plain.inject({ method: "POST", url: "/analysis/draft", payload });
+    await plain.close();
+
+    expect(withCal.json().radiant_win_probability).toBeCloseTo(
+      without.json().radiant_win_probability,
+      6,
+    );
+  });
+});
