@@ -207,3 +207,133 @@ describe("draft explanation", () => {
     await app.close();
   });
 });
+
+// A models dir that also carries pair weights. Heroes: juggernaut 8 (+1),
+// crystal_maiden 5 (0.0), lich 31 (-1). Synergy {5,8} = +0.5; counter
+// "8 on radiant vs 31 on dire" = +0.4; alpha 1.0 blended, 0.0 at Ancient+.
+const pairsDir = path.join(fixturesDir, "with-pairs");
+
+describe("synergy and counter terms", () => {
+  async function post(url: string, payload: Record<string, unknown>, dir = pairsDir) {
+    const app = makeApp(dir);
+    const res = await app.inject({
+      method: "POST",
+      url,
+      payload: { patch_id: "7.39c", ...payload },
+    });
+    await app.close();
+    return res;
+  }
+
+  const prob = async (payload: Record<string, unknown>, dir = pairsDir) =>
+    (await post("/analysis/draft", payload, dir)).json().radiant_win_probability;
+
+  it("raises the win probability when a synergy pair is together", async () => {
+    const withPairs = await prob({ radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"] });
+    const heroOnly = await prob(
+      { radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"] },
+      fixturesDir, // same heroes, no pair weights on disk
+    );
+    expect(withPairs).toBeGreaterThan(heroOnly);
+  });
+
+  it("stays antisymmetric: swapping sides mirrors the probability", async () => {
+    const straight = await prob({ radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"] });
+    const swapped = await prob({ radiant: ["lich"], dire: ["juggernaut", "crystal_maiden"] });
+    expect(straight + swapped).toBeCloseTo(1.0, 6);
+  });
+
+  it("respects counter orientation", async () => {
+    // The counter weight says juggernaut-vs-lich favours juggernaut's side, so
+    // it must help whichever side he is on.
+    const juggRadiant = await prob({ radiant: ["juggernaut"], dire: ["lich"] });
+    const juggRadiantNoPairs = await prob(
+      { radiant: ["juggernaut"], dire: ["lich"] },
+      fixturesDir,
+    );
+    expect(juggRadiant).toBeGreaterThan(juggRadiantNoPairs);
+
+    const juggDire = await prob({ radiant: ["lich"], dire: ["juggernaut"] });
+    const juggDireNoPairs = await prob({ radiant: ["lich"], dire: ["juggernaut"] }, fixturesDir);
+    expect(juggDire).toBeLessThan(juggDireNoPairs);
+  });
+
+  it("ignores pair terms for a bracket whose alpha is zero", async () => {
+    const high = await prob({ radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"], bracket: "high" });
+    const noPairs = await prob(
+      { radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"] },
+      fixturesDir,
+    );
+    expect(high).toBeCloseTo(noPairs, 6);
+  });
+
+  it("makes a hero's swing depend on who they are drafted with", async () => {
+    // Crystal Maiden's own weight is 0.0, so without her synergy partner she
+    // moves nothing. Alongside Juggernaut she does — which is the entire point
+    // of pair terms: a hero's value is no longer independent of the draft.
+    const alone = (await post("/analysis/explain", { radiant: ["crystal_maiden"], dire: ["lich"] }))
+      .json()
+      .contributions.find((c: { hero: string }) => c.hero === "crystal_maiden");
+    const withPartner = (
+      await post("/analysis/explain", {
+        radiant: ["juggernaut", "crystal_maiden"],
+        dire: ["lich"],
+      })
+    )
+      .json()
+      .contributions.find((c: { hero: string }) => c.hero === "crystal_maiden");
+
+    expect(alone.swing).toBe(0);
+    expect(withPartner.swing).toBeGreaterThan(1);
+  });
+
+  it("still explains a draft when no pair weights are on disk", async () => {
+    const res = await post("/analysis/explain", { radiant: ["juggernaut"], dire: ["lich"] }, fixturesDir);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().contributions).toHaveLength(2);
+  });
+});
+
+describe("hybrid calibration", () => {
+  // alpha is chosen on AUC, which is blind to probability scale, so the
+  // combined score is rescaled back onto the log-odds scale before serving.
+  const calDir = path.join(fixturesDir, "with-pairs-calibrated");
+
+  it("applies the per-bracket rescale, pulling the probability toward 0.5", async () => {
+    const draft = { radiant: ["juggernaut", "crystal_maiden"], dire: ["lich"], patch_id: "7.39c" };
+    const score = async (dir: string) => {
+      const app = makeApp(dir);
+      const res = await app.inject({ method: "POST", url: "/analysis/draft", payload: draft });
+      await app.close();
+      return res.json().radiant_win_probability;
+    };
+    const uncalibrated = await score(path.join(fixturesDir, "with-pairs"));
+    const calibrated = await score(calDir);
+
+    // The fixture's rescale is a=0.5, b=0 — halving the log-odds must move a
+    // confident prediction back toward a coin flip, without crossing it.
+    expect(calibrated).toBeLessThan(uncalibrated);
+    expect(calibrated).toBeGreaterThan(0.5);
+  });
+
+  it("leaves a bracket with no rescale entry untouched", async () => {
+    const payload = {
+      radiant: ["juggernaut", "crystal_maiden"],
+      dire: ["lich"],
+      patch_id: "7.39c",
+      bracket: "mid",
+    };
+    const app = makeApp(calDir);
+    const withCal = await app.inject({ method: "POST", url: "/analysis/draft", payload });
+    await app.close();
+
+    const plain = makeApp(path.join(fixturesDir, "with-pairs"));
+    const without = await plain.inject({ method: "POST", url: "/analysis/draft", payload });
+    await plain.close();
+
+    expect(withCal.json().radiant_win_probability).toBeCloseTo(
+      without.json().radiant_win_probability,
+      6,
+    );
+  });
+});

@@ -5,9 +5,11 @@ const RADIANT = "#2e7d32";
 const DIRE = "#c62828";
 
 // Coach Lab: *why* the draft sits where it does. The win-prob model is linear
-// in log-odds, so each hero's effect is exact — dropping their weight is the
-// counterfactual "an average hero played this slot instead". Bars are the
-// resulting swing in percentage points, from that hero's own team's side.
+// in log-odds, so each hero's effect is exact — dropping them is the
+// counterfactual "an average hero played this slot instead", which also drops
+// their synergy and counter terms (pair weights are centred on zero, so a hero
+// with none of them really is the average one). Bars are the resulting swing in
+// percentage points, from that hero's own team's side.
 export function ExplanationPanel({
   explanation,
   heroes,
@@ -89,9 +91,11 @@ export function ExplanationPanel({
       </div>
 
       <div style={{ fontSize: "0.72rem", color: "#888", marginTop: 10, lineHeight: 1.5 }}>
-        Positive = the hero helps their own side. Swings are measured one hero at
-        a time, so they don&rsquo;t add up to the total — and the model scores
-        heroes individually, not synergies or counters.
+        Positive = the hero helps their own side. Each swing counts the hero
+        themselves <em>plus</em> how they fit this particular draft — who they
+        pair with and who they line up against — so the same hero is worth
+        different amounts in different drafts. Measured one hero at a time, so
+        they don&rsquo;t add up to the total.
       </div>
     </div>
   );
