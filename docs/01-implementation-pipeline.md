@@ -132,6 +132,9 @@ steps. ✅
   duration, and economy checkpoints.
 - **Per-rank models**: three rank bands (`features/brackets.py`); bracket-aware
   win rates, ratings, and one win-prob model per band, selectable end to end.
+- **Hero interactions** (`models/win_probability/pairs.py`): blended synergy and
+  counter terms layered onto the per-bracket hero weights, so a hero's value
+  depends on the draft around it.
 - ⬜ Richer models: fight-outcome from parsed details; gradient boosting once
   data supports it.
 
@@ -145,6 +148,9 @@ steps. ✅
   bracket model **beats the blended one** on held-out AUC (0.663 / 0.650 / 0.584
   vs 0.614), and a bracket is selectable from Draft Studio through to the served
   win%. ✅
+- **Hero interactions** — synergy/counter terms improve held-out AUC at every
+  bracket (+0.011 to +0.014) **and** Brier, once the AUC-tuned weighting is
+  rescaled back onto the log-odds scale. ✅
 
 ---
 
@@ -161,15 +167,18 @@ explanation they can act on — not just a number.
   versus an average pick in the slot), drawn under the win bar in Draft Studio.
   Exact rather than heuristic: the model is linear in log-odds, so dropping a
   hero's weight is a real counterfactual. Reading the same draft at two ranks is
-  the teaching moment — Sniper +10.2pp at Herald–Crusader, −0.1pp at Ancient+.
+  the teaching moment — Sniper +17.5pp at Herald–Crusader, +7.2pp at Ancient+.
 - ⬜ **Timing windows** — when a draft is strongest/weakest, from the
   Monte-Carlo runs plus `dm-builds` item spikes.
 - ⬜ **Draft suggestions** — rank the next pick against the current partial
-  draft at the player's bracket.
+  draft at the player's bracket. Unblocked by the pair terms in Stage 6: while the
+  model was purely additive this would have ranked the same heroes whatever you
+  had already drafted.
 
-Known limit of the explanation: the win-prob model scores heroes individually,
-so it has no notion of synergies or counters. The panel says so rather than
-implying more than the model knows.
+A swing now covers the hero *and their fit with the draft* — synergy and counter
+terms landed in the model, so the earlier caveat that it "scores heroes
+individually" no longer applies. What it still cannot see is anything outside
+hero identity and hero pairs: lanes, roles, and timings are not features.
 
 ---
 
