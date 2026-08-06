@@ -38,7 +38,7 @@ flowchart TD
 
     subgraph ML["Features &amp; ML — scikit-learn + DuckDB"]
         features["dm-features<br/>matches → parquet, hero win rates + ratings"]:::py
-        train["dm-train-winprob<br/>logistic draft→win, per rank bracket"]:::py
+        train["dm-train-winprob<br/>logistic draft→win, per rank bracket<br/>+ blended synergy/counter terms"]:::py
         builds["dm-builds<br/>parsed purchases → per-hero item builds"]:::py
     end
 
@@ -164,6 +164,7 @@ flowchart TD
 | Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket is what made the per-rank models below possible. |
 | Rank granularity | **Three bands** (Herald–Crusader / Archon–Legend / Ancient+), not eight medals | Eight medals leave too few matches each to train 127-hero models; three bands each clear ~9k matches and still separate the play patterns. |
 | Win prediction in the API | Native `sigmoid(intercept + weights·draft)` in TS | The logistic model exports coefficients — no ONNX/sklearn runtime in the API. |
+| Hero interactions | **Blended** synergy/counter weights on top of **per-bracket** hero weights | Pair terms need the whole corpus (~16k features); trained inside one bracket they fit noise (one split went negative). Hero identity is what must vary by rank. |
 | Engine's real target | **Distributional realism** — Brier, duration, economy, and the measured draft-edge→win curve — not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. Worse: accuracy and per-hero `r` both *reward over-confidence* (ratings derive from real win rates), so they're diagnostics, not gates. |
 | Storage | Files under `data/` (Parquet/JSON), DuckDB for queries | Zero infra for a solo alpha; a database is a deploy-time concern. |
 
@@ -197,6 +198,7 @@ Longer rationale for the load-bearing calls lives in
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
 | Job queue (batch Monte Carlo) | Backend | — | ⬜ planned | — *(on-demand aggregation is built; queue is for scale)* |
 | Per-rank models | ML + API + Web | Python · TS · React | ✅ built | `features/brackets.py`, `models/win_probability/`, `analysis.ts`, Draft Studio |
+| Hero interactions (synergy/counters) | ML + API | Python · TS | ✅ built | `models/win_probability/pairs.py` + `winProbModel.ts` |
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab — draft explanation | API + Web | TS · React | ✅ built | `ExplanationPanel.tsx`, served from `analysis.ts` |
 | Coach Lab — timing windows, suggestions | Web | — | ⬜ planned | — |
