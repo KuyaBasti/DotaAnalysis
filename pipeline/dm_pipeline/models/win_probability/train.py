@@ -164,6 +164,11 @@ def main(argv: list[str] | None = None) -> None:
         default="every",
         help=f"one of {ALL_BRACKETS}/{'/'.join(BRACKET_KEYS)}, or 'every' (default: train all)",
     )
+    parser.add_argument(
+        "--no-pairs",
+        action="store_true",
+        help="skip the synergy/counter model (hero terms only)",
+    )
     args = parser.parse_args(argv)
 
     targets = (
@@ -176,6 +181,24 @@ def main(argv: list[str] | None = None) -> None:
             f"{bracket_label(bracket):16} AUC {metrics['auc']:.4f} | "
             f"acc {metrics['accuracy']:.4f} | "
             f"trained {metrics['n_train']:,}, tested {metrics['n_test']:,}"
+        )
+
+    if args.no_pairs:
+        return
+    # Pair terms are blended-only by design (see pairs.py) — one artifact, with
+    # a per-bracket weighting.
+    from dm_pipeline.models.win_probability.pairs import save_pairs, train_pairs
+
+    pair_metrics = save_pairs(train_pairs())
+    print(
+        f"\npairs: {pair_metrics['n_synergy_kept']:,} synergy + "
+        f"{pair_metrics['n_counter_kept']:,} counter weights "
+        f"(trained on {pair_metrics['n_train']:,})"
+    )
+    for bracket, m in pair_metrics["brackets"].items():
+        print(
+            f"{bracket_label(bracket):16} hero {m['hero_only_auc']:.4f} -> "
+            f"hybrid {m['hybrid_auc']:.4f} ({m['gain']:+.4f}) at alpha {m['alpha']}"
         )
 
 
