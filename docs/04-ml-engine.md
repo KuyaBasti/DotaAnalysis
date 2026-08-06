@@ -42,9 +42,11 @@ swing(hero) = P(win | draft) − P(win | draft with that hero's weight zeroed)
 Two properties worth knowing before reading one: swings are expressed from the
 hero's **own team's** side (a strong hero is positive whichever side drafts
 them), and they **do not sum to the total** — the model is linear in log-odds,
-not in probability, so leave-one-out effects genuinely don't add up. And because
-the features are one column per hero, the explanation covers hero *identity*
-only; there is no synergy or counter term to attribute.
+not in probability, so leave-one-out effects genuinely don't add up. Since the
+pair terms below landed, dropping a hero also drops their synergy and counter
+terms, so a swing covers the hero *and their fit with this particular draft*;
+pair weights are centred on zero, so "a hero with none of them" really is the
+average one.
 
 **Per-bracket models.** `dm-train-winprob` trains one model per rank band plus
 the blended one (`--bracket every`, the default), writing
@@ -70,8 +72,39 @@ the same draft read at two ranks:
 
 | hero | Herald–Crusader | Ancient+ |
 |---|---|---|
-| Sniper | **+10.2 pp** | −0.1 pp |
-| Clockwerk | **−5.5 pp** | +4.0 pp |
+| Sniper | **+17.5 pp** | +7.2 pp |
+| Clockwerk | **−5.2 pp** | +2.0 pp |
+
+**Synergy and counter terms** (`pairs.py`). One column per hero makes the model
+*additive*: a hero contributes the same weight regardless of who else is
+drafted. That is fine for prediction and fatal for advice — "best next pick"
+collapses to `argmax(weight)`, a tier list. Pair terms fix it by adding two more
+blocks, both antisymmetric under swapping sides like the hero block:
+
+```
+synergy {a,b}   +1 both on radiant, -1 both on dire
+counter {a,b}   +1 if a radiant & b dire, -1 if reversed   (a < b)
+```
+
+**They are trained blended, never per bracket** — measured, not assumed. ~16k
+pair features against a single bracket's ~10k matches fits noise:
+
+| trained on | AUC gain |
+|---|---|
+| blended, 59,410 matches | **+0.0109** (sd 0.0016, 5/5 splits positive) |
+| `low` only | +0.0035 (sd 0.0025) |
+| `high` only | +0.0038 (sd 0.0057, one split **negative**) |
+
+So what ships is a hybrid — **per-bracket hero weights + blended pair weights**,
+weighted by a per-bracket `alpha` (2–3) and then rescaled (below). One global
+split does all of it, so the pair model never sees a bracket's evaluation rows.
+The artifact (`win_probability.pairs.coef.json`) stores **hero ids, not column
+indices**, so the API cannot drift from the trainer's ordering; with no such
+file on disk `alpha` is 0 and scoring is byte-identical to hero-only.
+
+The payoff isn't really the AUC — it's that a hero's value now depends on the
+draft around it (`w_h + Σ synergy(h, teammates) + Σ counter(h, enemies)`), which
+is the precondition for draft suggestions being advice instead of a tier list.
 
 ---
 
@@ -202,6 +235,24 @@ all three gates met.
 - **Ranked-only, all brackets.** Turbo pollution wrecked hero-rate correlation and
   duration; filtering to ranked fixed it. All rank tiers are kept for per-bracket
   models later.
+- **AUC cannot see calibration — anything tuned on it must be rescaled after.**
+  The pair model's `alpha` was chosen on AUC, which is rank-based, so the
+  combined score ranked better while drifting off the log-odds scale. The raw
+  hybrid came out *more over-confident than the hero model* (mean |p−0.5| 0.097
+  → 0.135 blended) with a **worse Brier at every bracket**, and it first showed
+  up as Coach Lab reporting a single hero at +27 pp. A one-dimensional Platt
+  rescale fitted on validation fixes it, and being monotone it leaves the AUC
+  gains untouched:
+
+  | bracket | Brier hero-only | raw hybrid | rescaled |
+  |---|---|---|---|
+  | all | 0.2388 | 0.2395 ✗ | **0.2366** ✓ |
+  | low | 0.2280 | 0.2309 ✗ | **0.2248** ✓ |
+  | mid | 0.2301 | 0.2308 ✗ | **0.2281** ✓ |
+  | high | 0.2426 | 0.2433 ✗ | **0.2405** ✓ |
+
+  This is the same shape as the engine's rating amplification: a ranking metric
+  improved while the probabilities got worse. Brier is the gate.
 - **Filter to the bracket, and fit out-of-sample.** A per-bracket slope table
   once reported low 1.119 vs high 2.261 — a "brackets need different
   amplification" finding that sent a whole vertical down the wrong path. Two
@@ -242,6 +293,11 @@ thresholds that drive the viewer's item-timing beats):
   from parsed teamfight data (same interface: game-state in, win-prob + swing out).
 - ~~Per-rank models~~ — **done** (see above): per-bracket win-prob models and
   hero ratings, selectable in Draft Studio.
+- ~~Hero interactions~~ — **done** (see above): blended synergy/counter terms
+  layered onto the per-bracket hero weights.
+- **Draft suggestions** — rank a candidate next pick against the current partial
+  draft. Now meaningful rather than a tier list, since pair terms make a
+  candidate's value depend on the heroes already picked.
 - **Build advice** — recommend items for a draft (Coach Lab), extending the
   item builds `dm-builds` already extracts (see below).
 - **Gradient boosting** — once the corpus supports richer feature sets (rank, mode,
