@@ -79,6 +79,24 @@ export interface HeroContribution {
   swing: number;
 }
 
+/** A candidate for the next pick, scored against the draft so far. */
+export interface HeroSuggestion {
+  hero: string;
+  hero_id: number;
+  /** Percentage points this pick adds to the drafting side's win probability. */
+  swing: number;
+  /** The part of `swing` that comes from fitting *this* draft. */
+  fit: number;
+}
+
+export interface DraftSuggestions {
+  patch_id: string;
+  bracket?: string;
+  side: "radiant" | "dire";
+  rank_by: "swing" | "fit";
+  suggestions: HeroSuggestion[];
+}
+
 export interface DraftExplanation {
   patch_id: string;
   bracket?: string;

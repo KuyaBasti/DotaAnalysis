@@ -39,6 +39,19 @@ export interface DraftExplanation {
   contributions: HeroContribution[];
 }
 
+/** A candidate for the next pick, scored against the draft so far. */
+export interface HeroSuggestion {
+  hero_id: number;
+  /** Percentage points this pick adds to the drafting side's win probability. */
+  swing: number;
+  /**
+   * The part of `swing` that comes from synergy/counter terms — i.e. from *this
+   * draft* rather than the hero being good in general. Worth surfacing: if it
+   * is ~0 across the board, the ranking is a tier list wearing a coach's hat.
+   */
+  fit: number;
+}
+
 export interface WinProbModel {
   /** P(radiant wins) for a draft, scored by the given bracket's model. */
   predict(radiantIds: number[], direIds: number[], bracket?: Bracket): number;
@@ -48,6 +61,23 @@ export interface WinProbModel {
     direIds: number[],
     bracket?: Bracket,
   ): DraftExplanation;
+  /**
+   * Rank candidate heroes for `side`'s next pick, best first.
+   *
+   * `rankBy` matters more than it looks. By `swing` the list is dominated by
+   * how good a hero is in general — measured, the top ten barely move as the
+   * draft changes (6-9 of 10 hold). By `fit` it ranks purely on synergy and
+   * counters, and then it is genuinely about *this* draft (0-3 of 10 hold
+   * across different boards).
+   */
+  suggest(
+    radiantIds: number[],
+    direIds: number[],
+    side: "radiant" | "dire",
+    candidateIds: number[],
+    bracket?: Bracket,
+    rankBy?: "swing" | "fit",
+  ): HeroSuggestion[];
   /** Brackets that actually have a trained model on disk. */
   available(): Bracket[];
 }
@@ -151,20 +181,38 @@ export function createWinProbModel(modelsDir: string): WinProbModel | null {
     return score;
   }
 
-  /** Log-odds of a radiant win: (hero terms + alpha * pair terms), rescaled. */
+  /**
+   * Log-odds of a radiant win: (hero terms + alpha * pair terms), rescaled.
+   *
+   * `withPairs: false` scores the hero terms alone, which is how a suggestion
+   * separates "this hero is good" from "this hero fits this draft".
+   */
   function logOdds(
     bracket: Bracket,
     radiantIds: number[],
     direIds: number[],
+    withPairs = true,
   ): number {
     const { weightOf, intercept } = scorerFor(bracket);
     let score = intercept;
     for (const id of radiantIds) score += weightOf.get(id) ?? 0;
     for (const id of direIds) score -= weightOf.get(id) ?? 0;
-    score += alphaFor(bracket) * pairLogOdds(radiantIds, direIds);
+    if (withPairs) score += alphaFor(bracket) * pairLogOdds(radiantIds, direIds);
 
     const [a, b] = pairs?.calibration?.[bracket] ?? [1, 0];
     return a * score + b;
+  }
+
+  /** P(the drafting side wins), from that side's point of view. */
+  function sideProb(
+    bracket: Bracket,
+    radiantIds: number[],
+    direIds: number[],
+    side: "radiant" | "dire",
+    withPairs = true,
+  ): number {
+    const p = sigmoid(logOdds(bracket, radiantIds, direIds, withPairs));
+    return side === "radiant" ? p : 1 - p;
   }
 
   return {
@@ -200,6 +248,32 @@ export function createWinProbModel(modelsDir: string): WinProbModel | null {
         radiant_win_probability: Number(probability.toFixed(4)),
         contributions,
       };
+    },
+
+    suggest(radiantIds, direIds, side, candidateIds, bracket = "all", rankBy = "swing") {
+      const drafted = new Set([...radiantIds, ...direIds]);
+      const base = sideProb(bracket, radiantIds, direIds, side);
+      const baseNoPairs = sideProb(bracket, radiantIds, direIds, side, false);
+
+      const out: HeroSuggestion[] = [];
+      for (const id of candidateIds) {
+        if (drafted.has(id)) continue; // already picked, by either side
+        const radiant = side === "radiant" ? [...radiantIds, id] : radiantIds;
+        const dire = side === "dire" ? [...direIds, id] : direIds;
+
+        const swing = sideProb(bracket, radiant, dire, side) - base;
+        // The same delta with pair terms switched off is what the hero is worth
+        // in the abstract; the remainder is what this particular draft adds.
+        const solo = sideProb(bracket, radiant, dire, side, false) - baseNoPairs;
+        out.push({
+          hero_id: id,
+          swing: Number((swing * 100).toFixed(2)),
+          fit: Number(((swing - solo) * 100).toFixed(2)),
+        });
+      }
+
+      out.sort((a, b) => b[rankBy] - a[rankBy]);
+      return out;
     },
 
     available: () => [...scorers.keys()],

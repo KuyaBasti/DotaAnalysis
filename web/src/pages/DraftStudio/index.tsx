@@ -7,12 +7,19 @@ import {
   latestPatch,
   listPatches,
   simulateDraft,
+  suggestPicks,
 } from "../../api/client";
 import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
 import { AggregatePanel } from "./AggregatePanel";
 import { ExplanationPanel } from "./ExplanationPanel";
+import { SuggestionPanel } from "./SuggestionPanel";
 import { BRACKET_KEYS, BRACKET_LABELS } from "./brackets";
-import type { DraftExplanation, Hero, SimAggregate } from "../../types";
+import type {
+  DraftExplanation,
+  DraftSuggestions,
+  Hero,
+  SimAggregate,
+} from "../../types";
 
 const TEAM_SIZE = 5;
 
@@ -30,6 +37,8 @@ export function DraftStudio({
   const [side, setSide] = useState<"radiant" | "dire">("radiant");
   const [winProb, setWinProb] = useState<number | null>(null);
   const [explanation, setExplanation] = useState<DraftExplanation | null>(null);
+  const [suggestions, setSuggestions] = useState<DraftSuggestions | null>(null);
+  const [rankBy, setRankBy] = useState<"swing" | "fit">("swing");
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
   const [bracket, setBracket] = useState<string>("all");
@@ -80,6 +89,23 @@ export function DraftStudio({
       cancelled = true;
     };
   }, [radiant, dire, patch, bracket]);
+
+  // Suggestions track the side you're adding to, so they also refresh when you
+  // switch sides or change the ordering.
+  useEffect(() => {
+    const team = side === "radiant" ? radiant : dire;
+    if (team.length >= TEAM_SIZE) {
+      setSuggestions(null);
+      return;
+    }
+    let cancelled = false;
+    suggestPicks(radiant, dire, side, rankBy, patch ?? undefined, bracket)
+      .then((r) => !cancelled && setSuggestions(r))
+      .catch(() => !cancelled && setSuggestions(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [radiant, dire, side, rankBy, patch, bracket]);
 
   const picked = new Set([...radiant, ...dire]);
 
@@ -273,6 +299,17 @@ export function DraftStudio({
       {/* why the bar sits where it does */}
       {explanation && (
         <ExplanationPanel explanation={explanation} heroes={heroes} />
+      )}
+
+      {/* and what to do about it */}
+      {suggestions && (
+        <SuggestionPanel
+          suggestions={suggestions}
+          heroes={heroes}
+          rankBy={rankBy}
+          onRankBy={setRankBy}
+          onPick={pick}
+        />
       )}
 
       {/* the two teams */}
