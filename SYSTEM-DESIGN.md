@@ -57,18 +57,19 @@ flowchart TD
         aggAPI["POST /sims/aggregate<br/>Monte Carlo: N sims → distribution, per bracket"]:::api
         draftAPI["POST /analysis/draft<br/>live win% per bracket (native sigmoid)"]:::api
         explainAPI["POST /analysis/explain<br/>per-hero swings: why that win%"]:::api
+        suggestAPI["POST /analysis/suggest<br/>ranked next picks: strongest / best fit"]:::api
     end
 
     subgraph WEB["Web app — React + Vite"]
         explorer["Patch Explorer<br/>browse heroes &amp; items"]:::web
-        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) · rank bracket<br/>→ win% + why → Simulate / Analyze"]:::web
+        studio["Draft Studio ★<br/>pick heroes (STR/AGI/INT/Uni) · rank bracket<br/>→ win% + why + what next → Simulate / Analyze"]:::web
         viewer["Match Viewer ★<br/>PLAY the match: clock · scoreboard · minimap · win-prob · feed"]:::web
     end
 
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        coach["Coach Lab — rest of it<br/>timing windows · draft suggestions"]:::planned
+        coach["Coach Lab — last slice<br/>timing windows (needs the sim)"]:::planned
     end
 
     OD -->|REST| ingest
@@ -98,12 +99,14 @@ flowchart TD
     sims --> simsAPI
     models --> draftAPI
     models --> explainAPI
+    models --> suggestAPI
     makeSim -->|runs| engine
 
     patchesAPI --> explorer
     patchesAPI --> studio
     draftAPI --> studio
     explainAPI -->|why: per-hero swings| studio
+    suggestAPI -->|what to pick next| studio
     studio -->|Simulate this draft| makeSim
     studio -->|Analyze N sims| aggAPI
     makeSim --> viewer
@@ -201,7 +204,8 @@ Longer rationale for the load-bearing calls lives in
 | Hero interactions (synergy/counters) | ML + API | Python · TS | ✅ built | `models/win_probability/pairs.py` + `winProbModel.ts` |
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab — draft explanation | API + Web | TS · React | ✅ built | `ExplanationPanel.tsx`, served from `analysis.ts` |
-| Coach Lab — timing windows, suggestions | Web | — | ⬜ planned | — |
+| Coach Lab — draft suggestions | API + Web | TS · React | ✅ built | `SuggestionPanel.tsx` + `winProbModel.suggest()` |
+| Coach Lab — timing windows | Web + Engine | — | ⬜ planned | — |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
 > `SimDashboard`, `replays.ts`, `scenarios.ts`) are scaffolded placeholders, not
