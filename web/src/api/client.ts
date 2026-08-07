@@ -1,6 +1,7 @@
 import type {
   DraftEvalResponse,
   DraftExplanation,
+  DraftSuggestions,
   HeroesResponse,
   PatchesResponse,
   SimAggregate,
@@ -91,6 +92,25 @@ export function evaluateDraft(
   return postJSON<DraftEvalResponse>("/analysis/draft", {
     radiant,
     dire,
+    patch_id: patchId,
+    bracket,
+  });
+}
+
+/** Ranked candidates for the next pick (Coach Lab). */
+export function suggestPicks(
+  radiant: string[],
+  dire: string[],
+  side: "radiant" | "dire",
+  rankBy: "swing" | "fit",
+  patchId?: string,
+  bracket?: string,
+): Promise<DraftSuggestions> {
+  return postJSON<DraftSuggestions>("/analysis/suggest", {
+    radiant,
+    dire,
+    side,
+    rank_by: rankBy,
     patch_id: patchId,
     bracket,
   });
