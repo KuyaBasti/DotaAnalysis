@@ -106,6 +106,24 @@ The payoff isn't really the AUC — it's that a hero's value now depends on the
 draft around it (`w_h + Σ synergy(h, teammates) + Σ counter(h, enemies)`), which
 is the precondition for draft suggestions being advice instead of a tier list.
 
+**Suggesting a pick, and why one ordering isn't enough.** `winProbModel.suggest()`
+(served at `POST /analysis/suggest`) rescores the draft with each undrafted hero
+added and reports the gain to the drafting side, split two ways:
+
+```
+swing = P(win | draft + hero) − P(win | draft)          # everything
+fit   = swing − the same delta with pair terms disabled  # just the interaction
+```
+
+Ranking on `swing` looks draft-aware and mostly isn't — the hero terms dominate
+the pair terms, so **6–9 of the top 10 survive unchanged** as the board changes
+(Pugna and Undying were top-2 in every draft tested). Ranking on `fit` keeps
+only the interaction and is genuinely board-specific: **0–3 of 10 survive**
+across different drafts. Both are offered rather than dressing the first up as
+the second. A hero can be negative on `swing` and positive on `fit` — weak at
+that bracket, but a good pairing — and that is the case a single ordering
+cannot express.
+
 ---
 
 ## 2. Hero strength ratings — the engine's data hook

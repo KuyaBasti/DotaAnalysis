@@ -92,8 +92,9 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
 - `POST /sims`: simulate a user's draft on demand (spawns the engine). ✅
 - `POST /sims/aggregate`: **Monte Carlo** — run a draft N times → win-probability
   distribution, not one game (`prototype/montecarlo.py`, `dm-montecarlo`). ✅
-- `POST /analysis/explain`: the win probability broken down per hero (Stage 7's
-  first slice; see below). ✅
+- `POST /analysis/explain`: the win probability broken down per hero. ✅
+- `POST /analysis/suggest`: ranked candidates for the next pick, by total swing
+  or by fit with the current board (both Stage 7; see below). ✅
 - ⬜ Job queue: batch Monte Carlo at scale (only needed beyond on-demand).
 
 **Exit criteria:**
@@ -154,13 +155,14 @@ steps. ✅
 
 ---
 
-## Stage 7 — Coach Lab / education 🟡
+## Stage 7 — Coach Lab / education 🟡 (explanation + suggestions ✅; timing windows ⬜)
 
 **Goal:** turn watchable sims into teaching — "why is this draft losing?", timing
 windows, per-bracket advice.
 
 **Exit criterion:** a player can pick their rank, draft a matchup, and get an
-explanation they can act on — not just a number.
+explanation they can act on — not just a number. ✅ *(the app now both
+diagnoses and prescribes; timing windows remain as an additive slice.)*
 
 - ✅ **Why a draft wins** — `POST /analysis/explain` breaks the win probability
   into per-hero swings (percentage points that hero adds to their own side
@@ -168,12 +170,17 @@ explanation they can act on — not just a number.
   Exact rather than heuristic: the model is linear in log-odds, so dropping a
   hero's weight is a real counterfactual. Reading the same draft at two ranks is
   the teaching moment — Sniper +17.5pp at Herald–Crusader, +7.2pp at Ancient+.
+- ✅ **Draft suggestions** — `POST /analysis/suggest` scores every undrafted
+  hero for the side that's picking, listed under the breakdown and clickable to
+  draft. Two orderings, because measuring showed one wasn't enough: by total
+  swing the list is dominated by raw hero strength (6–9 of the top 10 hold as
+  the board changes), while by **fit** — synergy and counters only — it is
+  genuinely about this draft (0–3 of 10 hold). Both ship, with both numbers
+  visible; presenting the first as if it were the second would have been a tier
+  list wearing a coach's hat.
 - ⬜ **Timing windows** — when a draft is strongest/weakest, from the
-  Monte-Carlo runs plus `dm-builds` item spikes.
-- ⬜ **Draft suggestions** — rank the next pick against the current partial
-  draft at the player's bracket. Unblocked by the pair terms in Stage 6: while the
-  model was purely additive this would have ranked the same heroes whatever you
-  had already drafted.
+  Monte-Carlo runs plus `dm-builds` item spikes. The only Coach Lab slice that
+  would draw on the simulation engine rather than the model.
 
 A swing now covers the hero *and their fit with the draft* — synergy and counter
 terms landed in the model, so the earlier caveat that it "scores heroes

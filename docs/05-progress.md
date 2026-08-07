@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **65 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **67 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand**, all of it **at the rank bracket you play**,
   and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -32,7 +32,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 4 Orchestrator/API | 🟡 API + simulate + **bracket-aware Monte Carlo** · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
 | 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** + **hero interactions** · ⬜ fight-outcome model |
-| 7 Coach Lab | 🟡 **draft explanation** (per-hero swings) · ⬜ timing windows · ⬜ draft suggestions |
+| 7 Coach Lab | 🟡 **explanation + suggestions** (exit criterion met) · ⬜ timing windows |
 | 8 Beta & launch | ⬜ not started |
 
 ## The arc so far (grouped)
@@ -214,17 +214,34 @@ around it — which is what makes draft suggestions advice rather than a tier
 list. The test that pins it: a hero with weight 0.0 swings *nothing* alone and a
 real amount beside their synergy partner.
 
+**Draft suggestions — Coach Lab prescribes, not just diagnoses.** The
+explanation panel told you Clockwerk was costing you five points and then had
+nothing to say about what to do instead. `POST /analysis/suggest` scores every
+undrafted hero for the side that's picking; Draft Studio lists them under the
+breakdown, clickable to draft. All ~127 candidates are ~127 native sigmoid
+evaluations, so it rides the live path with the win% bar — no button, no sim.
+**Stage 7's exit criterion is met.**
+
+The design changed because of a measurement taken before building the UI. The
+stated risk was shipping a tier list wearing a coach's hat, so: rank by total
+swing across five different boards and **6–9 of the top 10 hold** (Pugna and
+Undying were top-2 in every one). The hero terms swamp the pair terms. Rank on
+**fit** — the synergy/counter part alone — and **0–3 of 10 hold**. So the panel
+ships both orderings with both numbers always visible, rather than presenting
+the first as if it were the second. The case that proves the point: with Visage
+drafted, Best fit surfaces Anti-Mage at **−2.2 pp total, +0.9 fit** — a hero
+who is weak at that bracket and still pairs well, which no single ordering can
+say.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Coach Lab** (Stage 7) — *why a draft wins* is in. The two remaining slices:
-   **draft suggestions** (rank the next pick against the current partial draft at
-   the player's bracket — now unblocked, since pair terms make a candidate's
-   value depend on what is already drafted) and **timing windows** (when a draft
-   is strongest/weakest, from the Monte-Carlo runs plus `dm-builds` item spikes).
-   Both build on the explanation seam rather than replacing it.
+1. **Timing windows** (Stage 7's last slice) — when a draft is strongest and
+   weakest, from the Monte-Carlo runs plus `dm-builds` item spikes. The only
+   Coach Lab slice that would draw on the **simulation engine** rather than the
+   model, which is also what would finally give the Rust port a reason to exist.
 2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic.
 3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
