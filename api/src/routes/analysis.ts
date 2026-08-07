@@ -3,6 +3,18 @@ import type { SnapshotStore } from "../snapshotStore.js";
 import { isBracket, type Bracket, type WinProbModel } from "../winProbModel.js";
 import type { DraftEvalRequest } from "../types.js";
 
+interface SuggestBody extends DraftEvalRequest {
+  /** Which side is picking. Default radiant. */
+  side?: string;
+  /** 'swing' (strongest overall) or 'fit' (best with this draft). */
+  rank_by?: string;
+  limit?: number;
+}
+
+const TEAM_SIZE = 5;
+const DEFAULT_SUGGESTIONS = 8;
+const MAX_SUGGESTIONS = 40;
+
 interface ResolvedDraft {
   patchId: string;
   bracket: Bracket;
@@ -10,6 +22,8 @@ interface ResolvedDraft {
   direIds: number[];
   /** Reverse of the key→id lookup, for naming heroes in responses. */
   keyOf: Map<number, string>;
+  /** Every hero in the patch — the candidate pool for suggestions. */
+  rosterIds: number[];
 }
 
 // Shared by both analysis routes: validate the bracket, resolve the patch, and
@@ -45,6 +59,7 @@ function resolveDraft(
     radiantIds: radiant.map((k) => heroId.get(k)!),
     direIds: dire.map((k) => heroId.get(k)!),
     keyOf: new Map(snap.heroes.map((h) => [h.id, h.key])),
+    rosterIds: snap.heroes.map((h) => h.id),
   };
 }
 
@@ -106,6 +121,59 @@ export function analysisRoutes(
           contributions: contributions.map((c) => ({
             hero: draft.keyOf.get(c.hero_id) ?? String(c.hero_id),
             ...c,
+          })),
+        };
+      },
+    );
+
+    // Coach Lab: what should this side pick next? Every undrafted hero is
+    // scored against the draft so far, so the ranking responds to what is
+    // already on the board rather than being a fixed tier list.
+    app.post<{ Body: SuggestBody }>(
+      "/analysis/suggest",
+      async (req, reply) => {
+        if (!model) {
+          return reply
+            .code(503)
+            .send({ error: "win-probability model not loaded" });
+        }
+        const side = req.body?.side ?? "radiant";
+        if (side !== "radiant" && side !== "dire") {
+          return reply.code(400).send({ error: `unknown side: ${side}` });
+        }
+        const draft = resolveDraft(snapshots, req.body, reply);
+        if (!("patchId" in draft)) return draft;
+
+        if ((side === "radiant" ? draft.radiantIds : draft.direIds).length >= TEAM_SIZE) {
+          return reply
+            .code(400)
+            .send({ error: `${side} already has ${TEAM_SIZE} heroes` });
+        }
+
+        const limit = Math.min(
+          MAX_SUGGESTIONS,
+          Math.max(1, Math.floor(req.body?.limit ?? DEFAULT_SUGGESTIONS)),
+        );
+        const rankBy = req.body?.rank_by ?? "swing";
+        if (rankBy !== "swing" && rankBy !== "fit") {
+          return reply.code(400).send({ error: `unknown rank_by: ${rankBy}` });
+        }
+        const ranked = model.suggest(
+          draft.radiantIds,
+          draft.direIds,
+          side,
+          draft.rosterIds,
+          draft.bracket,
+          rankBy,
+        );
+        return {
+          patch_id: draft.patchId,
+          bracket: draft.bracket,
+          side,
+          rank_by: rankBy,
+          suggestions: ranked.slice(0, limit).map((s) => ({
+            hero: draft.keyOf.get(s.hero_id) ?? String(s.hero_id),
+            ...s,
           })),
         };
       },

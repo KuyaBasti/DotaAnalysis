@@ -337,3 +337,73 @@ describe("hybrid calibration", () => {
     );
   });
 });
+
+describe("draft suggestions", () => {
+  const dir = path.join(fixturesDir, "with-pairs");
+
+  async function suggest(payload: Record<string, unknown>, models = dir) {
+    const app = makeApp(models);
+    const res = await app.inject({
+      method: "POST",
+      url: "/analysis/suggest",
+      payload: { patch_id: "7.39c", ...payload },
+    });
+    await app.close();
+    return res;
+  }
+
+  it("ranks the undrafted heroes for the picking side", async () => {
+    const res = await suggest({ radiant: ["juggernaut"], dire: ["lich"], side: "radiant" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.side).toBe("radiant");
+    // Only crystal_maiden is left in this 3-hero fixture.
+    expect(body.suggestions.map((s: { hero: string }) => s.hero)).toEqual(["crystal_maiden"]);
+  });
+
+  it("never suggests a hero either side already drafted", async () => {
+    const res = await suggest({ radiant: ["juggernaut"], dire: ["lich"], side: "dire" });
+    const heroes = res.json().suggestions.map((s: { hero: string }) => s.hero);
+    expect(heroes).not.toContain("juggernaut");
+    expect(heroes).not.toContain("lich");
+  });
+
+  it("scores a synergy pick higher for the side that owns the partner", async () => {
+    // Synergy {crystal_maiden, juggernaut} = +0.5. She is worth more to the
+    // side already holding Juggernaut than to the side facing him.
+    const withPartner = await suggest({ radiant: ["juggernaut"], dire: [], side: "radiant" });
+    const against = await suggest({ radiant: ["juggernaut"], dire: [], side: "dire" });
+    const cm = (r: { json: () => { suggestions: { hero: string; fit: number }[] } }) =>
+      r.json().suggestions.find((s) => s.hero === "crystal_maiden")!;
+    expect(cm(withPartner).fit).toBeGreaterThan(cm(against).fit);
+  });
+
+  it("separates fit from raw hero strength", async () => {
+    // On an empty board there is nothing to fit with, so fit must be 0 while
+    // the hero's own weight still moves the number.
+    const res = await suggest({ radiant: [], dire: [], side: "radiant" });
+    const jugg = res.json().suggestions.find((s: { hero: string }) => s.hero === "juggernaut");
+    expect(jugg.fit).toBe(0);
+    expect(jugg.swing).toBeGreaterThan(0);
+  });
+
+  it("ranks by fit when asked", async () => {
+    const body = { radiant: ["juggernaut"], dire: [], side: "dire" as const };
+    const byFit = await suggest({ ...body, rank_by: "fit" });
+    expect(byFit.json().rank_by).toBe("fit");
+    const fits = byFit.json().suggestions.map((s: { fit: number }) => s.fit);
+    expect(fits).toEqual([...fits].sort((a: number, b: number) => b - a));
+  });
+
+  it("rejects an unknown side and an unknown rank_by", async () => {
+    expect((await suggest({ radiant: [], dire: [], side: "spectator" })).statusCode).toBe(400);
+    expect(
+      (await suggest({ radiant: [], dire: [], side: "radiant", rank_by: "vibes" })).statusCode,
+    ).toBe(400);
+  });
+
+  it("503s when no model is loaded", async () => {
+    const res = await suggest({ radiant: [], dire: [] }, path.join(fixturesDir, "no-such-dir"));
+    expect(res.statusCode).toBe(503);
+  });
+});
