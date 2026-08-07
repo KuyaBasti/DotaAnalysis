@@ -92,8 +92,9 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
 - `POST /sims`: simulate a user's draft on demand (spawns the engine). ✅
 - `POST /sims/aggregate`: **Monte Carlo** — run a draft N times → win-probability
   distribution, not one game (`prototype/montecarlo.py`, `dm-montecarlo`). ✅
-- `POST /analysis/explain`: the win probability broken down per hero (Stage 7's
-  first slice; see below). ✅
+- `POST /analysis/explain`: the win probability broken down per hero. ✅
+- `POST /analysis/suggest`: ranked candidates for the next pick, by total swing
+  or by fit with the current board (both Stage 7; see below). ✅
 - ⬜ Job queue: batch Monte Carlo at scale (only needed beyond on-demand).
 
 **Exit criteria:**
@@ -154,7 +155,7 @@ steps. ✅
 
 ---
 
-## Stage 7 — Coach Lab / education 🟡
+## Stage 7 — Coach Lab / education 🟡 (explanation + suggestions ✅; timing windows ⬜)
 
 **Goal:** turn watchable sims into teaching — "why is this draft losing?", timing
 windows, per-bracket advice.
