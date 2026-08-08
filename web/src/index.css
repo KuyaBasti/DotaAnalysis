@@ -1,0 +1,25 @@
+/* The app commits to a light colour scheme, explicitly.
+ *
+ * Every colour in the UI is a literal in a component's inline style (133 of
+ * them) and they all assume a light page — but nothing ever set a page
+ * background. In a browser preferring dark mode the UA painted its own dark
+ * canvas behind them, so anything not inside a light panel (the header, the
+ * intro line, the "Analyze for rank" label, the drafted hero lists) rendered
+ * dark-on-dark and was effectively unreadable.
+ *
+ * `color-scheme` is doing as much work here as the colours: without it the UA
+ * still styles form controls for dark mode, which left the rank <select>
+ * dark-on-light even once the page background was fixed.
+ *
+ * Being genuinely theme-aware would be nicer, but that means finding a home
+ * for all 133 literals — a refactor, not a bug fix. This makes the app render
+ * the same for everyone; the refactor can come later if it earns its place.
+ */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #ffffff;
+  color: #222222;
+}
