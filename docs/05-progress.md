@@ -6,9 +6,9 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **67 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
-  → watch → analyze → understand**, all of it **at the rank bracket you play**,
-  and every realism issue from the audits is closed.
+- **69 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+  → watch → analyze → understand → act**, all of it **at the rank bracket you
+  play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
@@ -232,6 +232,19 @@ the first as if it were the second. The case that proves the point: with Visage
 drafted, Best fit surfaces Anti-Mage at **−2.2 pp total, +0.9 fit** — a hero
 who is weak at that bracket and still pairs well, which no single ordering can
 say.
+
+**The last known bug: dark-mode readability.** The web app had no stylesheet at
+all — all 133 colour literals live inline on components, every one assuming a
+light page, and nothing ever set a page background. A browser preferring dark
+mode painted its own dark canvas behind them, so everything outside a light
+panel (header, intro line, rank label, drafted hero lists) rendered
+dark-on-dark. The panels each set their own `#fafafa`, which is exactly why it
+survived so long: the parts screenshotted during feature work always looked
+fine. Fixed by committing the app to light — `color-scheme: light` plus an
+explicit body background, the former mattering as much as the latter since the
+UA otherwise keeps styling form controls for dark mode. Going genuinely
+theme-aware would mean rehoming all 133 literals; that's a refactor, not a bug
+fix. **No known defects remain.**
 
 ## Next — the additive roadmap
 
