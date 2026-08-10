@@ -76,7 +76,7 @@ grows on its own while the machine is awake.
 
 ## 3. Parsed details — `dm-backfill`
 
-`python -m dm_pipeline.harvest.backfill` enriches a sample of banked matches with
+`dm-backfill` enriches a sample of banked matches with
 **full parsed detail** via `/matches/{id}` → `data/details/<match_id>.json`. These
 carry the ground truth the economy is calibrated against:
 
@@ -96,6 +96,19 @@ Robustness (an API this size hiccups constantly):
 
 Only ~half of banked matches are parsed on OpenDota at a given time, so backfill
 is best-effort and incremental.
+
+**It runs on a cron** (`30 1,7,13,19`, `--max 200`), offset from the harvester
+so the two never share a minute — see
+[runbooks/data-collection.md](runbooks/data-collection.md). It stays at the
+default `--min-rank 70`, and that is deliberate: `calibrate/economy.py` reads
+*every* file in `data/details/` without a rank filter, so the economy
+calibration gate is measured against whatever is in there. The gold constants
+were tuned to Divine curves; admitting lower brackets would move a calibration
+gate without anyone touching the engine.
+
+The parsed corpus is the binding constraint on the rest of the roadmap — both
+Coach Lab's timing windows and the fight-outcome model need it, and the raw
+match corpus (127k+) was never the bottleneck.
 
 ---
 
