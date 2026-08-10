@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **69 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **71 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -17,8 +17,9 @@ re-run `dm-calibrate --sample 2000` after engine changes.
   draft-edge→win curve now tracks the one measured on 59,410 real matches to
   ~1pp.
 - **Data:** 127k matches banked / **59.4k ranked** in the feature store (every
-  bracket viable to train on), plus a growing sample of
-  parsed details (gold curves + purchase logs) in `data/details/`.
+  bracket viable to train on). Parsed details (gold curves + purchase logs) sit
+  at a few hundred and are **now growing on their own cron** — that corpus is
+  the binding constraint on the rest of the roadmap.
 - **Not shipped.** Personal project; no deploy.
 
 ## Stage status
@@ -246,19 +247,55 @@ UA otherwise keeps styling form controls for dark mode. Going genuinely
 theme-aware would mean rehoming all 133 literals; that's a refactor, not a bug
 fix. **No known defects remain.**
 
+**Timing windows: investigated, not built — and the corpus is why.** Coach
+Lab's last slice turned out to be unbuildable three different ways, which took
+a spike to establish rather than a guess. **From the sim:** hero identity enters
+the engine as one time-invariant scalar (`_POSITION_PRIORITIES` even hands every
+team the same farm ladder), so curve *shape* regresses on strength edge at
+R² = 0.877 with the residual being sigmoid saturation — every draft's story is
+"the stronger side pulls away", only faster or slower. **From duration
+buckets:** hero win rate does swing hugely with game length (sd 9.7 points,
+Faceless Void +26.9, Keeper of the Light −16.9) but it is mostly a *stomp
+artifact* — short games carry twice the win-rate spread of long ones
+(sd 0.074 vs 0.037, long games compressed toward 50% because they are close
+games by construction), and swing correlates −0.939 with the short-game rate
+alone. It is one number wearing two hats. The same survivorship trap `dm-builds`
+already had to dodge with duration-independent item thresholds. **From parsed
+gold curves** — the honest, outcome-independent method — blocked on data:
+**127 parsed matches** for 127 heroes.
+
+So the binding constraint on the rest of the roadmap is the parsed corpus, not
+code: timing windows *and* the fight-outcome model both need it. `dm-harvest`
+had grown raw matches to 127k unattended on a 3-hour cron while `dm-backfill`
+stayed manual, which is exactly why details never moved. It is now registered as
+a console script and on its own cron (`30 1,7,13,19`, `--max 200`, ~60% parse
+rate ⇒ ~480 new parsed matches a day). Kept at `--min-rank 70` deliberately:
+`calibrate/economy.py` reads every file in `data/details/` without a rank
+filter, so widening it would have moved a calibration gate silently. See
+[runbooks/data-collection.md](runbooks/data-collection.md).
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Timing windows** (Stage 7's last slice) — when a draft is strongest and
-   weakest, from the Monte-Carlo runs plus `dm-builds` item spikes. The only
-   Coach Lab slice that would draw on the **simulation engine** rather than the
-   model, which is also what would finally give the Rust port a reason to exist.
-2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
-   teamfight data instead of the analytic logistic.
-3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
+1. **Grow the parsed corpus** — now on a cron; nothing to do but let it run.
+   Revisit the two items below when `data/details/` is in the thousands.
+2. **Timing windows** (Stage 7's last slice) — *blocked on data*, and when it
+   unblocks it should be built from per-minute gold trajectories (a within-game,
+   outcome-independent measure), **not** from duration-bucketed win rates, which
+   measure stomps. Note this removes the Rust port's last concrete trigger: the
+   honest version reads parsed curves, it doesn't run the sim.
+3. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
+   teamfight data instead of the analytic logistic. *Also blocked on the parsed
+   corpus* — same constraint as item 2.
+4. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
    motivated it was a measurement bug (see the arc entry above); measured
    properly the per-bracket slopes are flat, so one global constant is correct.
-4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
-5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
+5. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
+   **No current trigger:** the engine does 202 sims/sec, the product's heaviest
+   path (200 sims) takes 1.0s, and timing windows — the one item that looked
+   like it would need the sim — turns out not to. If speed is ever wanted,
+   multiprocessing across cores is ~6–8× for a day's work, since sims are
+   independent.
+6. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.

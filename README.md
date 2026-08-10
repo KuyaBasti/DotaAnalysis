@@ -72,7 +72,7 @@ Click one to draft them.
 |---|---|
 | `dm-ingest --patch-id <v>` | OpenDota constants → validated patch snapshot |
 | `dm-harvest --max N` | bank recent ranked matches to `data/matches/` (resumable) |
-| `python -m dm_pipeline.harvest.backfill` | fetch parsed match details (gold curves, purchase logs) |
+| `dm-backfill --max N` | fetch parsed match details (gold curves, purchase logs); on a cron |
 | `dm-features` | banked matches → Parquet feature tables + hero win rates |
 | `dm-builds` | parsed purchase logs → per-hero item builds + completion thresholds |
 | `dm-montecarlo --radiant … --dire …` | run a draft N times → win/duration distribution (JSON) |

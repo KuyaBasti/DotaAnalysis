@@ -33,6 +33,8 @@ Read when working on that surface:
   — why the sim is macro (30s ticks), not unit-level.
 - [`runbooks/calibration.md`](runbooks/calibration.md) — how to check the engine
   still matches reality, and what to do when it doesn't.
+- [`runbooks/data-collection.md`](runbooks/data-collection.md) — the harvest and
+  backfill crons, and why backfill stays Divine-only
 - [`runbooks/patch-day.md`](runbooks/patch-day.md) — what to do when Dota ships a
   new patch.
 
