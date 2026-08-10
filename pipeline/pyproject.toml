@@ -18,6 +18,7 @@ dev = [
 [project.scripts]
 dm-ingest = "dm_pipeline.ingest.cli:main"
 dm-harvest = "dm_pipeline.harvest.daemon:main"
+dm-backfill = "dm_pipeline.harvest.backfill:main"
 dm-features = "dm_pipeline.features.build_dataset:main"
 dm-builds = "dm_pipeline.features.builds:main"
 dm-montecarlo = "dm_pipeline.prototype.montecarlo:main"
