@@ -1,25 +1,250 @@
-/* The app commits to a light colour scheme, explicitly.
+/* DraftMaster — visual system.
  *
- * Every colour in the UI is a literal in a component's inline style (133 of
- * them) and they all assume a light page — but nothing ever set a page
- * background. In a browser preferring dark mode the UA painted its own dark
- * canvas behind them, so anything not inside a light panel (the header, the
- * intro line, the "Analyze for rank" label, the drafted hero lists) rendered
- * dark-on-dark and was effectively unreadable.
+ * Dark-first: this is a tool for a game whose own UI is dark, and every heavy
+ * surface here (minimap, net-worth graph, win-prob strip) reads better on a
+ * dark ground. A light mode follows underneath for anyone who prefers it.
  *
- * `color-scheme` is doing as much work here as the colours: without it the UA
- * still styles form controls for dark mode, which left the rank <select>
- * dark-on-light even once the page background was fixed.
- *
- * Being genuinely theme-aware would be nicer, but that means finding a home
- * for all 133 literals — a refactor, not a bug fix. This makes the app render
- * the same for everyone; the refactor can come later if it earns its place.
+ * Colour is semantic, never decorative. Radiant and Dire are fixed team
+ * identities and are the only saturated greens/reds in the system — which is
+ * why the brand accent is *gold*: it belongs to Dota's economy, and it is the
+ * one accent that never gets mistaken for a team.
  */
+
 :root {
-  color-scheme: light;
+  --bg:        #0f1216;
+  --surface:   #171b21;
+  --surface-2: #1e232b;
+  --surface-3: #252b34;
+  --line:      #2a313b;
+  --line-soft: #21262e;
+
+  --ink:       #e6e9ee;
+  --ink-2:     #9aa4b2;
+  --ink-3:     #6b7480;
+
+  /* Gold — Dota's economy, and safely distinct from either team. */
+  --brand:     #d9a441;
+  --brand-2:   #2a2113;
+  --brand-ink: #f0c674;
+
+  /* Team identity. Fixed meaning; never used for anything else. */
+  --radiant:    #4caf6d;
+  --radiant-2:  #16301f;
+  --dire:       #e0575f;
+  --dire-2:     #33171a;
+
+  /* Numeric sentiment — a gain, a loss. Deliberately NOT the team colours. */
+  --pos:       #4cc38a;
+  --neg:       #e5707a;
+  --warn:      #e0a458;
+  --warn-bg:   #241d10;
+  --neg-bg:    #2a1618;
+
+  /* Hero attributes, matching the picker's existing grouping. */
+  --attr-str:  #d05a4a;
+  --attr-agi:  #6aa84f;
+  --attr-int:  #4a90c0;
+  --attr-all:  #b07cc6;
+
+  --r-sm: 8px; --r: 12px; --r-lg: 16px;
+  --shadow:    0 1px 2px rgba(0,0,0,.30);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,.40);
+
+  --font: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Numbers get a mono face + tabular figures: gold, win%, and K/D/A are all
+     read in columns, and proportional digits make columns wobble. */
+  --num: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  color-scheme: dark;
 }
 
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:        #f6f7f9;
+    --surface:   #ffffff;
+    --surface-2: #f1f3f6;
+    --surface-3: #e8ebf0;
+    --line:      #e0e4ea;
+    --line-soft: #eef0f4;
+
+    --ink:       #131820;
+    --ink-2:     #4d5764;
+    --ink-3:     #8b95a3;
+
+    --brand:     #9a6f14;
+    --brand-2:   #fbf3e0;
+    --brand-ink: #7d5a0f;
+
+    --radiant:   #2e7d43;
+    --radiant-2: #e6f4ea;
+    --dire:      #c1414a;
+    --dire-2:    #fbeced;
+
+    --pos:       #17794e;
+    --neg:       #c1414a;
+    --warn:      #9a6a12;
+    --warn-bg:   #fdf6e7;
+    --neg-bg:    #fdf0f1;
+
+    --shadow:    0 1px 2px rgba(16,24,40,.06);
+    --shadow-lg: 0 6px 20px rgba(16,24,40,.10);
+
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
 body {
-  background: #ffffff;
-  color: #222222;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button, select, input { font-family: inherit; font-size: inherit; }
+code { font-family: var(--num); font-size: .92em; }
+
+/* ---------- shell ---------- */
+.shell { display: grid; grid-template-columns: 224px 1fr; min-height: 100%; }
+
+.side {
+  background: var(--surface); border-right: 1px solid var(--line);
+  padding: 22px 14px; display: flex; flex-direction: column; gap: 26px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+.brand .mark {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: var(--brand); color: #1a1206;
+  display: grid; place-items: center; font-weight: 800; font-size: 15px;
+}
+.brand h1 { font-size: 16px; margin: 0; letter-spacing: -.01em; font-weight: 650; }
+.brand small { display: block; color: var(--ink-3); font-size: 11px; font-weight: 500; }
+
+.side nav { display: flex; flex-direction: column; gap: 2px; }
+.side nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 0; color: var(--ink-2); cursor: pointer;
+  padding: 9px 10px; border-radius: var(--r-sm); text-align: left;
+  font-weight: 500; transition: background .12s, color .12s;
+}
+.side nav button:hover { background: var(--surface-2); color: var(--ink); }
+.side nav button.on { background: var(--brand-2); color: var(--brand-ink); font-weight: 600; }
+.side nav button svg { width: 17px; height: 17px; flex: none; }
+.side .foot { margin-top: auto; color: var(--ink-3); font-size: 12px; padding: 0 10px; }
+
+.main { padding: 26px 34px 70px; max-width: 1180px; }
+
+.page-head { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-head h2 { margin: 0; font-size: 25px; font-weight: 640; letter-spacing: -.02em; }
+.page-head .meta { color: var(--ink-2); font-size: 13.5px; }
+.page-head .spacer { flex: 1; }
+
+/* ---------- primitives ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 18px 20px;
+}
+.card + .card { margin-top: 14px; }
+.card > h3 {
+  margin: 0 0 14px; font-size: 11.5px; font-weight: 650; color: var(--ink-3);
+  letter-spacing: .07em; text-transform: uppercase;
+}
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 12px; }
+.stat {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow);
+}
+.stat .k { color: var(--ink-3); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase; }
+.stat .v { font-size: 28px; font-weight: 650; letter-spacing: -.025em;
+  margin-top: 6px; font-variant-numeric: tabular-nums; }
+.stat .n { color: var(--ink-3); font-size: 12.5px; margin-top: 3px; }
+
+.tag {
+  font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
+  background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line);
+}
+.tag.radiant { background: var(--radiant-2); color: var(--radiant); border-color: transparent; }
+.tag.dire    { background: var(--dire-2);    color: var(--dire);    border-color: transparent; }
+
+.note {
+  display: flex; gap: 11px; padding: 12px 14px; border-radius: var(--r);
+  font-size: 13.5px; margin-bottom: 14px; line-height: 1.5;
+  background: var(--warn-bg); color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--warn) 34%, transparent);
+}
+.note.bad { background: var(--neg-bg); border-color: color-mix(in srgb, var(--neg) 34%, transparent); }
+
+.num { font-variant-numeric: tabular-nums; font-family: var(--num); }
+.pos { color: var(--pos); } .neg { color: var(--neg); }
+.muted { color: var(--ink-2); } .dim { color: var(--ink-3); }
+.small { font-size: 13px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.empty { text-align: center; padding: 44px 20px; color: var(--ink-3); }
+
+/* ---------- controls ---------- */
+select, input[type=search], input[type=text] {
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 7px 10px; outline: none;
+}
+select:focus, input:focus { border-color: var(--brand); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+  font-weight: 550; transition: background .12s, border-color .12s, opacity .12s;
+}
+.btn:hover:not(:disabled) { background: var(--surface-3); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #1a1206; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+.btn.ghost { background: none; }
+
+/* Segmented control — two or three mutually exclusive views. */
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line);
+       border-radius: var(--r-sm); padding: 2px; gap: 2px; }
+.seg button {
+  border: 0; background: none; color: var(--ink-2); cursor: pointer;
+  padding: 4px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600;
+}
+.seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+/* ---------- team-coloured bars ---------- */
+.splitbar { display: flex; height: 28px; border-radius: var(--r-sm); overflow: hidden;
+            border: 1px solid var(--line); background: var(--surface-2); }
+.splitbar .r, .splitbar .d {
+  display: flex; align-items: center; font-size: 12.5px; font-weight: 650;
+  font-variant-numeric: tabular-nums; color: #fff; transition: width .25s ease;
+}
+.splitbar .r { background: var(--radiant); padding-left: 9px; }
+.splitbar .d { background: var(--dire); justify-content: flex-end; padding-right: 9px; }
+
+.meter { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.meter > i { display: block; height: 100%; border-radius: 99px; }
+
+/* ---------- table ---------- */
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ink-3);
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 0 10px 9px; border-bottom: 1px solid var(--line);
+}
+tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--surface-2); }
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px;
+          border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .side nav { flex-direction: row; }
+  .side .foot, .brand small { display: none; }
+  .main { padding: 20px 16px 60px; }
 }
