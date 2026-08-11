@@ -69,7 +69,7 @@ flowchart TD
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        coach["Coach Lab — last slice<br/>timing windows (needs the sim)"]:::planned
+        coach["Coach Lab — last slice<br/>timing windows (blocked on parsed data)"]:::planned
     end
 
     OD -->|REST| ingest
@@ -167,6 +167,7 @@ flowchart TD
 | Scope of data | **Ranked All Draft only**; all rank tiers banked | Educational tool for real play; keeping every bracket is what made the per-rank models below possible. |
 | Rank granularity | **Three bands** (Herald–Crusader / Archon–Legend / Ancient+), not eight medals | Eight medals leave too few matches each to train 127-hero models; three bands each clear ~9k matches and still separate the play patterns. |
 | Win prediction in the API | Native `sigmoid(intercept + weights·draft)` in TS | The logistic model exports coefficients — no ONNX/sklearn runtime in the API. |
+| Web styling | A **dark-first token system** in `web/src/index.css`, not inline styles | Colour has to mean something here: Radiant/Dire are fixed identities, so the accent is gold (Dota's economy) and never a team colour. Dark-first because the minimap and graphs read better on a dark ground. |
 | Hero interactions | **Blended** synergy/counter weights on top of **per-bracket** hero weights | Pair terms need the whole corpus (~16k features); trained inside one bracket they fit noise (one split went negative). Hero identity is what must vary by rank. |
 | Engine's real target | **Distributional realism** — Brier, duration, economy, and the measured draft-edge→win curve — not winner accuracy | Draft-only info caps win accuracy; the engine's job is believable dynamics. Worse: accuracy and per-hero `r` both *reward over-confidence* (ratings derive from real win rates), so they're diagnostics, not gates. |
 | Storage | Files under `data/` (Parquet/JSON), DuckDB for queries | Zero infra for a solo alpha; a database is a deploy-time concern. |
