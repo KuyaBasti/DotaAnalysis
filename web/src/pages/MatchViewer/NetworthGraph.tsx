@@ -57,32 +57,32 @@ export function NetworthGraph({
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      style={{ width: "100%", border: "1px solid #eee", borderRadius: 8 }}
+      style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 8 }}
     >
-      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#ccc" />
-      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="#ccc" />
+      <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="var(--line)" />
+      <line x1={PAD} y1={PAD} x2={PAD} y2={H - PAD} stroke="var(--line)" />
       {headX !== null && (
-        <line x1={headX} y1={PAD} x2={headX} y2={H - PAD} stroke="#bbb" strokeDasharray="3 3" />
+        <line x1={headX} y1={PAD} x2={headX} y2={H - PAD} stroke="var(--line)" strokeDasharray="3 3" />
       )}
       <polyline
         fill="none"
-        stroke="#2e7d32"
+        stroke="var(--radiant)"
         strokeWidth="2"
         points={points(visible, (p) => p.radiant, maxT, maxNw)}
       />
       <polyline
         fill="none"
-        stroke="#c62828"
+        stroke="var(--dire)"
         strokeWidth="2"
         points={points(visible, (p) => p.dire, maxT, maxNw)}
       />
-      <text x={W - PAD} y={PAD} textAnchor="end" fontSize="12" fill="#2e7d32">
+      <text x={W - PAD} y={PAD} textAnchor="end" fontSize="12" fill="var(--radiant)">
         Radiant
       </text>
-      <text x={W - PAD} y={PAD + 16} textAnchor="end" fontSize="12" fill="#c62828">
+      <text x={W - PAD} y={PAD + 16} textAnchor="end" fontSize="12" fill="var(--dire)">
         Dire
       </text>
-      <text x={PAD} y={PAD - 12} fontSize="11" fill="#888">
+      <text x={PAD} y={PAD - 12} fontSize="11" fill="var(--ink-3)">
         net worth → {Math.round(maxNw).toLocaleString()}
       </text>
     </svg>

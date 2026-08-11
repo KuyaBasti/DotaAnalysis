@@ -1,6 +1,6 @@
 import type { HeroScore } from "./playback";
 
-const COLOR = { radiant: "#2e7d32", dire: "#c62828" } as const;
+const COLOR = { radiant: "var(--radiant)", dire: "var(--dire)" } as const;
 
 // Ten heroes, two columns, each hero's gold ticking up as the match plays —
 // the first slice of the FM-style match screen. Bars are relative to the
@@ -57,7 +57,7 @@ function Column({
                   marginRight: 6,
                   fontFamily: "ui-monospace, monospace",
                   fontSize: "0.7rem",
-                  color: "#999",
+                  color: "var(--ink-3)",
                 }}
               >
                 {h.level}
@@ -69,19 +69,19 @@ function Column({
                 style={{
                   fontFamily: "ui-monospace, monospace",
                   fontSize: "0.7rem",
-                  color: "#999",
+                  color: "var(--ink-3)",
                   marginRight: 10,
                 }}
                 title="kills / deaths / assists"
               >
                 {h.kills}/{h.deaths}/{h.assists}
               </span>
-              <span style={{ fontFamily: "ui-monospace, monospace", color: "#666" }}>
+              <span style={{ fontFamily: "ui-monospace, monospace", color: "var(--ink-2)" }}>
                 {Math.round(h.netWorth).toLocaleString()}
               </span>
             </span>
           </div>
-          <div style={{ height: 3, background: "#eee", borderRadius: 2 }}>
+          <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 2 }}>
             <div
               style={{
                 height: "100%",
@@ -93,7 +93,7 @@ function Column({
           </div>
           {h.items.length > 0 && (
             <div
-              style={{ fontSize: "0.65rem", color: "#999", marginTop: 1 }}
+              style={{ fontSize: "0.65rem", color: "var(--ink-3)", marginTop: 1 }}
               title={h.items.join(", ")}
             >
               {h.items[h.items.length - 1]}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getHeroes, latestPatch, listPatches } from "../api/client";
 import type { Hero } from "../types";
+import { ATTRIBUTE_COLORS, ATTRIBUTE_LABELS } from "./DraftStudio/attributes";
 
 export function PatchExplorer() {
   const [patch, setPatch] = useState<string | null>(null);
@@ -33,35 +34,23 @@ export function PatchExplorer() {
     };
   }, []);
 
-  if (loading) return <p>Loading…</p>;
-  if (error) return <p style={{ color: "crimson" }}>Error: {error}</p>;
+  if (loading) return <p className="dim">Loading…</p>;
+  if (error) return <div className="note bad">{error}</div>;
 
   return (
     <>
-      <p>
-        Patch <strong>{patch}</strong> — {heroes.length} heroes
-      </p>
-      <ul
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: "0.5rem",
-          listStyle: "none",
-          padding: 0,
-        }}
-      >
+      <div className="page-head">
+        <h2>Patch Explorer</h2>
+        <span className="tag">patch {patch}</span>
+        <span className="meta num">{heroes.length} heroes</span>
+      </div>
+
+      <ul className="patch-grid">
         {heroes.map((h) => (
-          <li
-            key={h.key}
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: "0.5rem 0.75rem",
-            }}
-          >
+          <li key={h.key} style={{ borderLeftColor: ATTRIBUTE_COLORS[h.primary_attr] }}>
             <strong>{h.display_name}</strong>
-            <div style={{ fontSize: "0.85rem", color: "#666" }}>
-              {h.primary_attr.toUpperCase()} · {h.attack_type}
+            <div className="dim small">
+              {ATTRIBUTE_LABELS[h.primary_attr] ?? h.primary_attr} · {h.attack_type}
             </div>
           </li>
         ))}

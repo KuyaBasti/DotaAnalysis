@@ -2,8 +2,8 @@ import type { TimelineEvent } from "../../types";
 import { describeEvent, mmss } from "./playback";
 
 const COLOR: Record<string, string> = {
-  radiant: "#2e7d32",
-  dire: "#c62828",
+  radiant: "var(--radiant)",
+  dire: "var(--dire)",
 };
 
 // A live feed of narrative beats, newest first. Per-tick economy/laning noise is
@@ -27,7 +27,7 @@ export function EventLog({
   const feed = [...beats].reverse(); // newest at the top
 
   if (feed.length === 0) {
-    return <p style={{ color: "#888" }}>Waiting for the match to begin…</p>;
+    return <p style={{ color: "var(--ink-3)" }}>Waiting for the match to begin…</p>;
   }
 
   return (
@@ -48,13 +48,13 @@ export function EventLog({
             key={idx}
             style={{
               padding: "4px 6px",
-              borderBottom: "1px solid #f0f0f0",
-              background: isLatest ? "#f6f6f4" : "transparent",
+              borderBottom: "1px solid var(--line-soft)",
+              background: isLatest ? "var(--surface-2)" : "transparent",
               opacity: isLatest ? 1 : 0.82,
             }}
           >
-            <span style={{ color: "#999" }}>{mmss(e.t)}</span>{" "}
-            <span style={{ color: side ? COLOR[side] : "#444" }}>{text}</span>
+            <span style={{ color: "var(--ink-3)" }}>{mmss(e.t)}</span>{" "}
+            <span style={{ color: side ? COLOR[side] : "var(--ink-2)" }}>{text}</span>
           </li>
         );
       })}

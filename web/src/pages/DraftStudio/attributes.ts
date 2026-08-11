@@ -10,13 +10,14 @@ export const ATTRIBUTE_LABELS: Record<string, string> = {
   all: "Universal",
 };
 
-// Muted takes on the game's attribute colors (full-saturation clashes with
-// the Radiant/Dire green-red used everywhere else in the app).
+// Muted takes on the game's attribute colours (full saturation clashes with
+// the Radiant/Dire green-red that carries meaning elsewhere). Tokens, so they
+// re-tune with the theme rather than being fixed for one background.
 export const ATTRIBUTE_COLORS: Record<string, string> = {
-  str: "#c23c2a",
-  agi: "#3a9e3f",
-  int: "#3b78bd",
-  all: "#8a5fbd",
+  str: "var(--attr-str)",
+  agi: "var(--attr-agi)",
+  int: "var(--attr-int)",
+  all: "var(--attr-all)",
 };
 
 export interface AttributeGroup {
