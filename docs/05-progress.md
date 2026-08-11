@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **71 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **73 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -273,6 +273,27 @@ rate ⇒ ~480 new parsed matches a day). Kept at `--min-rank 70` deliberately:
 `calibrate/economy.py` reads every file in `data/details/` without a rank
 filter, so widening it would have moved a calibration gate silently. See
 [runbooks/data-collection.md](runbooks/data-collection.md).
+
+**A real design system for the web app.** The UI had been assembled rather than
+designed: **no stylesheet at all**, 133 colour literals inline on components, a
+760px centred column, and `<p style={{color:'crimson'}}>` for errors. Modelled
+the fix on the sibling Centavo project's visual system — semantic tokens, a
+sidebar shell, `card`/`stat`/`tag`/`note`/`btn`/`seg` primitives, a mono face
+with tabular figures (gold, win% and K/D/A are all read in columns) — but with
+DraftMaster's own identity. **Dark-first**, since this is a tool for a game
+whose own UI is dark and every heavy surface (minimap, net-worth graph,
+win-prob strip) reads better on a dark ground; a full light mode follows.
+**Gold** is the brand accent: Radiant green and Dire red are fixed identities
+that carry meaning, so the accent had to be a colour never mistaken for a team,
+and gold is Dota's economy. `var()` resolves in SVG presentation attributes, so
+the minimap and graphs re-theme with everything else instead of being pinned to
+one background. Match Viewer became a dashboard rather than a document —
+scoreboard, map and both graphs in cards, side by side. Supersedes the
+light-mode stopgap: that was a bug fix for an app with no stylesheet, this is
+the real answer. Inline style props ~190 → 53, and what remains is dynamic (bar
+widths, positions). Four bugs surfaced just from looking at the result, one of
+them older than the PR: the net-worth share bar painted **entirely Dire at
+0:00**, because a clamped denominator made 0–0 read as 0% rather than even.
 
 ## Next — the additive roadmap
 
