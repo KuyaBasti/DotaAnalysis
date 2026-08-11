@@ -248,3 +248,116 @@ tbody tr:hover td { background: var(--surface-2); }
   .side .foot, .brand small { display: none; }
   .main { padding: 20px 16px 60px; }
 }
+
+/* ---------- Draft Studio ---------- */
+.draft-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.roster { background: var(--surface-2); border: 1px solid var(--line);
+          border-radius: var(--r); padding: 12px 13px; }
+
+.roster-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.roster-head .spacer { flex: 1; }
+.roster-head .btn.ghost {
+  padding: 3px 9px; font-size: 11.5px; border-color: transparent; color: var(--ink-3);
+}
+.roster.radiant .btn.ghost.on { background: var(--radiant-2); color: var(--radiant); }
+.roster.dire    .btn.ghost.on { background: var(--dire-2);    color: var(--dire); }
+
+.roster-list { list-style: none; margin: 0; padding: 0; display: flex;
+               flex-direction: column; gap: 4px; }
+.roster-list li.slot {
+  height: 30px; border-radius: var(--r-sm);
+  border: 1px dashed var(--line); background: var(--surface);
+}
+.roster-list li button {
+  width: 100%; text-align: left; padding: 6px 10px; height: 30px;
+  border-radius: var(--r-sm); border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+  font-size: 13.5px; transition: border-color .12s, background .12s;
+}
+.roster.radiant .roster-list li button { border-left: 3px solid var(--radiant); }
+.roster.dire    .roster-list li button { border-left: 3px solid var(--dire); }
+.roster-list li button:hover { background: var(--surface-3); }
+
+/* ---------- hero picker ---------- */
+.attr-group + .attr-group { margin-top: 18px; }
+.attr-group h4 {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 8px; font-size: 11.5px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.attr-group h4 i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+.hero-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 6px; list-style: none; padding: 0; margin: 0;
+}
+.hero-grid button {
+  width: 100%; text-align: left; padding: 7px 10px;
+  border-radius: var(--r-sm); border: 1px solid var(--line);
+  border-left-width: 3px; border-left-style: solid;
+  background: var(--surface-2); color: var(--ink);
+  cursor: pointer; font-size: 13.5px;
+  transition: background .12s, transform .06s;
+}
+.hero-grid button:hover:not(:disabled) { background: var(--surface-3); }
+.hero-grid button:active:not(:disabled) { transform: translateY(1px); }
+.hero-grid button:disabled {
+  background: var(--bg); color: var(--ink-3);
+  border-left-color: var(--line) !important; cursor: default;
+}
+
+@media (max-width: 700px) {
+  .draft-teams { grid-template-columns: 1fr; }
+}
+
+/* ---------- Coach Lab panels ---------- */
+.foot-note { margin: 12px 0 0; line-height: 1.55; font-size: 12.5px; }
+
+/* Diverging bars around a centre axis: right helps that hero's own side. */
+.swings { display: flex; flex-direction: column; gap: 3px; }
+.swing { display: flex; align-items: center; gap: 10px; font-size: 13.5px; }
+.swing-name {
+  width: 140px; flex: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.swing.radiant .swing-name { color: var(--radiant); }
+.swing.dire    .swing-name { color: var(--dire); }
+.swing-track { flex: 1; display: flex; align-items: center; height: 16px; }
+.swing-track .lhs { width: 50%; display: flex; justify-content: flex-end; }
+.swing-track .rhs { width: 50%; }
+.swing-track .axis { width: 1px; height: 16px; background: var(--line); flex: none; }
+.swing-track i { display: block; height: 16px; border-radius: 2px; }
+.swing.radiant .swing-track i { background: var(--radiant); }
+.swing.dire    .swing-track i { background: var(--dire); }
+.swing-track i.down { opacity: .4; }
+.swing-val { width: 78px; text-align: right; font-size: 12.5px; flex: none;
+             white-space: nowrap; }
+
+/* Ranked next picks — clickable rows. */
+.suggestions { list-style: none; margin: 0; padding: 0;
+               display: flex; flex-direction: column; gap: 3px; }
+.suggestions button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 0; border-radius: var(--r-sm);
+  padding: 3px 6px; cursor: pointer; color: var(--ink);
+  font: inherit; font-size: 13.5px; text-align: left;
+}
+.suggestions button:hover { background: var(--surface-2); }
+.sg-name { width: 140px; flex: none; white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; }
+.sg-track { flex: 1; height: 14px; display: flex; align-items: center; }
+.sg-track i { display: block; height: 14px; border-radius: 2px; }
+.suggestions button.radiant .sg-track i { background: var(--radiant); }
+.suggestions button.dire    .sg-track i { background: var(--dire); }
+.sg-val { width: 156px; text-align: right; font-size: 12.5px; flex: none;
+          color: var(--ink-2); white-space: nowrap; }
+
+/* Duration histogram — 5-minute buckets. */
+.histogram { display: flex; align-items: flex-end; gap: 3px; height: 62px; }
+.histogram > div {
+  flex: 1; height: 100%; display: flex; flex-direction: column;
+  justify-content: flex-end; align-items: center; gap: 3px;
+}
+.histogram i { display: block; width: 100%; background: var(--brand);
+               border-radius: 2px 2px 0 0; opacity: .8; min-height: 1px; }
+.histogram span { font-size: 9.5px; color: var(--ink-3); }
