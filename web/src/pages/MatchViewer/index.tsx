@@ -87,25 +87,29 @@ export function MatchViewer({
 
   return (
     <>
-      {simIds.length > 1 && (
-        <label style={{ display: "block", marginBottom: "0.75rem", fontSize: "0.9rem" }}>
-          Watch match{" "}
-          <select
-            aria-label="Pick a simulated match"
-            value={simId ?? ""}
-            onChange={(e) => setSimId(e.target.value)}
-            style={{ padding: "0.3rem", borderRadius: 6, marginLeft: "0.25rem" }}
-          >
-            {simIds.map((id) => (
-              <option key={id} value={id}>
-                {simLabel(id)}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <div className="page-head">
+        <h2>Match Viewer</h2>
+        <span className="meta">a generated game, played minute by minute</span>
+        <span className="spacer" />
+        {simIds.length > 1 && (
+          <label className="row small dim">
+            Watch
+            <select
+              aria-label="Pick a simulated match"
+              value={simId ?? ""}
+              onChange={(e) => setSimId(e.target.value)}
+            >
+              {simIds.map((id) => (
+                <option key={id} value={id}>
+                  {simLabel(id)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
       {loading ? (
-        <p>Loading…</p>
+        <p className="dim">Loading…</p>
       ) : sim ? (
         // Keyed by id so the player (and its clock) resets when a new sim loads.
         <MatchPlayer key={sim.id} sim={sim} />
@@ -120,8 +124,10 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
 
   const score = scoreAt(sim.timeline, pb.clock);
   const structures = structuresAt(sim.timeline, pb.clock);
-  const total = Math.max(score.radiant + score.dire, 1);
-  const radiantPct = (score.radiant / total) * 100;
+  // Before any gold is earned the share is genuinely even — dividing by a
+  // clamped total would paint the whole bar Dire at 0:00.
+  const total = score.radiant + score.dire;
+  const radiantPct = total > 0 ? (score.radiant / total) * 100 : 50;
   const winProb = winProbAt(sim.timeline, pb.clock);
   const favored = winProb >= 0.5 ? "Radiant" : "Dire";
   const favoredPct = Math.round((winProb >= 0.5 ? winProb : 1 - winProb) * 100);
@@ -131,8 +137,8 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
 
   return (
     <>
-      <p style={{ margin: "0 0 0.5rem", color: "#555", fontSize: "0.9rem" }}>
-        Sim <strong>{sim.id}</strong>
+      <p className="muted small" style={{ margin: "0 0 10px" }}>
+        Sim <strong className="num">{sim.id}</strong>
         {pb.atEnd && (
           <>
             {" — "}
@@ -144,73 +150,59 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
         )}
       </p>
 
-      {/* Live scoreboard: net worth + structures, as of the clock. */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <ScoreSide name="Radiant" side="radiant" nw={score.radiant} razed={structures.radiant} align="left" />
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.4rem", fontWeight: 600 }}>
-            {mmss(pb.clock)}
+      {/* Live scoreboard + map: the state of the game as of the clock. */}
+      <div className="viewer-top">
+        <div className="card">
+          <div className="scoreline">
+            <ScoreSide name="Radiant" side="radiant" nw={score.radiant} razed={structures.radiant} align="left" />
+            <div style={{ textAlign: "center" }}>
+              <div className="num clock">{mmss(pb.clock)}</div>
+              <div className="small" style={{ color: COLOR(favored.toLowerCase()) }}>
+                {favored} {favoredPct}%
+              </div>
+            </div>
+            <ScoreSide name="Dire" side="dire" nw={score.dire} razed={structures.dire} align="right" />
           </div>
-          <div style={{ fontSize: "0.75rem", color: COLOR(favored.toLowerCase()) }}>
-            {favored} {favoredPct}%
+
+          <div className="nwshare" aria-label="Net worth share">
+            <div style={{ width: `${radiantPct}%` }} />
           </div>
-        </div>
-        <ScoreSide name="Dire" side="dire" nw={score.dire} razed={structures.dire} align="right" />
-      </div>
-      <div
-        style={{
-          display: "flex",
-          height: 10,
-          borderRadius: 5,
-          overflow: "hidden",
-          margin: "0.4rem 0 0.25rem",
-          background: "#c62828",
-        }}
-        aria-label="Net worth share"
-      >
-        <div style={{ width: `${radiantPct}%`, background: "#2e7d32" }} />
-      </div>
 
-      <PlaybackControls pb={pb} duration={duration} />
-
-      <div
-        style={{
-          display: "flex",
-          gap: "1.25rem",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 280 }}>
+          <PlaybackControls pb={pb} duration={duration} />
           <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
         </div>
-        <Minimap
-          radiantLost={fallen.radiant}
-          direLost={fallen.dire}
-          heroes={heroDots}
-        />
+
+        <div className="card">
+          <h3>Map</h3>
+          <Minimap
+            radiantLost={fallen.radiant}
+            direLost={fallen.dire}
+            heroes={heroDots}
+          />
+        </div>
       </div>
 
-      <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
+      <div className="viewer-cols" style={{ marginTop: 14 }}>
+        <div className="card">
+          <h3>Net worth</h3>
+          <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
+        </div>
+        <div className="card">
+          <h3>Win probability</h3>
+          <WinProbGraph timeline={sim.timeline} upTo={pb.clock} />
+        </div>
+      </div>
 
-      <h3>Win probability</h3>
-      <WinProbGraph timeline={sim.timeline} upTo={pb.clock} />
-
-      <h3>Match feed</h3>
-      <EventLog timeline={sim.timeline} upTo={pb.clock} />
+      <div className="card" style={{ marginTop: 14 }}>
+        <h3>Match feed</h3>
+        <EventLog timeline={sim.timeline} upTo={pb.clock} />
+      </div>
     </>
   );
 }
 
 function COLOR(side: string): string {
-  return side === "radiant" ? "#2e7d32" : side === "dire" ? "#c62828" : "#444";
+  return side === "radiant" ? "var(--radiant)" : side === "dire" ? "var(--dire)" : "var(--ink-2)";
 }
 
 function ScoreSide({
@@ -227,12 +219,10 @@ function ScoreSide({
   align: "left" | "right";
 }) {
   return (
-    <div style={{ textAlign: align, minWidth: 150 }}>
-      <div style={{ color: COLOR(side), fontWeight: 500 }}>{name}</div>
-      <div style={{ fontFamily: "ui-monospace, monospace", fontSize: "1.1rem" }}>
-        {Math.round(nw).toLocaleString()}
-      </div>
-      <div style={{ fontSize: "0.75rem", color: "#888" }}>
+    <div style={{ textAlign: align, minWidth: 140 }}>
+      <div className="small" style={{ color: COLOR(side), fontWeight: 600 }}>{name}</div>
+      <div className="num nw">{Math.round(nw).toLocaleString()}</div>
+      <div className="dim" style={{ fontSize: "11.5px" }}>
         {razed} {razed === 1 ? "structure" : "structures"} razed
       </div>
     </div>

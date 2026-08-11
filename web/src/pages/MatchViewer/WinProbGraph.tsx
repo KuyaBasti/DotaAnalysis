@@ -34,28 +34,28 @@ export function WinProbGraph({
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
-      style={{ width: "100%", border: "1px solid #eee", borderRadius: 8 }}
+      style={{ width: "100%", border: "1px solid var(--line)", borderRadius: 8 }}
     >
       {/* favored-side bands */}
-      <rect x={PAD} y={PAD} width={W - 2 * PAD} height={midY - PAD} fill="#2e7d32" opacity="0.06" />
-      <rect x={PAD} y={midY} width={W - 2 * PAD} height={H - PAD - midY} fill="#c62828" opacity="0.06" />
-      <line x1={PAD} y1={midY} x2={W - PAD} y2={midY} stroke="#ccc" strokeDasharray="4 3" />
+      <rect x={PAD} y={PAD} width={W - 2 * PAD} height={midY - PAD} fill="var(--radiant)" opacity="0.06" />
+      <rect x={PAD} y={midY} width={W - 2 * PAD} height={H - PAD - midY} fill="var(--dire)" opacity="0.06" />
+      <line x1={PAD} y1={midY} x2={W - PAD} y2={midY} stroke="var(--line)" strokeDasharray="4 3" />
       {headX !== null && (
-        <line x1={headX} y1={PAD} x2={headX} y2={H - PAD} stroke="#bbb" strokeDasharray="3 3" />
+        <line x1={headX} y1={PAD} x2={headX} y2={H - PAD} stroke="var(--line)" strokeDasharray="3 3" />
       )}
-      <polyline fill="none" stroke="#555" strokeWidth="2" points={line} />
+      <polyline fill="none" stroke="var(--ink-2)" strokeWidth="2" points={line} />
       {last && (
         <circle
           cx={x(last.t)}
           cy={y(last.radiant)}
           r="3.5"
-          fill={last.radiant >= 0.5 ? "#2e7d32" : "#c62828"}
+          fill={last.radiant >= 0.5 ? "var(--radiant)" : "var(--dire)"}
         />
       )}
-      <text x={PAD} y={PAD - 8} fontSize="11" fill="#2e7d32">
+      <text x={PAD} y={PAD - 8} fontSize="11" fill="var(--radiant)">
         Radiant favored
       </text>
-      <text x={PAD} y={H - PAD + 16} fontSize="11" fill="#c62828">
+      <text x={PAD} y={H - PAD + 16} fontSize="11" fill="var(--dire)">
         Dire favored
       </text>
     </svg>

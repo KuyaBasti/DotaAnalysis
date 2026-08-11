@@ -5,9 +5,9 @@ import type { FallenStructure, HeroDot } from "./playback";
 // the clock passes their fall. The sim destroys one structure per tier, tagged
 // with a lane, so exactly that lane's dot goes dark.
 
-const RADIANT = "#2e7d32";
-const DIRE = "#c62828";
-const DEAD = "#9e9e9e";
+const RADIANT = "var(--radiant)";
+const DIRE = "var(--dire)";
+const DEAD = "var(--ink-3)";
 
 type Tier = "tier-1 tower" | "tier-2 tower" | "tier-3 tower";
 
@@ -69,7 +69,7 @@ export function Minimap({
       height={size}
       role="img"
       aria-label="Minimap: structures still standing"
-      style={{ border: "1px solid #eee", borderRadius: 8, flexShrink: 0 }}
+      style={{ border: "1px solid var(--line)", borderRadius: 8, flexShrink: 0 }}
     >
       {/* terrain: radiant half, dire half, river on the diagonal */}
       <rect x="0" y="0" width="100" height="100" fill="#8a9a5b" opacity="0.15" />
@@ -126,7 +126,7 @@ export function Minimap({
             cy={y}
             r="4.5"
             fill={down ? DEAD : side === "radiant" ? RADIANT : DIRE}
-            stroke={down ? "#777" : "#fff"}
+            stroke={down ? "var(--ink-3)" : "var(--ink)"}
             strokeWidth="1"
             opacity={down ? 0.45 : 1}
           >
@@ -142,8 +142,8 @@ export function Minimap({
           cx={h.x}
           cy={h.y}
           r="2.1"
-          fill={h.side === "radiant" ? "#43a047" : "#e53935"}
-          stroke="#fff"
+          fill={h.side === "radiant" ? "var(--radiant)" : "var(--dire)"}
+          stroke="var(--ink)"
           strokeWidth="0.8"
         >
           <title>{h.hero}</title>
