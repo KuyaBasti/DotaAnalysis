@@ -23,8 +23,28 @@ export function AggregatePanel({
   return (
     <div className="card">
       <h3>
-        {aggregate.runs} simulations · {bracketLabel(aggregate.bracket)}
+        Monte Carlo · {bracketLabel(aggregate.bracket)}
       </h3>
+
+      <div className="stats" style={{ marginBottom: 14 }}>
+        <div className="stat">
+          <div className="k">Radiant wins</div>
+          <div className="v" style={{ color: "var(--radiant)" }}>{radiantPct}%</div>
+          <div className="n">Dire {100 - radiantPct}%</div>
+        </div>
+        <div className="stat">
+          <div className="k">Median length</div>
+          <div className="v">{mmss(d.median)}</div>
+          <div className="n">
+            typical {mmss(d.p25)}–{mmss(d.p75)}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="k">Simulations</div>
+          <div className="v">{aggregate.runs}</div>
+          <div className="n">each a full game</div>
+        </div>
+      </div>
 
       <div className="splitbar">
         <div className="r" style={{ width: `${radiantPct}%` }}>
@@ -35,14 +55,7 @@ export function AggregatePanel({
         </div>
       </div>
 
-      <div className="small muted" style={{ margin: "12px 0 6px" }}>
-        Game length — median <strong className="num">{mmss(d.median)}</strong>{" "}
-        <span className="dim">
-          (typical {mmss(d.p25)}–{mmss(d.p75)})
-        </span>
-      </div>
-
-      <div className="histogram">
+      <div className="histogram" style={{ marginTop: 14 }}>
         {aggregate.duration_histogram.map((b) => (
           <div key={b.minute} title={`${b.minute}–${b.minute + 5} min: ${b.count}`}>
             <i style={{ height: `${(b.count / maxCount) * 100}%` }} />
@@ -50,11 +63,14 @@ export function AggregatePanel({
           </div>
         ))}
       </div>
+      <div className="dim small" style={{ marginTop: 4 }}>
+        Game length, in 5-minute buckets
+      </div>
 
       {onWatch && (
         <button
           className="btn"
-          style={{ marginTop: 12 }}
+          style={{ marginTop: 14 }}
           onClick={() => onWatch(aggregate.representative_sim_id)}
         >
           ▶ Watch a representative game

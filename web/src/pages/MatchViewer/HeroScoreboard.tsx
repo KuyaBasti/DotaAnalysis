@@ -81,13 +81,11 @@ function Column({
               </span>
             </span>
           </div>
-          <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 2 }}>
-            <div
+          <div className="meter" style={{ height: 3 }}>
+            <i
               style={{
-                height: "100%",
                 width: `${(h.netWorth / richest) * 100}%`,
                 background: COLOR[side],
-                borderRadius: 2,
               }}
             />
           </div>

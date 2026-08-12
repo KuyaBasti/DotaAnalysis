@@ -45,6 +45,15 @@ export function PatchExplorer() {
         <span className="meta num">{heroes.length} heroes</span>
       </div>
 
+      {heroes.length === 0 && (
+        <div className="card empty">
+          <p style={{ margin: 0 }}>This snapshot has no heroes.</p>
+          <p className="small" style={{ margin: "6px 0 0" }}>
+            Re-run <code>dm-ingest --patch-id {patch}</code> to rebuild it.
+          </p>
+        </div>
+      )}
+
       <ul className="patch-grid">
         {heroes.map((h) => (
           <li key={h.key} style={{ borderLeftColor: ATTRIBUTE_COLORS[h.primary_attr] }}>
