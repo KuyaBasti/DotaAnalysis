@@ -113,7 +113,16 @@ export function MatchViewer({
       ) : sim ? (
         // Keyed by id so the player (and its clock) resets when a new sim loads.
         <MatchPlayer key={sim.id} sim={sim} />
-      ) : null}
+      ) : (
+        <div className="card empty">
+          <p style={{ margin: 0 }}>No simulated matches yet.</p>
+          <p className="small" style={{ maxWidth: 420, margin: "6px auto 0" }}>
+            Draft a lineup in Draft Studio and hit <strong>Simulate this
+            draft</strong> — the game it generates opens here, playable
+            minute by minute.
+          </p>
+        </div>
+      )}
     </>
   );
 }

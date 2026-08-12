@@ -391,3 +391,8 @@ tbody tr:hover td { background: var(--surface-2); }
 .nwshare { display: flex; height: 8px; border-radius: 99px; overflow: hidden;
            margin: 10px 0 2px; background: var(--dire); }
 .nwshare > div { background: var(--radiant); transition: width .25s ease; }
+
+/* Graph cards sit in a row, so they should agree on height rather than each
+   sizing to its own contents. */
+.viewer-cols > .card { height: 100%; display: flex; flex-direction: column; }
+.viewer-cols > .card > svg { flex: 1; min-height: 0; }
