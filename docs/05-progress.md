@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **73 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **75 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -294,6 +294,14 @@ the real answer. Inline style props ~190 → 53, and what remains is dynamic (ba
 widths, positions). Four bugs surfaced just from looking at the result, one of
 them older than the PR: the net-worth share bar painted **entirely Dire at
 0:00**, because a clamped denominator made 0–0 read as 0% rather than even.
+
+Followed up by making the system's own loose ends earn their place: `stat`,
+`meter` and `empty` had shipped **unused** — written because the reference
+system had them, not because this app needed them. The Analyze result was the
+right home for stat tiles (win rate, median game length and run count were
+buried in prose), farm bars became `meter`, and Match Viewer and Patch Explorer
+gained real empty states instead of rendering a blank page. Nothing in the
+system is dead now.
 
 ## Next — the additive roadmap
 
