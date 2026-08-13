@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://draftmaster.dev/schemas/draft-suggestions.schema.json",
+  "title": "DraftSuggestions",
+  "description": "Ranked candidates for the next pick (Coach Lab). Two orderings exist because measurement showed one isn't enough: by total swing the top-10 barely changes with the board; by fit it is genuinely draft-specific. Served at POST /analysis/suggest.",
+  "type": "object",
+  "required": [
+    "patch_id",
+    "bracket",
+    "side",
+    "rank_by",
+    "suggestions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "patch_id": {
+      "type": "string"
+    },
+    "bracket": {
+      "type": "string",
+      "enum": [
+        "all",
+        "low",
+        "mid",
+        "high"
+      ],
+      "description": "Rank band the response was scored with."
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "radiant",
+        "dire"
+      ]
+    },
+    "rank_by": {
+      "type": "string",
+      "enum": [
+        "swing",
+        "fit"
+      ]
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hero",
+          "hero_id",
+          "swing",
+          "fit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "hero": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "Stable hero key (npc_dota_hero_ stripped)."
+          },
+          "hero_id": {
+            "type": "integer"
+          },
+          "swing": {
+            "type": "number",
+            "description": "Total pp gain for the picking side if this hero is added."
+          },
+          "fit": {
+            "type": "number",
+            "description": "The synergy/counter part of swing \u2014 what THIS draft adds beyond the hero being good in general."
+          }
+        }
+      }
+    }
+  }
+}

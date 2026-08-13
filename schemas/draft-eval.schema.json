@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://draftmaster.dev/schemas/draft-eval.schema.json",
+  "title": "DraftEval",
+  "description": "Instant draft evaluation: P(radiant wins) from the per-bracket logistic model, no simulation. Served at POST /analysis/draft.",
+  "type": "object",
+  "required": [
+    "patch_id",
+    "bracket",
+    "radiant_win_probability"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "patch_id": {
+      "type": "string"
+    },
+    "bracket": {
+      "type": "string",
+      "enum": [
+        "all",
+        "low",
+        "mid",
+        "high"
+      ],
+      "description": "Rank band the response was scored with."
+    },
+    "radiant_win_probability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
