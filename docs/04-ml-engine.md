@@ -281,6 +281,17 @@ all three gates met.
   four brackets reporting an identical `n` is the tell — and **check the result
   against what the repo already knows**; that table contradicted the per-bracket
   AUC ordering three paragraphs above it, which should have stopped it.
+- **Within-game normalization removes pace, not lead.** Dividing a player's
+  gold by the 10-player total looked outcome-free — but the winning team's
+  share of that total drifts **+4.1pp** between minutes 5 and 25, so a
+  "curve-shape" feature built on it correlated **+0.372 with winning** and
+  every per-hero mean inherited that hero's win rate. Fourth appearance of the
+  outcome-leakage trap, inside a design written to dodge it. The repair is
+  structural, not statistical: divide by the **own team's** total (zero-sum
+  per team, so the lead channel is zero *by construction*) and outcome-balance
+  every per-hero mean. And note what the reliability metric cannot do:
+  split-half r is blind to this whole class of bug — both halves inherit the
+  identical bias — so **"reliable" must never be read as "unbiased".**
 - **Win accuracy and per-hero `r` reward over-confidence — don't gate on them.**
   Hero ratings are derived from real win rates, so a sim that merely ranks by
   rating scores well on both. Sweeping `_STRENGTH_TO_NETWORTH` shows it plainly:
@@ -313,9 +324,13 @@ thresholds that drive the viewer's item-timing beats):
   hero ratings, selectable in Draft Studio.
 - ~~Hero interactions~~ — **done** (see above): blended synergy/counter terms
   layered onto the per-bracket hero weights.
-- **Draft suggestions** — rank a candidate next pick against the current partial
-  draft. Now meaningful rather than a tier list, since pair terms make a
-  candidate's value depend on the heroes already picked.
+- ~~Draft suggestions~~ — **done** (see above): `POST /analysis/suggest`, with
+  the swing and fit orderings.
+- **Timing windows** (Coach Lab's last slice) — per-hero **farm-timing
+  signatures from parsed gold curves**: outcome-balanced within-team share,
+  split-half r = 0.72–0.78, gated on ≥38 scaling-bearing games per hero.
+  Method validated and adversarially reviewed; corpus filling via the backfill
+  cron.
 - **Build advice** — recommend items for a draft (Coach Lab), extending the
   item builds `dm-builds` already extracts (see below).
 - **Gradient boosting** — once the corpus supports richer feature sets (rank, mode,
