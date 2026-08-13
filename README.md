@@ -64,7 +64,9 @@ pick in that slot — move the rank selector and Sniper goes from **+17.5 points
 in Herald–Crusader to **+7.2** at Ancient+, while Clockwerk goes **−5.2 → +2.0**.
 *What next* ranks every hero you haven't drafted, either by raw strength or by
 **fit** — how well they pair with, and counter, the heroes already on the board.
-Click one to draft them.
+Click one to draft them. And once both sides have five, **farm timing** draws
+each lineup's gold-engine curve from parsed real games and says who should
+close early — farm timing, not win timing, and the panel says so.
 
 ### The pipeline CLIs (`pip install -e pipeline`)
 
@@ -75,6 +77,7 @@ Click one to draft them.
 | `dm-backfill --max N` | fetch parsed match details (gold curves, purchase logs); on a cron |
 | `dm-features` | banked matches → Parquet feature tables + hero win rates |
 | `dm-builds` | parsed purchase logs → per-hero item builds + completion thresholds |
+| `dm-trajectories` | parsed gold curves → per-hero farm-timing signatures (coverage-gated) |
 | `dm-montecarlo --radiant … --dire …` | run a draft N times → win/duration distribution (JSON) |
 | `dm-train-winprob` | train the draft→win model — one per rank bracket + blended |
 | `dm-calibrate --sample N` | score the sim against the real corpus (win / realism / economy) |
@@ -100,7 +103,7 @@ A working alpha, developed as a personal project — **not shipped or deployed**
 The core loop (draft → predict → simulate → watch → analyze → understand → act)
 works end-to-end, including Monte-Carlo matchup analysis, per-rank models, hero
 synergy/counter terms, the per-hero draft explanation, and next-pick
-suggestions. The remaining roadmap (Coach Lab's timing windows — method now
-validated against parsed gold curves — plus the fight-outcome model, the Rust
-engine, and a batch job queue) is tracked in
+suggestions, and farm-timing windows — **Coach Lab is complete**. The remaining
+roadmap (the fight-outcome model, the Rust engine, and a batch job queue) is
+tracked in
 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md).

@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **75 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **79 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -33,7 +33,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 4 Orchestrator/API | 🟡 API + simulate + **bracket-aware Monte Carlo** · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
 | 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** + **hero interactions** · ⬜ fight-outcome model |
-| 7 Coach Lab | 🟡 **explanation + suggestions** (exit criterion met) · ⬜ timing windows |
+| 7 Coach Lab | ✅ done — **explanation + suggestions + farm timing** |
 | 8 Beta & launch | ⬜ not started |
 
 ## The arc so far (grouped)
@@ -338,30 +338,44 @@ the duration-bucket data already showed those diverge (KotL wins early yet
 farms late). The cron batch was raised 200 → 500 in the same pass, since only
 ~43% of scheduled runs land (macOS cron skips slots the laptop sleeps through).
 
+**Farm-timing windows — Coach Lab complete (Stage 7 ✅).** The last slice ships
+the spike's reviewed method end to end. `dm-trajectories` extracts per-hero
+signatures into `data/models/hero_trajectories.json`, with both review-mandated
+repairs as *tested invariants*: a 10× gold blowout cannot move a within-team
+share, and a hero who hogs gold in wins while starving in losses gets the
+outcome-balanced value, never a win-rate-weighted one — thin strata report null
+rather than a biased number. `POST /analysis/timing` sums each side's curve
+against its own minute-5 baseline and calls a verdict, **"even" inside a 1pp
+margin** rather than manufacturing an edge from noise; unmeasured heroes are
+listed but excluded from sums. Draft Studio renders the panel for full 5v5
+drafts: two curves in team colours, per-hero scaling chips with thin-data
+flags, and the coaching sentence the arc was aiming at — *"the long game
+favours Radiant's gold engine — Dire wants to close early."* Scope stated in
+the panel's own copy: **farm timing, never win timing** — it says whose economy
+scales, not who wins when. Coverage at ship: **78 of 127 heroes clear the
+38-game reliability gate** on the 958-game corpus; the cron closes the rest.
+Archetype check through the live API: hard carries vs early brawlers → long
+game favours the carries, +5.9pp, thin flags landing exactly on the low-sample
+heroes.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
 fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
-1. **Grow the parsed corpus** — now on a cron; nothing to do but let it run.
-   Revisit the two items below when `data/details/` is in the thousands.
-2. **Timing windows** (Stage 7's last slice) — methodology now *validated and
-   adversarially reviewed*: outcome-balanced within-team gold share, per-hero
-   farm-timing signatures gated on **≥38 scaling-bearing games** (reliability
-   0.8; 86 for 0.9). Cores largely qualify today; the full roster in ~2 weeks
-   of cron growth. Present it as *farm* timing, never win timing — the two
-   measurably diverge. (The Rust port remains untriggered: this reads parsed
-   curves, it doesn't run the sim.)
-3. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
-   teamfight data instead of the analytic logistic. *Also blocked on the parsed
-   corpus* — same constraint as item 2.
-4. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
+1. ~~Timing windows~~ — **shipped** (see the arc entry above); the hero-coverage
+   tail fills itself as the backfill cron runs.
+2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
+   teamfight data instead of the analytic logistic. The parsed corpus that
+   gated it is now growing on its own; revisit when `data/details/` reaches a
+   few thousand games.
+3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
    motivated it was a measurement bug (see the arc entry above); measured
    properly the per-bracket slopes are flat, so one global constant is correct.
-5. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
+4. **Rust engine port** (Stage 3) — speed for large batch Monte-Carlo runs.
    **No current trigger:** the engine does 202 sims/sec, the product's heaviest
    path (200 sims) takes 1.0s, and timing windows — the one item that looked
    like it would need the sim — turns out not to. If speed is ever wanted,
    multiprocessing across cores is ~6–8× for a day's work, since sims are
    independent.
-6. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.
+5. **Batch job queue** (Stage 4) — enqueue long runs rather than run inline.

@@ -136,6 +136,7 @@ engine loads it to narrate item timings.
 | `data/features/` | `hero_builds.json` (real item builds + thresholds) | `dm-builds` |
 | `data/models/` | `win_probability[.<bracket>].{joblib,coef.json,metrics.json}` — one set per rank band plus the blend | `dm-train-winprob` |
 | `data/models/` | `win_probability.pairs.{coef.json,metrics.json}` — blended synergy/counter weights, keyed by hero id, plus the per-bracket weighting and rescale | `dm-train-winprob` |
+| `data/models/` | `hero_trajectories.json` — per-hero farm-timing curves (outcome-balanced within-team share), scaling deltas, and the 38-game coverage gate | `dm-trajectories` |
 | `data/sims/` | `sim.<id>.json` (SimResult) | sim CLI `--export`, `POST /sims` |
 | `data/calibration/` | `report.<patch>.json` | `dm-calibrate` |
 
