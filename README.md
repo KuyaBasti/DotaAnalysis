@@ -40,7 +40,7 @@ Prereqs: Python 3.11+, Node 20+.
 python -m venv .venv && source .venv/bin/activate
 pip install -e pipeline                      # installs the dm-* CLIs
 
-dm-ingest --patch-id 7.41d                   # build a patch snapshot from OpenDota
+dm-ingest --patch-id 7.41e                   # build a patch snapshot from OpenDota
 python -m dm_pipeline.prototype.sim_loop --seed 42 --export   # simulate one match
 
 PYTHONPATH=pipeline .venv/bin/python -m pytest pipeline/tests/   # run pipeline tests

@@ -14,7 +14,7 @@ mock transport (no network).
 
 ## 1. Patch snapshots — `dm-ingest`
 
-`dm-ingest --patch-id 7.41d` → `data/snapshots/snapshot.7.41d.json`.
+`dm-ingest --patch-id 7.41e` → `data/snapshots/snapshot.7.41e.json`.
 
 - **Pulls** OpenDota constants (`heroes`, `items`).
 - **Normalizes**:
