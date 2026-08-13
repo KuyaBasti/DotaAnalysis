@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **79 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **82 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -357,6 +357,19 @@ scales, not who wins when. Coverage at ship: **78 of 127 heroes clear the
 Archetype check through the live API: hard carries vs early brawlers → long
 game favours the carries, +5.9pp, thin flags landing exactly on the low-sample
 heroes.
+
+**Debt clearance: contracts and clean failure.** Two loose ends, gone. The
+four `/analysis/*` responses now have JSON-Schema contracts in the house style
+— and, the part that makes them real, **CI enforcement**:
+`api/tests/contracts.test.ts` validates the live route responses with ajv, so
+API-vs-schema drift breaks a test instead of shipping (the bug shape that once
+silently dropped `bracket` between web and API), with a canary proving the
+schemas reject stray fields. The web's TS types stay hand-written; codegen from
+the schemas is the remaining tracked step. And the harvester now survives a
+dead network — one retry, then a single log line and a clean exit, instead of
+the 40-line tracebacks that hit ~1 in 5 cron runs when the laptop woke before
+Wi-Fi did. Matches banked before a mid-run outage stay banked; three failure
+modes pinned in tests.
 
 ## Next — the additive roadmap
 

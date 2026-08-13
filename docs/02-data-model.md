@@ -4,6 +4,13 @@ Every cross-language contract lives in `schemas/` as JSON Schema (Draft-07) — 
 single source of truth shared by the Python engine, the TypeScript API, and the
 React web app. This doc explains each contract and the on-disk data layout.
 
+The four `/analysis/*` response contracts are **enforced in CI**
+(`api/tests/contracts.test.ts` validates the real route responses with ajv), so
+API-vs-schema drift is a test failure rather than a silent divergence — the bug
+shape that once dropped the `bracket` field between web and API. The web's
+TypeScript types remain hand-written; generating them from these schemas is the
+remaining (tracked) step.
+
 Validate the schemas with:
 
 ```bash
@@ -22,6 +29,10 @@ Validate the schemas with:
 | `timeline-event.schema.json` | `TimelineEvent` | ✅ used | every event inside a sim |
 | `sim-result.schema.json` | `SimResult` | ✅ used | sim CLI `--export` → `data/sims/`; `GET /sims/:id` |
 | `sim-aggregate.schema.json` | `SimAggregate` | ✅ used | Monte-Carlo output; `dm-montecarlo` / `POST /sims/aggregate` |
+| `draft-eval.schema.json` | `DraftEval` | ✅ **CI-enforced** | `POST /analysis/draft` response |
+| `draft-explanation.schema.json` | `DraftExplanation` | ✅ **CI-enforced** | `POST /analysis/explain` response |
+| `draft-suggestions.schema.json` | `DraftSuggestions` | ✅ **CI-enforced** | `POST /analysis/suggest` response |
+| `draft-timing.schema.json` | `DraftTiming` | ✅ **CI-enforced** | `POST /analysis/timing` response |
 
 ### PatchSnapshot
 

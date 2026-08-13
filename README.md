@@ -22,7 +22,7 @@ See [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) for the full map and
 | `pipeline/` | Python | Patch ingestion, match harvesting, feature store, ML, **and the prototype simulation engine** | ✅ built |
 | `api/` | TypeScript (Fastify) | Read-only data API + draft evaluation + simulate-a-draft | ✅ built |
 | `web/` | React + Vite | Draft Studio, Match Viewer (playback), Patch Explorer | ✅ built |
-| `schemas/` | JSON Schema | Cross-language data contracts (single source of truth) | 🟡 partial |
+| `schemas/` | JSON Schema | Cross-language data contracts; analysis responses CI-enforced | ✅ built |
 | `engine/` | Rust | The DES core, ported from Python for speed | ⬜ planned |
 | `infra/` | — | Deploy configs, dev scripts | ⬜ planned |
 | `docs/` | — | System design, data model, specs, progress log | ✅ this refresh |
