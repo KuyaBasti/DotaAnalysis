@@ -407,3 +407,63 @@ describe("draft suggestions", () => {
     expect(res.statusCode).toBe(503);
   });
 });
+
+// Timing fixture: juggernaut (8) scales +0.08 over a rising curve, lich (31)
+// fades -0.04 with no minute-30 data, crystal_maiden (5) is unmeasured.
+describe("draft timing", () => {
+  const dir = path.join(fixturesDir, "with-timing");
+
+  async function timing(payload: Record<string, unknown>, models = dir) {
+    const app = makeApp(models);
+    const res = await app.inject({
+      method: "POST",
+      url: "/analysis/timing",
+      payload: { patch_id: "7.39c", ...payload },
+    });
+    await app.close();
+    return res;
+  }
+
+  it("says which side the long game favours, in hero keys", async () => {
+    const res = await timing({ radiant: ["juggernaut"], dire: ["lich"] });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.verdict).toBe("radiant");
+    expect(body.margin).toBeCloseTo(0.12, 5);
+    expect(body.radiant.heroes[0].hero).toBe("juggernaut");
+    expect(body.dire.heroes[0].hero).toBe("lich");
+  });
+
+  it("builds each side's curve relative to its own minute-5 baseline", async () => {
+    const res = await timing({ radiant: ["juggernaut"], dire: ["lich"] });
+    const body = res.json();
+    // rising hero: 0, +.02, ..., +.10; fading hero: null at minute 30
+    expect(body.radiant.curve_rel[0]).toBeCloseTo(0, 5);
+    expect(body.radiant.curve_rel[5]).toBeCloseTo(0.10, 5);
+    expect(body.dire.curve_rel[4]).toBeCloseTo(-0.04, 5);
+    expect(body.dire.curve_rel[5]).toBeNull();
+  });
+
+  it("excludes unmeasured heroes from the sums but still lists them", async () => {
+    const res = await timing({
+      radiant: ["juggernaut", "crystal_maiden"],
+      dire: ["lich"],
+    });
+    const r = res.json().radiant;
+    expect(r.measured).toBe(1); // cm has no scaling
+    expect(r.scaling_sum).toBeCloseTo(0.08, 5);
+    const cm = r.heroes.find((h: { hero: string }) => h.hero === "crystal_maiden");
+    expect(cm.gated).toBe(false);
+    expect(cm.scaling).toBeNull();
+  });
+
+  it("calls a draft even when the scaling gap is inside the margin", async () => {
+    const res = await timing({ radiant: ["lich"], dire: ["lich"] });
+    expect(res.json().verdict).toBe("even");
+  });
+
+  it("503s when trajectories have not been extracted", async () => {
+    const res = await timing({ radiant: ["juggernaut"], dire: ["lich"] }, fixturesDir);
+    expect(res.statusCode).toBe(503);
+  });
+});

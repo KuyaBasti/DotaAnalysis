@@ -1,0 +1,10 @@
+{
+  "minutes": [5, 10, 15, 20, 25, 30],
+  "games_used": 100,
+  "gate_min_scaling_games": 38,
+  "heroes": {
+    "8":  {"curve": [0.20, 0.22, 0.24, 0.26, 0.28, 0.30], "scaling": 0.08, "n_scaling": 50, "gated": true},
+    "31": {"curve": [0.20, 0.19, 0.18, 0.17, 0.16, null], "scaling": -0.04, "n_scaling": 40, "gated": true},
+    "5":  {"curve": [null, null, null, null, null, null], "scaling": null, "n_scaling": 4, "gated": false}
+  }
+}

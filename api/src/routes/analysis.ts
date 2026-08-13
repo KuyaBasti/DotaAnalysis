@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from "fastify";
 import type { SnapshotStore } from "../snapshotStore.js";
 import { isBracket, type Bracket, type WinProbModel } from "../winProbModel.js";
+import type { TimingModel } from "../trajectories.js";
 import type { DraftEvalRequest } from "../types.js";
 
 interface SuggestBody extends DraftEvalRequest {
@@ -68,6 +69,7 @@ function resolveDraft(
 export function analysisRoutes(
   snapshots: SnapshotStore,
   model: WinProbModel | null,
+  timing: TimingModel | null = null,
 ): FastifyPluginAsync {
   return async function (app: FastifyInstance) {
     app.post<{ Body: DraftEvalRequest }>(
@@ -175,6 +177,41 @@ export function analysisRoutes(
             hero: draft.keyOf.get(s.hero_id) ?? String(s.hero_id),
             ...s,
           })),
+        };
+      },
+    );
+
+    // Coach Lab: when is this draft's gold engine strongest? Farm timing from
+    // parsed real games — never win timing; the two measurably diverge.
+    app.post<{ Body: DraftEvalRequest }>(
+      "/analysis/timing",
+      async (req, reply) => {
+        if (!timing) {
+          return reply
+            .code(503)
+            .send({ error: "trajectories not extracted (run dm-trajectories)" });
+        }
+        const draft = resolveDraft(snapshots, req.body, reply);
+        if (!("patchId" in draft)) return draft;
+
+        const result = timing.timing(draft.radiantIds, draft.direIds);
+        return {
+          patch_id: draft.patchId,
+          ...result,
+          radiant: {
+            ...result.radiant,
+            heroes: result.radiant.heroes.map((h) => ({
+              hero: draft.keyOf.get(h.hero_id) ?? String(h.hero_id),
+              ...h,
+            })),
+          },
+          dire: {
+            ...result.dire,
+            heroes: result.dire.heroes.map((h) => ({
+              hero: draft.keyOf.get(h.hero_id) ?? String(h.hero_id),
+              ...h,
+            })),
+          },
         };
       },
     );
