@@ -40,7 +40,10 @@ ls data/matches/ | wc -l          # raw ranked matches
 ls data/details/*.json | wc -l    # parsed detail (gold curves + purchase logs)
 ```
 
-A healthy backfill line reads like `fetched 500, stored 270 parsed, N
+A healthy harvest line is `stored 1500 new matches to …`; on a dead network
+the run now writes one line (`network error (…); stopping this run — the next
+one resumes`) instead of the tracebacks older log entries show. A healthy
+backfill line reads like `fetched 500, stored 270 parsed, N
 known-unparsed`. (Batch raised 200 → 500 after measuring the cron's real
 cadence: macOS `cron` skips slots that pass while the laptop sleeps — only
 ~43% of scheduled runs landed in the first days — so each run that does land

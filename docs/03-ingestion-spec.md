@@ -69,6 +69,12 @@ can analyze a draft at the rank they actually play.
 - Paging uses `less_than_match_id` = the smallest id seen, walking backwards
   through history without gaps.
 
+**Robustness:** a page fetch that hits a dead network (the cron often fires
+seconds after the laptop wakes, before Wi-Fi is up) retries once, then ends the
+run with a single log line — `network error (ConnectError); stopping this run —
+the next one resumes`. Matches banked before the outage stay on disk; the run
+is resumable, so a failed slot costs only that slot's quota.
+
 The cron (`0 */3 * * *`, every 3h) drives this unattended; the corpus is 100k+ and
 grows on its own while the machine is awake.
 
