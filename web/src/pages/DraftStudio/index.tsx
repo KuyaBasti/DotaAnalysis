@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   aggregateDraft,
+  draftTiming,
   evaluateDraft,
   explainDraft,
   getHeroes,
@@ -13,10 +14,12 @@ import { ATTRIBUTE_COLORS, groupByAttribute } from "./attributes";
 import { AggregatePanel } from "./AggregatePanel";
 import { ExplanationPanel } from "./ExplanationPanel";
 import { SuggestionPanel } from "./SuggestionPanel";
+import { TimingPanel } from "./TimingPanel";
 import { BRACKET_KEYS, BRACKET_LABELS } from "./brackets";
 import type {
   DraftExplanation,
   DraftSuggestions,
+  DraftTiming,
   Hero,
   SimAggregate,
 } from "../../types";
@@ -38,6 +41,7 @@ export function DraftStudio({
   const [winProb, setWinProb] = useState<number | null>(null);
   const [explanation, setExplanation] = useState<DraftExplanation | null>(null);
   const [suggestions, setSuggestions] = useState<DraftSuggestions | null>(null);
+  const [timing, setTiming] = useState<DraftTiming | null>(null);
   const [rankBy, setRankBy] = useState<"swing" | "fit">("swing");
   const [simulating, setSimulating] = useState(false);
   const [simError, setSimError] = useState<string | null>(null);
@@ -106,6 +110,22 @@ export function DraftStudio({
       cancelled = true;
     };
   }, [radiant, dire, side, rankBy, patch, bracket]);
+
+  // Farm timing needs both full lineups — a 3v1 timing curve means nothing.
+  // Trajectories are bracket-agnostic (pooled parsed games), so no bracket dep.
+  useEffect(() => {
+    if (radiant.length !== TEAM_SIZE || dire.length !== TEAM_SIZE) {
+      setTiming(null);
+      return;
+    }
+    let cancelled = false;
+    draftTiming(radiant, dire, patch ?? undefined)
+      .then((r) => !cancelled && setTiming(r))
+      .catch(() => !cancelled && setTiming(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [radiant, dire, patch]);
 
   const picked = new Set([...radiant, ...dire]);
 
@@ -265,6 +285,9 @@ export function DraftStudio({
       {explanation && (
         <ExplanationPanel explanation={explanation} heroes={heroes} />
       )}
+
+      {/* when each lineup's gold engine peaks (full drafts only) */}
+      {timing && <TimingPanel timing={timing} heroes={heroes} />}
 
       {/* and what to do about it */}
       {suggestions && (
