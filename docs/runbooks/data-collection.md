@@ -7,7 +7,7 @@ Two cron jobs grow the corpus unattended. Full ingestion detail in
 
 ```
 0  */3        * * *   dm-harvest  --max 1500  >> data/harvest.log  2>&1
-30 1,7,13,19  * * *   dm-backfill --max 200   >> data/backfill.log 2>&1
+30 1,7,13,19  * * *   dm-backfill --max 500   >> data/backfill.log 2>&1
 ```
 
 Both are resumable and idempotent, so a missed run costs nothing — the next one
@@ -17,7 +17,7 @@ harvester at `:00`; they share one OpenDota rate limit.
 | | harvester | backfill |
 |---|---|---|
 | fetches | ~15 calls (pages of 100) | 1 call per match |
-| yield | 1500 ranked matches / run | ~120 parsed / run (≈60% of 200 are parsed upstream) |
+| yield | 1500 ranked matches / run | ~270 parsed / run (≈55% of 500 are parsed upstream) |
 | scope | **all rank tiers** | **Divine+ only** (see below) |
 
 ## Why backfill stays Divine-only
@@ -40,8 +40,12 @@ ls data/matches/ | wc -l          # raw ranked matches
 ls data/details/*.json | wc -l    # parsed detail (gold curves + purchase logs)
 ```
 
-A healthy backfill line reads like `fetched 200, stored 118 parsed, N
-known-unparsed`. The known-unparsed count only grows: OpenDota hasn't parsed
+A healthy backfill line reads like `fetched 500, stored 270 parsed, N
+known-unparsed`. (Batch raised 200 → 500 after measuring the cron's real
+cadence: macOS `cron` skips slots that pass while the laptop sleeps — only
+~43% of scheduled runs landed in the first days — so each run that does land
+carries a bigger batch. The client's 1 req/sec throttle makes a 500-fetch run
+~8 minutes, still far inside the :30 offset from the harvester.) The known-unparsed count only grows: OpenDota hasn't parsed
 those matches, and the ledger (`data/details/_unparsed.json`) stops them being
 refetched forever.
 
