@@ -303,6 +303,41 @@ buried in prose), farm bars became `meter`, and Match Viewer and Patch Explorer
 gained real empty states instead of rendering a blank page. Nothing in the
 system is dead now.
 
+**The trajectory method survives adversarial review — timing windows has a
+validated methodology and a measured threshold.** With the parsed corpus at 745
+usable games, the spike for the timing-windows feature ran in two rounds. Round
+one measured per-hero gold-curve shape as each hero's share of the **10-player**
+gold total and found seemingly strong split-half reliability — and an
+adversarial review of the methodology killed it: dividing by the lobby total
+removes game *pace* but not team *lead* (the winning team's share drifts +4.1pp
+from minute 5 to 25), so the "scaling" feature correlated **+0.372 with
+winning** and every per-hero mean inherited that hero's win rate. Fourth
+appearance of the outcome-leakage trap in this project, this time inside a
+design written specifically to dodge it. The review also caught that the
+headline share@10 reliability of 0.94 was mostly trivial carry-vs-support
+variance (it collapses to 0.39–0.66 within farm-role thirds), and that the
+games-needed arithmetic was fit to its own most flattering point.
+
+Round two repairs both structurally: **within-team share** (hero gold / own
+team's five-player total — zero-sum per team, so the team-lead channel is zero
+*by construction*; measured residual corr with winning: −0.000) plus
+**outcome-balanced means** ((mean over wins + mean over losses)/2, so no
+per-hero win rate can weight the estimate). The clean feature is *more*
+reliable than the leaky one: split-half **r = 0.72 pooled, 0.77–0.78 within
+mid/high-farm thirds** (Spearman agrees; low-farm heroes weakest at 0.46), and
+the archetype axis sharpened — Nature's Prophet / Tinker / Luna / Medusa / TA
+scale up; Slardar / Ember / Mars / Monkey King / LC fade (Keeper of the Light,
+whose round-one "scaling" was inflated by his win rate, dropped out, exactly as
+the review predicted). Threshold, fit to the whole reliability curve rather
+than one point: single-game r₁ ≈ 0.095 ⇒ **22 / 38 / 86 scaling-bearing games
+(≥25m) for reliability 0.7 / 0.8 / 0.9**. The median hero has ~35 such games
+today; at the raised backfill rate the full roster crosses 0.8 within about two
+weeks, cores well before. Scope honestly stated: this measures **farm timing**
+(when a hero's share of their own team's gold engine peaks), not win timing —
+the duration-bucket data already showed those diverge (KotL wins early yet
+farms late). The cron batch was raised 200 → 500 in the same pass, since only
+~43% of scheduled runs land (macOS cron skips slots the laptop sleeps through).
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
@@ -310,11 +345,13 @@ fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
 1. **Grow the parsed corpus** — now on a cron; nothing to do but let it run.
    Revisit the two items below when `data/details/` is in the thousands.
-2. **Timing windows** (Stage 7's last slice) — *blocked on data*, and when it
-   unblocks it should be built from per-minute gold trajectories (a within-game,
-   outcome-independent measure), **not** from duration-bucketed win rates, which
-   measure stomps. Note this removes the Rust port's last concrete trigger: the
-   honest version reads parsed curves, it doesn't run the sim.
+2. **Timing windows** (Stage 7's last slice) — methodology now *validated and
+   adversarially reviewed*: outcome-balanced within-team gold share, per-hero
+   farm-timing signatures gated on **≥38 scaling-bearing games** (reliability
+   0.8; 86 for 0.9). Cores largely qualify today; the full roster in ~2 weeks
+   of cron growth. Present it as *farm* timing, never win timing — the two
+   measurably diverge. (The Rust port remains untriggered: this reads parsed
+   curves, it doesn't run the sim.)
 3. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
    teamfight data instead of the analytic logistic. *Also blocked on the parsed
    corpus* — same constraint as item 2.
