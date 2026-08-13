@@ -326,11 +326,10 @@ thresholds that drive the viewer's item-timing beats):
   layered onto the per-bracket hero weights.
 - ~~Draft suggestions~~ — **done** (see above): `POST /analysis/suggest`, with
   the swing and fit orderings.
-- **Timing windows** (Coach Lab's last slice) — per-hero **farm-timing
-  signatures from parsed gold curves**: outcome-balanced within-team share,
-  split-half r = 0.72–0.78, gated on ≥38 scaling-bearing games per hero.
-  Method validated and adversarially reviewed; corpus filling via the backfill
-  cron.
+- ~~Timing windows~~ — **done**: `dm-trajectories` ships the reviewed method
+  (outcome-balanced within-team share, split-half r = 0.72–0.78, ≥38-game
+  coverage gate), served at `POST /analysis/timing` as farm timing — never win
+  timing.
 - **Build advice** — recommend items for a draft (Coach Lab), extending the
   item builds `dm-builds` already extracts (see below).
 - **Gradient boosting** — once the corpus supports richer feature sets (rank, mode,

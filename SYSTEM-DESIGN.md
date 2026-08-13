@@ -40,6 +40,7 @@ flowchart TD
         features["dm-features<br/>matches → parquet, hero win rates + ratings"]:::py
         train["dm-train-winprob<br/>logistic draft→win, per rank bracket<br/>+ blended synergy/counter terms"]:::py
         builds["dm-builds<br/>parsed purchases → per-hero item builds"]:::py
+        trajectories["dm-trajectories<br/>parsed curves → farm-timing signatures"]:::py
     end
 
     subgraph ENGINE["Engine — Python DES (prototype)"]
@@ -58,6 +59,7 @@ flowchart TD
         draftAPI["POST /analysis/draft<br/>live win% per bracket (native sigmoid)"]:::api
         explainAPI["POST /analysis/explain<br/>per-hero swings: why that win%"]:::api
         suggestAPI["POST /analysis/suggest<br/>ranked next picks: strongest / best fit"]:::api
+        timingAPI["POST /analysis/timing<br/>whose gold engine peaks late"]:::api
     end
 
     subgraph WEB["Web app — React + Vite"]
@@ -69,7 +71,6 @@ flowchart TD
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        coach["Coach Lab — last slice<br/>timing windows (method validated · corpus filling)"]:::planned
     end
 
     OD -->|REST| ingest
@@ -90,6 +91,8 @@ flowchart TD
     engine -->|sim_result| sims
     matches --> calibrate
     details -->|purchase logs| builds
+    details -->|gold curves| trajectories
+    trajectories --> models
     builds -.->|real builds| engine
     details -->|real gold curves| calibrate
     engine --> calibrate
@@ -100,6 +103,7 @@ flowchart TD
     models --> draftAPI
     models --> explainAPI
     models --> suggestAPI
+    models --> timingAPI
     makeSim -->|runs| engine
 
     patchesAPI --> explorer
@@ -107,6 +111,7 @@ flowchart TD
     draftAPI --> studio
     explainAPI -->|why: per-hero swings| studio
     suggestAPI -->|what to pick next| studio
+    timingAPI -->|farm timing, full drafts| studio
     studio -->|Simulate this draft| makeSim
     studio -->|Analyze N sims| aggAPI
     makeSim --> viewer
@@ -206,7 +211,7 @@ Longer rationale for the load-bearing calls lives in
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab — draft explanation | API + Web | TS · React | ✅ built | `ExplanationPanel.tsx`, served from `analysis.ts` |
 | Coach Lab — draft suggestions | API + Web | TS · React | ✅ built | `SuggestionPanel.tsx` + `winProbModel.suggest()` |
-| Coach Lab — timing windows | Pipeline + API + Web | — | ⬜ next — method validated | reads parsed gold curves, not the sim |
+| Coach Lab — farm-timing windows | Pipeline + API + Web | Python · TS · React | ✅ built | `features/trajectories.py` + `trajectories.ts` + `TimingPanel.tsx` |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
 > `SimDashboard`, `replays.ts`, `scenarios.ts`) are scaffolded placeholders, not
@@ -242,5 +247,5 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
 | 6 | ML &amp; calibration | 🟡 feature store, calibration harness (Brier-gated), **per-bracket models + ratings + synergy/counter terms**; ⬜ fight-outcome model |
-| 7 | Coach Lab / education | 🟡 **draft explanation + next-pick suggestions shipped (exit criterion met)**; ⬜ timing windows (method validated) |
+| 7 | Coach Lab / education | ✅ **explanation + next-pick suggestions + farm-timing windows** |
 | 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |

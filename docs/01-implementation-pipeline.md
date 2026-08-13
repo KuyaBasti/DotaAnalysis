@@ -155,7 +155,7 @@ steps. ✅
 
 ---
 
-## Stage 7 — Coach Lab / education 🟡 (explanation + suggestions ✅; timing windows ⬜)
+## Stage 7 — Coach Lab / education ✅
 
 **Goal:** turn watchable sims into teaching — "why is this draft losing?", timing
 windows, per-bracket advice.
@@ -178,13 +178,12 @@ diagnoses and prescribes; timing windows remain as an additive slice.)*
   genuinely about this draft (0–3 of 10 hold). Both ship, with both numbers
   visible; presenting the first as if it were the second would have been a tier
   list wearing a coach's hat.
-- ⬜ **Timing windows** — *method validated by spike* (see
-  [05-progress.md](05-progress.md)): per-hero **farm-timing signatures from
-  parsed gold curves** — outcome-balanced within-team share, gated on **≥38
-  scaling-bearing games** per hero for 0.8 reliability. Explicitly *not* from
-  duration-bucketed win rates (stomp artifact) and *not* from the sim (hero
-  identity is a single scalar there). Presented as farm timing, never win
-  timing — the two measurably diverge.
+- ✅ **Timing windows** — `dm-trajectories` → `POST /analysis/timing` → the
+  Draft Studio farm-timing panel. Per-hero signatures from parsed gold curves
+  (outcome-balanced within-team share, both review-mandated repairs enforced by
+  tests), coverage-gated at ≥38 scaling-bearing games per hero, and a
+  draft-level verdict that reports "even" inside a 1pp margin. Presented as
+  **farm** timing, never win timing — the two measurably diverge.
 
 A swing now covers the hero *and their fit with the draft* — synergy and counter
 terms landed in the model, so the earlier caveat that it "scores heroes
