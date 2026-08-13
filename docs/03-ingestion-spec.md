@@ -97,7 +97,7 @@ Robustness (an API this size hiccups constantly):
 Only ~half of banked matches are parsed on OpenDota at a given time, so backfill
 is best-effort and incremental.
 
-**It runs on a cron** (`30 1,7,13,19`, `--max 200`), offset from the harvester
+**It runs on a cron** (`30 1,7,13,19`, `--max 500`), offset from the harvester
 so the two never share a minute — see
 [runbooks/data-collection.md](runbooks/data-collection.md). It stays at the
 default `--min-rank 70`, and that is deliberate: `calibrate/economy.py` reads

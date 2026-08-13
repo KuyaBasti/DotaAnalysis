@@ -69,7 +69,7 @@ flowchart TD
     subgraph ROAD["Roadmap — not yet built"]
         rust["Rust engine<br/>port the DES core for speed"]:::planned
         orch["Job queue<br/>batch Monte Carlo at scale"]:::planned
-        coach["Coach Lab — last slice<br/>timing windows (blocked on parsed data)"]:::planned
+        coach["Coach Lab — last slice<br/>timing windows (method validated · corpus filling)"]:::planned
     end
 
     OD -->|REST| ingest
@@ -206,7 +206,7 @@ Longer rationale for the load-bearing calls lives in
 | Item-timing beats | Engine + Web | Python + React | ✅ built | `dm-builds` + `_item_tick` + feed/scoreboard |
 | Coach Lab — draft explanation | API + Web | TS · React | ✅ built | `ExplanationPanel.tsx`, served from `analysis.ts` |
 | Coach Lab — draft suggestions | API + Web | TS · React | ✅ built | `SuggestionPanel.tsx` + `winProbModel.suggest()` |
-| Coach Lab — timing windows | Web + Engine | — | ⬜ planned | — |
+| Coach Lab — timing windows | Pipeline + API + Web | — | ⬜ next — method validated | reads parsed gold curves, not the sim |
 
 > Some `web/src/pages/` and `api/src/routes/` entries (e.g. `Learn`, `PatchDiff`,
 > `SimDashboard`, `replays.ts`, `scenarios.ts`) are scaffolded placeholders, not
@@ -241,6 +241,6 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
 | 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
-| 6 | ML &amp; calibration | 🟡 feature store, four-metric calibration harness, **per-bracket win-prob models + ratings**; ⬜ fight-outcome model |
-| 7 | Coach Lab / education | ⬜ not started |
+| 6 | ML &amp; calibration | 🟡 feature store, calibration harness (Brier-gated), **per-bracket models + ratings + synergy/counter terms**; ⬜ fight-outcome model |
+| 7 | Coach Lab / education | 🟡 **draft explanation + next-pick suggestions shipped (exit criterion met)**; ⬜ timing windows (method validated) |
 | 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |

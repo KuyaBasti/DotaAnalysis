@@ -100,6 +100,7 @@ A working alpha, developed as a personal project — **not shipped or deployed**
 The core loop (draft → predict → simulate → watch → analyze → understand → act)
 works end-to-end, including Monte-Carlo matchup analysis, per-rank models, hero
 synergy/counter terms, the per-hero draft explanation, and next-pick
-suggestions. The remaining roadmap (Coach Lab's timing windows, the
-fight-outcome model, the Rust engine, and a batch job queue) is tracked in
+suggestions. The remaining roadmap (Coach Lab's timing windows — method now
+validated against parsed gold curves — plus the fight-outcome model, the Rust
+engine, and a batch job queue) is tracked in
 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md).
