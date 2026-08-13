@@ -2,6 +2,7 @@ import type {
   DraftEvalResponse,
   DraftExplanation,
   DraftSuggestions,
+  DraftTiming,
   HeroesResponse,
   PatchesResponse,
   SimAggregate,
@@ -113,6 +114,19 @@ export function suggestPicks(
     rank_by: rankBy,
     patch_id: patchId,
     bracket,
+  });
+}
+
+/** When each lineup's gold engine peaks (Coach Lab). Farm timing, not win timing. */
+export function draftTiming(
+  radiant: string[],
+  dire: string[],
+  patchId?: string,
+): Promise<DraftTiming> {
+  return postJSON<DraftTiming>("/analysis/timing", {
+    radiant,
+    dire,
+    patch_id: patchId,
   });
 }
 

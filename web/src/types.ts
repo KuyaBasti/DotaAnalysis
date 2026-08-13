@@ -97,6 +97,32 @@ export interface DraftSuggestions {
   suggestions: HeroSuggestion[];
 }
 
+/** One drafted hero's farm-timing contribution. */
+export interface TimingHero {
+  hero: string;
+  hero_id: number;
+  /** pp of TEAM gold this hero's share moves, minute 5 -> 25; null = unmeasured. */
+  scaling: number | null;
+  n: number;
+  gated: boolean;
+}
+
+export interface TimingSide {
+  curve_rel: (number | null)[];
+  scaling_sum: number;
+  measured: number;
+  heroes: TimingHero[];
+}
+
+export interface DraftTiming {
+  patch_id: string;
+  minutes: number[];
+  radiant: TimingSide;
+  dire: TimingSide;
+  verdict: "radiant" | "dire" | "even";
+  margin: number;
+}
+
 export interface DraftExplanation {
   patch_id: string;
   bracket?: string;
