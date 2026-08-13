@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { createSnapshotStore } from "./snapshotStore.js";
 import { createSimStore } from "./simStore.js";
 import { createWinProbModel } from "./winProbModel.js";
+import { createTimingModel } from "./trajectories.js";
 import {
   createPythonAggregateRunner,
   createPythonSimRunner,
@@ -32,6 +33,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   const snapshots = createSnapshotStore(opts.snapshotDir);
   const sims = createSimStore(opts.simDir);
   const winProb = createWinProbModel(opts.modelsDir);
+  const timing = createTimingModel(opts.modelsDir);
   const runSim =
     opts.simRunner ??
     (opts.repoRoot ? createPythonSimRunner(opts.repoRoot) : undefined);
@@ -42,7 +44,7 @@ export function buildApp(opts: BuildAppOptions): FastifyInstance {
   app.get("/health", async () => ({ status: "ok" }));
   app.register(patchRoutes(snapshots));
   app.register(simulationRoutes(sims, runSim, runAggregate));
-  app.register(analysisRoutes(snapshots, winProb));
+  app.register(analysisRoutes(snapshots, winProb, timing));
 
   return app;
 }
