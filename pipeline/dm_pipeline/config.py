@@ -37,4 +37,4 @@ OPENDOTA_API_URL: str = "https://api.opendota.com/api"
 OPENDOTA_CONSTANTS_URL: str = f"{OPENDOTA_API_URL}/constants"
 
 # --- Defaults ---------------------------------------------------------------
-DEFAULT_PATCH_ID: str = "7.41d"
+DEFAULT_PATCH_ID: str = "7.41e"
