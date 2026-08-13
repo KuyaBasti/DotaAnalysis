@@ -870,7 +870,7 @@ def _objectives_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> No
 
 # A demo scenario of standard heroes (keys must exist in the loaded snapshot).
 _DEMO_SCENARIO = Scenario(
-    patch_id="7.41d",
+    patch_id="7.41e",
     radiant=["juggernaut", "crystal_maiden", "axe", "invoker", "lion"],
     dire=["phantom_assassin", "lich", "tidehunter", "storm_spirit", "witch_doctor"],
 )
