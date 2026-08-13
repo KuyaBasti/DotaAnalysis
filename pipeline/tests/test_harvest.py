@@ -146,3 +146,74 @@ def test_harvest_stops_after_pages_with_nothing_new(tmp_path) -> None:
     stored = harvest_public_matches(client, tmp_path, max_matches=100)
     assert stored == 0
     assert client.pages <= 11  # gave up instead of paging forever
+
+
+class _FlakyClient:
+    """Fails the first ``failures`` page fetches, then serves like the stub."""
+
+    def __init__(self, page: list[dict[str, Any]], failures: int) -> None:
+        self._page = page
+        self._failures = failures
+        self._served = False
+        self.calls = 0
+
+    def public_matches(
+        self,
+        *,
+        less_than_match_id: int | None = None,
+        min_rank: int | None = None,
+    ) -> list[dict[str, Any]]:
+        self.calls += 1
+        if self._failures > 0:
+            self._failures -= 1
+            raise httpx.ConnectError("nodename nor servname provided")
+        if self._served:
+            return []
+        self._served = True
+        return self._page
+
+
+def test_a_transient_network_error_is_retried(tmp_path, monkeypatch) -> None:
+    import dm_pipeline.harvest.daemon as daemon
+
+    monkeypatch.setattr(daemon, "_RETRY_DELAY_SECONDS", 0)
+    client = _FlakyClient([_ranked(1), _ranked(2)], failures=1)
+    stored = harvest_public_matches(client, tmp_path, max_matches=10)
+    assert stored == 2  # the retry recovered the page
+    assert client.calls >= 2
+
+
+def test_a_dead_network_ends_the_run_cleanly(tmp_path, monkeypatch, capsys) -> None:
+    # The cron fires seconds after the laptop wakes, before Wi-Fi is up. That
+    # must cost one quiet line - never a traceback - because the run is
+    # resumable and the next slot picks up where this one left off.
+    import dm_pipeline.harvest.daemon as daemon
+
+    monkeypatch.setattr(daemon, "_RETRY_DELAY_SECONDS", 0)
+    client = _FlakyClient([_ranked(1)], failures=99)
+    stored = harvest_public_matches(client, tmp_path, max_matches=10)
+    assert stored == 0  # no exception escaped
+    out = capsys.readouterr().out
+    assert "network error (ConnectError)" in out
+    assert "resumes" in out
+
+
+def test_matches_stored_before_the_outage_are_kept(tmp_path, monkeypatch) -> None:
+    # Fail on the SECOND page: the first page's matches must already be on disk
+    # and the run must report them, not lose them to the exception.
+    import dm_pipeline.harvest.daemon as daemon
+
+    monkeypatch.setattr(daemon, "_RETRY_DELAY_SECONDS", 0)
+
+    class _FirstPageThenDeath(_FlakyClient):
+        def public_matches(self, **kw: Any) -> list[dict[str, Any]]:
+            self.calls += 1
+            if self._served:
+                raise httpx.ConnectError("gone")
+            self._served = True
+            return self._page
+
+    client = _FirstPageThenDeath([_ranked(1), _ranked(2)], failures=0)
+    stored = harvest_public_matches(client, tmp_path, max_matches=10)
+    assert stored == 2
+    assert (tmp_path / "1.json").exists() and (tmp_path / "2.json").exists()
