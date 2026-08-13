@@ -10,7 +10,10 @@ job or a `while true` wrapper can drive.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
+
+import httpx
 
 from dm_pipeline import config
 from dm_pipeline.features.build_dataset import is_ranked
@@ -21,6 +24,35 @@ from dm_pipeline.harvest.opendota import OpenDotaClient
 # to learn at). Pass --min-rank (OpenDota tier, e.g. 70 = Divine) to focus a
 # harvest; OpenDota filters server-side either way.
 DEFAULT_MIN_RANK = 0
+
+# One retry, then give up cleanly. The cron often fires seconds after the
+# laptop wakes, before Wi-Fi is up; a failed run costs nothing (the harvest is
+# resumable), so the right response to a dead network is one quiet line and an
+# exit — not a 40-line traceback. The backfill has had this manner from the
+# start; the harvester now matches it.
+_RETRY_DELAY_SECONDS = 5.0
+
+
+def _fetch_page(
+    client: OpenDotaClient,
+    cursor: int | None,
+    min_rank: int | None,
+) -> list[dict] | None:
+    """One page of publicMatches; retries once, None when the network is gone."""
+    for attempt in (1, 2):
+        try:
+            return client.public_matches(
+                less_than_match_id=cursor, min_rank=min_rank
+            )
+        except httpx.HTTPError as exc:
+            if attempt == 1:
+                time.sleep(_RETRY_DELAY_SECONDS)
+            else:
+                print(
+                    f"network error ({type(exc).__name__}); "
+                    "stopping this run — the next one resumes"
+                )
+    return None
 
 
 def harvest_public_matches(
@@ -48,7 +80,9 @@ def harvest_public_matches(
     cursor: int | None = None
     empty_pages = 0  # consecutive pages that stored nothing new
     while stored < max_matches:
-        batch = client.public_matches(less_than_match_id=cursor, min_rank=min_rank)
+        batch = _fetch_page(client, cursor, min_rank)
+        if batch is None:
+            break  # network gone; whatever was stored so far is banked
         if not batch:
             break  # no more history available
         stored_before = stored
