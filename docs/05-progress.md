@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **82 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **84 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -370,6 +370,12 @@ dead network — one retry, then a single log line and a clean exit, instead of
 the 40-line tracebacks that hit ~1 in 5 cron runs when the laptop woke before
 Wi-Fi did. Matches banked before a mid-run outage stay banked; three failure
 modes pinned in tests.
+
+**Patch day: 7.41e.** The runbook run as written — snapshot ingested (127
+heroes, 491 items), defaults bumped after checking every demo hero key
+survived, demo sims regenerated, API caches reloaded, verified end to end.
+Features/models/calibration refresh once the corpus turns over on the new
+patch; the harvester is already banking it.
 
 ## Next — the additive roadmap
 
