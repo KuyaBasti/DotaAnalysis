@@ -58,7 +58,11 @@ banked match has already been tried.
 
 ## Why the parsed corpus matters
 
-It is the binding constraint on the remaining roadmap, not code. Both Coach
-Lab's **timing windows** and the **fight-outcome model** need per-minute gold
-curves and teamfight detail, and neither is buildable on a few hundred games.
-The raw match corpus (127k+) has never been the bottleneck; parsed detail has.
+It has been the binding constraint on the roadmap, not code. Coach Lab's
+**timing windows** (needs per-minute gold curves) and the **fight resolver's
+calibration** (11,212 teamfights extracted at ~1,500 parsed matches) both
+shipped the moment the corpus could carry them; neither was buildable on a few
+hundred games. The raw match corpus (127k+) has never been the bottleneck;
+parsed detail has. It keeps paying as it grows: the timing windows' hero
+coverage gate fills itself, and the per-patch meta refresh re-measures
+everything on fresh games.
