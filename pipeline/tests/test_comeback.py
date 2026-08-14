@@ -23,8 +23,12 @@ def test_trailing_winner_gets_scaled_bounty() -> None:
     # Radiant is 20k behind => a radiant fight win pays out double. Mid-game
     # totals: on a small map a 20k deficit is a ~0.3% fight underdog under the
     # calibrated scale, and the fixed-seed search would (rightly) never see one.
-    # start_seed picks a search window whose first radiant win rolled a high
-    # base swing, so the doubled payout provably exceeds the normal cap.
+    # Mid-game totals: at the old 5k/25k fixture a 20k deficit is a ~0.3%
+    # fight underdog under the calibrated scale — the fixed-seed search still
+    # finds a win (seed 139), but only by a 1-in-370 fluke the test shouldn't
+    # lean on. At 100k total the searched event is ~7%: robust. start_seed
+    # picks a window whose first radiant win rolled a high base swing, so the
+    # doubled payout provably exceeds the normal cap.
     outcome = _outcome_where(
         "radiant",
         radiant_nw=40_000,
