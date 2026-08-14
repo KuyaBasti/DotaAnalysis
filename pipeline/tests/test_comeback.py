@@ -20,9 +20,16 @@ def _outcome_where(winner: str, radiant_nw: float, dire_nw: float, start_seed: i
 
 
 def test_trailing_winner_gets_scaled_bounty() -> None:
-    # Radiant is 20k behind => a radiant fight win pays out double.
+    # Radiant is 20k behind => a radiant fight win pays out double. Mid-game
+    # totals: on a small map a 20k deficit is a ~0.3% fight underdog under the
+    # calibrated scale, and the fixed-seed search would (rightly) never see one.
+    # start_seed picks a search window whose first radiant win rolled a high
+    # base swing, so the doubled payout provably exceeds the normal cap.
     outcome = _outcome_where(
-        "radiant", radiant_nw=5_000, dire_nw=5_000 + _COMEBACK_DEFICIT_FULL
+        "radiant",
+        radiant_nw=40_000,
+        dire_nw=40_000 + _COMEBACK_DEFICIT_FULL,
+        start_seed=32,
     )
     assert outcome.comeback_factor == 2.0
     assert outcome.swing > _FIGHT_SWING[1]  # beyond the normal max swing
@@ -40,6 +47,6 @@ def test_even_game_has_no_bonus() -> None:
 
 
 def test_bonus_scales_with_deficit() -> None:
-    small = _outcome_where("radiant", radiant_nw=20_000, dire_nw=25_000)
-    large = _outcome_where("radiant", radiant_nw=5_000, dire_nw=25_000)
+    small = _outcome_where("radiant", radiant_nw=40_000, dire_nw=45_000)
+    large = _outcome_where("radiant", radiant_nw=40_000, dire_nw=60_000)
     assert 1.0 < small.comeback_factor < large.comeback_factor <= 2.0

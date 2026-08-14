@@ -77,7 +77,10 @@ def test_an_extreme_draft_is_favored_but_never_certain() -> None:
     # No real draft reaches this edge (the observed max is ~1.3), but the Draft
     # Studio lets you build one. It should read "heavily favored", not
     # "decided" — the old constant returned a flat 100% over 400 runs.
-    extreme = _win_rate(1.737, runs=200)
+    # 400 seeds, not 200: at n=200 the estimate moves in steps of 0.005, which
+    # left the upper bound one seed away from a false alarm. The bound itself
+    # is unchanged. (Affine fight scale measures 0.990 here; real curve 0.973.)
+    extreme = _win_rate(1.737, runs=400)
     assert 0.85 < extreme < 0.995
 
 
