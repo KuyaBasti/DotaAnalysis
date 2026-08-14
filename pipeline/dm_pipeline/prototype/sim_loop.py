@@ -40,7 +40,12 @@ MAX_TIME = 60 * 60  # 60-minute hard cap
 _OBJECTIVE_START_SECONDS = 8 * 60  # towers are too tanky to take before ~8 min
 _STRUCTURES = ("tier-1 tower", "tier-2 tower", "tier-3 tower", "barracks", "ancient")
 _LANES = ("top", "mid", "bot")  # where a tower/barracks falls (flavor for the map)
-_OBJECTIVE_BASE_CHANCE = 0.24  # per-tick chance the leader takes the next structure (at full lead; tuned to the Divine corpus: mean ~37m, median ~34m)
+# Per-tick chance the leader takes the next structure (at full lead). Retuned
+# 0.24 -> 0.21 alongside the affine fight scale: sharper early fight odds grow
+# leads sooner, which had pulled sim mean duration to 32.3m vs the corpus's
+# 34.2m. Swept 0.20/0.21/0.22 at sample 500 — 0.21 restores 34.1m (gap +0.2m)
+# with Brier and economy unmoved.
+_OBJECTIVE_BASE_CHANCE = 0.21
 _OBJECTIVE_LEAD_FULL = 12_000.0  # net-worth lead at which that chance maxes out
 # Pacing: after a structure falls the defenders regroup (TPs, buybacks, creep
 # equilibrium) — nothing else can fall for a window. With the high-ground
@@ -123,7 +128,9 @@ _ITEM_THRESHOLD_STEP = 3_000  # beyond the measured range, each item costs about
 
 # Power spikes: an ultimate (and each upgrade tier) online is worth real fight
 # strength, expressed in gold-equivalent like the draft edge. A full 5-ult
-# advantage (~min 4-9 vs a slower-leveling draft) is a ~61% fight favorite.
+# advantage (~min 4-9 vs a slower-leveling draft) is a ~80-87% fight favorite:
+# the affine fight scale is small at that window's totals (~13-28k on the map),
+# so the 4,500-gold edge bites hard exactly when ults spike.
 _ULT_TIER_LEVELS = (6, 12, 18)
 _ULT_TIER_NETWORTH = 900.0  # fight value of each ult tier a hero has online
 
