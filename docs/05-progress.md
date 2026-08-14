@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **84 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **85 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -32,7 +32,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 | 3 Engine core | ✅ Python engine complete · ⬜ Rust port |
 | 4 Orchestrator/API | 🟡 API + simulate + **bracket-aware Monte Carlo** · ⬜ batch job queue |
 | 5 Frontend | ✅ done (Draft Studio + Match Viewer playback) |
-| 6 ML & calibration | 🟡 four-metric harness + **per-bracket models** + **hero interactions** · ⬜ fight-outcome model |
+| 6 ML & calibration | ✅ four-metric harness + **per-bracket models** + **hero interactions** + **fight resolver calibrated on real teamfights** (the planned ML fight model was spiked and beaten by the analytic form) |
 | 7 Coach Lab | ✅ done — **explanation + suggestions + farm timing** |
 | 8 Beta & launch | ⬜ not started |
 
@@ -377,6 +377,25 @@ survived, demo sims regenerated, API caches reloaded, verified end to end.
 Features/models/calibration refresh once the corpus turns over on the new
 patch; the harvester is already banking it.
 
+**The fight-outcome model dissolves into two constants.** The Stage-6 plan
+said "learn the fight resolver from parsed teamfights." The spike ran on
+11,212 real Divine+ fights (deaths-based labels, pre-fight features, split by
+match) — and the winning model wasn't the 4-feature learned logistic (held-out
+Brier 0.1981); it was the existing analytic resolver with its scale made
+**affine in total map net worth**: `1,475 + 0.0638 × total`, Brier **0.1975**
+vs 0.2051 for the old fixed 10k (p < 1e-5, match-clustered). Fights respond to
+a lead *relative to the gold in the game* — 2k up at min 8 is a ~67% favorite;
+12k up at min 35 only ~73%. Sharper early odds shortened games ~2.8 min, so
+objective pacing was retuned (0.24 → 0.21), landing duration *tighter* than
+before (gap −0.1m vs +0.8m); full-sim Brier statistically unchanged (the
+fight-level realism is the win). A 3-lens adversarial review confirmed 8
+findings before merge — including the Match Viewer's own mirrored copy of the
+old scale (its strip now computes the affine odds) and two test-change commit
+messages that needed rewriting with full disclosure (one guard test genuinely
+failed under the new engine at its original seed count; the restacked message
+says so plainly). The old constant survives one epitaph: it was approximately
+right around minute 30, and nowhere else.
+
 ## Next — the additive roadmap
 
 The engine's realism work is done; what's left adds new capability (nothing is a
@@ -384,10 +403,10 @@ fix). See [../SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) for the map.
 
 1. ~~Timing windows~~ — **shipped** (see the arc entry above); the hero-coverage
    tail fills itself as the backfill cron runs.
-2. **Fight-outcome model** (Stage 6) — learn the fight resolver from parsed
-   teamfight data instead of the analytic logistic. The parsed corpus that
-   gated it is now growing on its own; revisit when `data/details/` reaches a
-   few thousand games.
+2. ~~Fight-outcome model~~ — **resolved, without the ML** (see the arc entry
+   above): the spike found the analytic resolver with an affine gold-relative
+   scale beats a learned model on 11k real fights. The seam stays open if a
+   richer corpus ever changes that answer.
 3. ~~Per-bracket amplification~~ — **investigated, not needed.** The table that
    motivated it was a measurement bug (see the arc entry above); measured
    properly the per-bracket slopes are flat, so one global constant is correct.

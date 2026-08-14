@@ -246,6 +246,6 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
 | 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
 | 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
-| 6 | ML &amp; calibration | 🟡 feature store, calibration harness (Brier-gated), **per-bracket models + ratings + synergy/counter terms**; ⬜ fight-outcome model |
+| 6 | ML &amp; calibration | ✅ feature store, calibration harness (Brier-gated), **per-bracket models + ratings + synergy/counter terms**, fight resolver calibrated on 11k real teamfights (affine gold-relative scale; the ML candidate was spiked and lost to it) |
 | 7 | Coach Lab / education | ✅ **explanation + next-pick suggestions + farm-timing windows** |
 | 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |

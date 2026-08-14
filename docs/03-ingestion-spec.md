@@ -112,9 +112,9 @@ calibration gate is measured against whatever is in there. The gold constants
 were tuned to Divine curves; admitting lower brackets would move a calibration
 gate without anyone touching the engine.
 
-The parsed corpus is the binding constraint on the rest of the roadmap — both
-Coach Lab's timing windows and the fight-outcome model need it, and the raw
-match corpus (127k+) was never the bottleneck.
+The parsed corpus has been the binding constraint on the roadmap — Coach Lab's
+timing windows and the fight resolver's real-teamfight calibration both waited
+on it, not on code; the raw match corpus (127k+) was never the bottleneck.
 
 ---
 
