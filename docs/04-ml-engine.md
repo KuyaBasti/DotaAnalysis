@@ -318,8 +318,16 @@ These need richer-than-draft signal; the data is **already banked** in
 `dm-builds`, which extracts real per-hero item builds and net-worth completion
 thresholds that drive the viewer's item-timing beats):
 
-- **Fight-outcome model** — replace the analytic fight resolver with one learned
-  from parsed teamfight data (same interface: game-state in, win-prob + swing out).
+- ~~Fight-outcome model~~ — **resolved without the ML.** Spiked on 11,212
+  parsed Divine+ teamfights (deaths-based labels, features frozen at the minute
+  before each fight, split by match): a 4-feature learned logistic scored
+  held-out Brier 0.1981, and the analytic resolver with its scale made affine
+  in total map net worth (`1,475 + 0.0638 × total`, `fight_v0.py`) scored
+  **0.1975** — vs 0.2051 for the old fixed 10k scale. Fights respond to a lead
+  relative to the gold in the game, and once the scale knows that, there is no
+  residual signal for a model to learn. Two named constants instead of a
+  trained artifact; the seam stays open should a richer corpus change the
+  answer.
 - ~~Per-rank models~~ — **done** (see above): per-bracket win-prob models and
   hero ratings, selectable in Draft Studio.
 - ~~Hero interactions~~ — **done** (see above): blended synergy/counter terms
