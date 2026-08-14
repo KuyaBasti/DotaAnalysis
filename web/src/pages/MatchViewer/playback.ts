@@ -169,10 +169,20 @@ export function heroScoresAt(
   return { radiant, dire };
 }
 
-// Mirrors the engine's fight resolver (fight_v0._PROB_SCALE): a 10k net-worth
-// lead makes the leader a ~73% favorite. Keeping the same constant means the
-// strip shows the engine's own odds, not a separate model.
-const PROB_SCALE = 10_000;
+// Mirrors the engine's fight resolver (fight_v0._PROB_SCALE_BASE /
+// _PROB_SCALE_PER_TOTAL): the logistic's scale is affine in total map net
+// worth, so a 10k lead on a 30k-gold map is a ~95% favorite while the same
+// lead on a 250k map is only ~64%. Keeping the same constants means the strip
+// shows the engine's own odds, not a separate model.
+const PROB_SCALE_BASE = 1_475;
+const PROB_SCALE_PER_TOTAL = 0.0638;
+
+function winProb(radiantNetWorth: number, direNetWorth: number): number {
+  const lead = radiantNetWorth - direNetWorth;
+  const scale =
+    PROB_SCALE_BASE + PROB_SCALE_PER_TOTAL * (radiantNetWorth + direNetWorth);
+  return 1 / (1 + Math.exp(-lead / scale));
+}
 
 export interface WinProbPoint {
   t: number;
@@ -182,12 +192,13 @@ export interface WinProbPoint {
 export function winProbSeries(timeline: TimelineEvent[]): WinProbPoint[] {
   return timeline
     .filter((e) => e.type === "economy")
-    .map((e) => {
-      const lead =
-        Number(e.payload.radiant_net_worth ?? 0) -
-        Number(e.payload.dire_net_worth ?? 0);
-      return { t: e.t, radiant: 1 / (1 + Math.exp(-lead / PROB_SCALE)) };
-    });
+    .map((e) => ({
+      t: e.t,
+      radiant: winProb(
+        Number(e.payload.radiant_net_worth ?? 0),
+        Number(e.payload.dire_net_worth ?? 0),
+      ),
+    }));
 }
 
 // P(radiant wins) as of the clock: carried from the latest tick that has fired.
@@ -196,10 +207,10 @@ export function winProbAt(timeline: TimelineEvent[], clock: number): number {
   for (const e of timeline) {
     if (e.t > clock) break;
     if (e.type === "economy") {
-      const lead =
-        Number(e.payload.radiant_net_worth ?? 0) -
-        Number(e.payload.dire_net_worth ?? 0);
-      p = 1 / (1 + Math.exp(-lead / PROB_SCALE));
+      p = winProb(
+        Number(e.payload.radiant_net_worth ?? 0),
+        Number(e.payload.dire_net_worth ?? 0),
+      );
     }
   }
   return p;

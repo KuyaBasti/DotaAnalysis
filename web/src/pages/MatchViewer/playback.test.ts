@@ -150,17 +150,18 @@ describe("winProbSeries / winProbAt", () => {
     const series = winProbSeries(TIMELINE);
     expect(series).toHaveLength(2); // one point per economy tick
     expect(series[0].radiant).toBeLessThan(0.5); // dire ahead 100 vs 120
-    // Mirrors fight_v0: a 10k lead => ~0.731 favorite
+    // Mirrors fight_v0's affine scale: a 10k lead at 30k total gold is a
+    // scale of 1,475 + 0.0638 * 30,000 = 3,389 => ~0.950 favorite.
     const big = winProbSeries([
       { t: 30, type: "economy", payload: { radiant_net_worth: 20000, dire_net_worth: 10000 } },
     ]);
-    expect(big[0].radiant).toBeCloseTo(0.731, 3);
+    expect(big[0].radiant).toBeCloseTo(0.9503, 3);
   });
 
   it("carries the latest probability up to the clock", () => {
     expect(winProbAt(TIMELINE, 0)).toBe(0.5); // before any tick: even odds
     expect(winProbAt(TIMELINE, 700)).toBeCloseTo(
-      1 / (1 + Math.exp(200 / 10000)),
+      1 / (1 + Math.exp(200 / (1475 + 0.0638 * 600))),
       6,
     ); // dire up 400-200 at t=600
   });
