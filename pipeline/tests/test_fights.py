@@ -33,10 +33,37 @@ def test_huge_lead_essentially_guarantees_the_win() -> None:
 
 
 def test_favored_team_wins_the_majority_over_many_fights() -> None:
-    # ~73% expected for a 10k lead; assert a clear majority across fixed seeds.
+    # ~90% expected for a 10k lead on a 50k map; clear majority across seeds.
     wins = sum(
         1
         for seed in range(200)
         if resolve_fight(30_000, 20_000, SeededRng(seed)).winner == "radiant"
     )
     assert wins > 120
+
+
+def test_same_lead_is_a_bigger_favorite_early_than_late() -> None:
+    # The scale is affine in total map net worth: 10k up on a 50k-gold map
+    # (early-mid game) is a far bigger fight edge than 10k up on a 250k map.
+    early = radiant_win_probability(30_000, 20_000)
+    late = radiant_win_probability(130_000, 120_000)
+    assert early > late > 0.5
+
+
+def test_probabilities_stay_symmetric_when_totals_differ_by_side() -> None:
+    # The scale reads the (side-symmetric) total, never who holds the gold.
+    ahead = radiant_win_probability(90_000, 60_000)
+    behind = radiant_win_probability(60_000, 90_000)
+    assert ahead + behind == pytest.approx(1.0)
+
+
+def test_scale_constants_pin_the_calibrated_fit() -> None:
+    # Guards the fitted constants — calibrated against 11,212 real teamfights;
+    # retune deliberately or not at all. Two totals, because one assertion only
+    # constrains BASE + K*total at that total: a compensating retune (e.g.
+    # BASE=2,165, K=0.05) passes any single-point pin while shifting every
+    # late-game fight probability. Two points pin both constants uniquely.
+    # 10k lead at 50k total: scale = 1,475 + 0.0638 * 50,000 = 4,665 -> 0.895.
+    assert radiant_win_probability(30_000, 20_000) == pytest.approx(0.8951, abs=1e-3)
+    # 10k lead at 250k total: scale = 1,475 + 0.0638 * 250,000 = 17,425 -> 0.640.
+    assert radiant_win_probability(130_000, 120_000) == pytest.approx(0.6397, abs=1e-3)
