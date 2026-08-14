@@ -136,8 +136,10 @@ steps. ✅
 - **Hero interactions** (`models/win_probability/pairs.py`): blended synergy and
   counter terms layered onto the per-bracket hero weights, so a hero's value
   depends on the draft around it.
-- ⬜ Richer models: fight-outcome from parsed details; gradient boosting once
-  data supports it.
+- ✅ Fight outcomes calibrated from parsed details — spiked as an ML model,
+  landed as an affine gold-relative scale on the analytic resolver, which beat
+  the learned candidate held-out (see docs/04).
+- ⬜ Richer models: gradient boosting once data supports it.
 
 **Exit criteria:**
 
