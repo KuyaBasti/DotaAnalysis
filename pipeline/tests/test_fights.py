@@ -58,7 +58,12 @@ def test_probabilities_stay_symmetric_when_totals_differ_by_side() -> None:
 
 
 def test_scale_constants_pin_the_calibrated_fit() -> None:
-    # 10k lead at 50k total: scale = 1,475 + 0.0638 * 50,000 = 4,665 gold,
-    # sigmoid(10,000 / 4,665) ≈ 0.895. Guards the fitted constants — they were
-    # calibrated against 11,212 real teamfights; retune deliberately or not at all.
+    # Guards the fitted constants — calibrated against 11,212 real teamfights;
+    # retune deliberately or not at all. Two totals, because one assertion only
+    # constrains BASE + K*total at that total: a compensating retune (e.g.
+    # BASE=2,165, K=0.05) passes any single-point pin while shifting every
+    # late-game fight probability. Two points pin both constants uniquely.
+    # 10k lead at 50k total: scale = 1,475 + 0.0638 * 50,000 = 4,665 -> 0.895.
     assert radiant_win_probability(30_000, 20_000) == pytest.approx(0.8951, abs=1e-3)
+    # 10k lead at 250k total: scale = 1,475 + 0.0638 * 250,000 = 17,425 -> 0.640.
+    assert radiant_win_probability(130_000, 120_000) == pytest.approx(0.6397, abs=1e-3)
