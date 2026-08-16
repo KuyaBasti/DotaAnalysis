@@ -12,9 +12,13 @@ const PAD = 36;
 export function WinProbGraph({
   timeline,
   upTo,
+  tickMs = 450,
 }: {
   timeline: TimelineEvent[];
   upTo?: number;
+  // Real-time ms between data ticks at the current playback speed; the head
+  // marker glides between points over this long instead of snapping.
+  tickMs?: number;
 }) {
   const series = winProbSeries(timeline);
   if (series.length === 0) return null;
@@ -45,12 +49,14 @@ export function WinProbGraph({
       )}
       <polyline fill="none" stroke="var(--ink-2)" strokeWidth="2" points={line} />
       {last && (
-        <circle
-          cx={x(last.t)}
-          cy={y(last.radiant)}
-          r="3.5"
-          fill={last.radiant >= 0.5 ? "var(--radiant)" : "var(--dire)"}
-        />
+        <g
+          style={{
+            transform: `translate(${x(last.t)}px, ${y(last.radiant)}px)`,
+            transition: `transform ${tickMs}ms linear, fill 300ms ease`,
+          }}
+        >
+          <circle r="3.5" fill={last.radiant >= 0.5 ? "var(--radiant)" : "var(--dire)"} />
+        </g>
       )}
       <text x={PAD} y={PAD - 8} fontSize="11" fill="var(--radiant)">
         Radiant favored
