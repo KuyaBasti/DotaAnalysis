@@ -47,11 +47,16 @@ export function Minimap({
   direLost,
   heroes = [],
   size = 210,
+  tickMs = 450,
 }: {
   radiantLost: FallenStructure[];
   direLost: FallenStructure[];
   heroes?: HeroDot[];
   size?: number;
+  // Real-time ms between position ticks at the current playback speed; hero
+  // dots chase their next position over exactly this long (linear), so the
+  // 30s-stepped data reads as continuous motion at any speed.
+  tickMs?: number;
 }) {
   const lost = { radiant: fallenKeys(radiantLost), dire: fallenKeys(direLost) };
   const ancientDown = {
@@ -91,6 +96,7 @@ export function Minimap({
                   r="2.6"
                   fill={down ? DEAD : side === "radiant" ? RADIANT : DIRE}
                   opacity={down ? 0.4 : 1}
+                  style={{ transition: "fill 300ms ease, opacity 300ms ease" }}
                 >
                   <title>{`${side} ${lane} ${tier}${down ? " (destroyed)" : ""}`}</title>
                 </circle>
@@ -107,6 +113,7 @@ export function Minimap({
                   height="4"
                   fill={down ? DEAD : side === "radiant" ? RADIANT : DIRE}
                   opacity={down ? 0.4 : 0.85}
+                  style={{ transition: "fill 300ms ease, opacity 300ms ease" }}
                 >
                   <title>{`${side} ${lane} barracks${down ? " (destroyed)" : ""}`}</title>
                 </rect>
@@ -129,25 +136,33 @@ export function Minimap({
             stroke={down ? "var(--ink-3)" : "var(--ink)"}
             strokeWidth="1"
             opacity={down ? 0.45 : 1}
+            style={{ transition: "fill 300ms ease, stroke 300ms ease, opacity 300ms ease" }}
           >
             <title>{`${side} ancient${down ? " (destroyed)" : ""}`}</title>
           </circle>
         );
       })}
 
-      {/* the ten heroes, drawn last so they ride on top of everything */}
+      {/* the ten heroes, drawn last so they ride on top of everything. Each
+          dot lives in a translated <g> (CSS px == SVG user units here) so the
+          movement is a compositor-friendly transform, not a cx/cy relayout. */}
       {heroes.map((h) => (
-        <circle
+        <g
           key={`${h.side}:${h.hero}`}
-          cx={h.x}
-          cy={h.y}
-          r="2.1"
-          fill={h.side === "radiant" ? "var(--radiant)" : "var(--dire)"}
-          stroke="var(--ink)"
-          strokeWidth="0.8"
+          style={{
+            transform: `translate(${h.x}px, ${h.y}px)`,
+            transition: `transform ${tickMs}ms linear`,
+          }}
         >
-          <title>{h.hero}</title>
-        </circle>
+          <circle
+            r="2.1"
+            fill={h.side === "radiant" ? "var(--radiant)" : "var(--dire)"}
+            stroke="var(--ink)"
+            strokeWidth="0.8"
+          >
+            <title>{h.hero}</title>
+          </circle>
+        </g>
       ))}
     </svg>
   );
