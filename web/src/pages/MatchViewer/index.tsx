@@ -143,6 +143,12 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const heroScores = heroScoresAt(sim.timeline, pb.clock);
   const fallen = fallenStructuresAt(sim.timeline, pb.clock);
   const heroDots = positionsAt(sim.timeline, pb.clock);
+  // The engine emits state every 30 game-seconds; at the current speed that's
+  // this many real ms apart, and matching the transition to it makes the
+  // stepped data read as continuous motion. Only while playing: scrubbing is
+  // direct manipulation, and a glide there would leave the dots trailing the
+  // cursor instead of tracking it.
+  const tickMs = pb.playing ? Math.min(450, (30 / pb.speed) * 1000) : 0;
 
   return (
     <>
@@ -187,6 +193,7 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
             radiantLost={fallen.radiant}
             direLost={fallen.dire}
             heroes={heroDots}
+            tickMs={tickMs}
           />
         </div>
       </div>
@@ -198,7 +205,7 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
         </div>
         <div className="card">
           <h3>Win probability</h3>
-          <WinProbGraph timeline={sim.timeline} upTo={pb.clock} />
+          <WinProbGraph timeline={sim.timeline} upTo={pb.clock} tickMs={tickMs} />
         </div>
       </div>
 
