@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **85 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **87 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -395,6 +395,20 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**The spike becomes an instrument.** The fight-scale fit was a pile of
+scratchpad scripts that would have evaporated with the session; now it's
+`dm-fit-fightscale` (`calibrate/fightscale.py`), re-runnable at every meta
+refresh with the review-pinned methodology built in — pre-fight features
+only, deaths labels, split by match — and an explicit guard against the
+degenerate case where a broken split would report the shipped constants back
+as a fake zero-drift "fit". Its first run was the boring answer an instrument
+should give: corpus +20% since the original fit, drift under 2.3%, held-out
+Brier identical, no retune warranted. The test suite was hardened by
+mutation testing after review found three guards that couldn't fail — a
+deleted optimizer, a pre-fight lookahead, and a flipped sign convention all
+survived the first draft; all three mutants now die, verified by re-applying
+each.
 
 ## Next — the additive roadmap
 
