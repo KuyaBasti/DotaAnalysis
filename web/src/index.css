@@ -199,9 +199,12 @@ select:focus, input:focus { border-color: var(--brand); }
   display: inline-flex; align-items: center; gap: 7px;
   padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer;
   border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
-  font-weight: 550; transition: background .12s, border-color .12s, opacity .12s;
+  font-weight: 550;
+  transition: background .12s, border-color .12s, opacity .12s, transform .12s ease-out;
 }
 .btn:hover:not(:disabled) { background: var(--surface-3); }
+/* Press feedback: the control acknowledges the click before anything loads. */
+.btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn.primary { background: var(--brand); border-color: var(--brand); color: #1a1206; }
 .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
@@ -408,3 +411,19 @@ tbody tr:hover td { background: var(--surface-2); }
   font-variant-numeric: tabular-nums;
 }
 .tchip.dim { color: var(--ink-3); border-style: dashed; }
+
+/* ---------- reduced motion ---------- */
+/* Someone who asks their OS to reduce motion gets the same information with
+   none of the movement — the Match Viewer's gliding dots included. Durations
+   collapse to near-zero rather than being removed outright, so anything
+   waiting on a transitionend still fires. `!important` is what lets this beat
+   the viewer's inline transitions, whose timing is computed from playback
+   speed and so can't live in a stylesheet. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
