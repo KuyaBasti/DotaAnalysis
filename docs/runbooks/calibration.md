@@ -15,7 +15,16 @@ doesn't. Full model detail in [../04-ml-engine.md](../04-ml-engine.md).
 source .venv/bin/activate
 dm-features                      # rebuild the Parquet tables from data/matches/ (if the corpus grew)
 dm-calibrate --sample 2000       # validate on n>=2000 — smaller samples are too noisy
+dm-fit-fightscale                # re-fit the fight scale on the grown details corpus (meta refresh)
 ```
+
+`dm-fit-fightscale` re-measures the fight resolver's affine scale
+(`_PROB_SCALE_BASE`/`_PROB_SCALE_PER_TOTAL`) against every parsed teamfight
+and prints the drift vs what the engine ships. The constants are pinned at two
+totals in `tests/test_fights.py`, so acting on a drift means changing the
+constants *and* the pin together — a deliberate retune, then `dm-calibrate`
+again. First re-fit (corpus +20% over the original): drift under 2.3%, no
+retune warranted.
 
 Reads the report at `data/calibration/report.<patch>.json`, and prints:
 

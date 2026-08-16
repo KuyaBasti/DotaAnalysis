@@ -327,7 +327,9 @@ thresholds that drive the viewer's item-timing beats):
   relative to the gold in the game, and once the scale knows that, there is no
   residual signal for a model to learn. Two named constants instead of a
   trained artifact; the seam stays open should a richer corpus change the
-  answer.
+  answer — and the fit is reproducible: `dm-fit-fightscale`
+  (`calibrate/fightscale.py`) re-runs it on the current corpus at each meta
+  refresh and reports drift against the shipped constants.
 - ~~Per-rank models~~ — **done** (see above): per-bracket win-prob models and
   hero ratings, selectable in Draft Studio.
 - ~~Hero interactions~~ — **done** (see above): blended synergy/counter terms
