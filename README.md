@@ -81,6 +81,7 @@ close early — farm timing, not win timing, and the panel says so.
 | `dm-montecarlo --radiant … --dire …` | run a draft N times → win/duration distribution (JSON) |
 | `dm-train-winprob` | train the draft→win model — one per rank bracket + blended |
 | `dm-calibrate --sample N` | score the sim against the real corpus (win / realism / economy) |
+| `dm-fit-fightscale` | re-fit the fight resolver's affine scale on parsed teamfights; reports drift vs the shipped constants |
 
 Generated artifacts land in `data/` (git-ignored). See
 [docs/03-ingestion-spec.md](docs/03-ingestion-spec.md) and
