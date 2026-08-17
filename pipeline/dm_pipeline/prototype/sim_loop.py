@@ -726,6 +726,15 @@ _FRONT_BASE = 0.22  # how far up the map a team sits with no structures taken
 _FRONT_PER_OBJECTIVE = 0.13  # each enemy structure taken pushes the front deeper
 _FRONT_LEAD_NUDGE = 0.05  # being ahead in gold pushes a bit further
 
+# Roaming (presentational): how far a hero drifts around their anchor. Laning
+# keeps everyone honest in their lane, so the radius stays small; afterwards
+# supports range wide because they rotate and ward, while cores orbit their
+# farm. Radii are bounded so a laning dot never leaves its lane.
+_ROAM_PERIOD_SECONDS = 236.0
+_ROAM_RADIUS_LANE = 4.0
+_ROAM_RADIUS_CORE = 5.5
+_ROAM_RADIUS_SUPPORT = 9.0
+
 
 def _assign_lanes(team: TeamState) -> dict[str, str]:
     """Deterministic 2-1-2: highest farm priority safelane, then mid, then off."""
@@ -757,9 +766,26 @@ def _fight_spot(state: GameState) -> tuple[float, float]:
     return ((rx + dx) / 2.0, (ry + dy) / 2.0)
 
 
-def _wobble(t: int, i: int) -> tuple[float, float]:
-    """Small deterministic motion so dots feel alive between phases."""
-    return (2.0 * math.sin(t / 45.0 + i * 1.7), 2.0 * math.cos(t / 60.0 + i * 2.3))
+def _roam(t: int, i: int, radius: float) -> tuple[float, float]:
+    """A slow deterministic circuit around a hero's anchor, so nobody is parked.
+
+    The old ±2-unit wobble moved a dot ~1.4 units per tick — about 3 px on the
+    minimap, under the threshold where the eye reads it as movement, so heroes
+    appeared frozen between fights. The circuit below keeps the same character
+    (pure in ``t`` and the hero's index, so it can never touch an outcome) at a
+    radius the viewer can actually see.
+
+    The period is ~4 minutes, which at a 30-second tick is ~0.8 rad per step:
+    far enough that each tick visibly advances, short enough that the sampled
+    path still reads as a walk rather than a jump. The two axes run at slightly
+    different rates so the path is a Lissajous drift, not a clean circle.
+    """
+    w = 2.0 * math.pi * t / _ROAM_PERIOD_SECONDS
+    phase = i * 1.7
+    return (
+        radius * math.sin(w + phase),
+        radius * 0.75 * math.cos(w * 0.83 + phase),
+    )
 
 
 def _positions_tick(state: GameState, timeline: Timeline) -> None:
@@ -775,12 +801,17 @@ def _positions_tick(state: GameState, timeline: Timeline) -> None:
                 y = state.last_fight_xy[1] + 4.0 * math.sin(angle)
             elif state.t <= LANING_END_SECONDS:
                 sx, sy = _LANING_SPOTS[side][lanes[hero.key]]
-                wx, wy = _wobble(state.t, i)
+                wx, wy = _roam(state.t, i, _ROAM_RADIUS_LANE)
                 # duo-lane partners stand apart instead of stacking
                 x, y = sx + wx + (i - 2) * 1.5, sy + wy
             else:
                 fx, fy = _front_point(state, side)
-                wx, wy = _wobble(state.t, i)
+                radius = (
+                    _ROAM_RADIUS_SUPPORT
+                    if hero.farm_priority < _SUPPORT_PRIORITY_CUTOFF
+                    else _ROAM_RADIUS_CORE
+                )
+                wx, wy = _roam(state.t, i, radius)
                 spread = (i - 2) * 5.0  # fan out perpendicular to the diagonal
                 x = fx + spread * 0.707 + wx
                 y = fy + spread * 0.707 + wy
