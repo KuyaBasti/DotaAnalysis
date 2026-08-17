@@ -81,6 +81,38 @@ def test_positions_are_deterministic_and_rng_free() -> None:
     assert s1.winner == s2.winner
 
 
+def test_heroes_keep_visibly_moving_between_fights() -> None:
+    """A parked dot reads as a frozen sim, so pin a floor on ordinary motion.
+
+    Measured on quiet ticks only (fight ticks cluster everyone and would flatter
+    the number). The old ±2-unit wobble managed a median of ~1.4 units per tick
+    — roughly 3 px on the 210 px minimap, which the eye reads as stationary and
+    which a viewer reported as "the dots don't move". The roaming circuit puts
+    this at ~3.1-3.4 across seeds; 2.5 sits clear of both.
+    """
+    for seed in (3, 9, 42):
+        timeline, _ = simulate(SCENARIO, HEROES, seed=seed)
+        fight_ticks = {e.t for e in timeline.events if e.type.value == "fight"}
+        snapshots = _positions(timeline)
+        steps = []
+        for a, b in zip(snapshots, snapshots[1:]):
+            if a.t in fight_ticks or b.t in fight_ticks:
+                continue
+            before = {
+                h["hero"]: (h["x"], h["y"])
+                for h in a.payload["radiant_heroes"] + a.payload["dire_heroes"]
+            }
+            for h in b.payload["radiant_heroes"] + b.payload["dire_heroes"]:
+                if h["hero"] in before:
+                    ox, oy = before[h["hero"]]
+                    steps.append(((h["x"] - ox) ** 2 + (h["y"] - oy) ** 2) ** 0.5)
+
+        assert steps, f"seed {seed} produced no quiet ticks to measure"
+        steps.sort()
+        median = steps[len(steps) // 2]
+        assert median > 2.5, f"seed {seed}: heroes barely move (median {median:.2f})"
+
+
 def test_fight_tick_clusters_everyone_at_the_fight() -> None:
     timeline, _ = simulate(SCENARIO, HEROES, seed=3)
     fights = [e for e in timeline.events if e.type.value == "fight"]
