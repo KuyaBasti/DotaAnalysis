@@ -143,11 +143,11 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const heroScores = heroScoresAt(sim.timeline, pb.clock);
   const fallen = fallenStructuresAt(sim.timeline, pb.clock);
   const heroDots = positionsAt(sim.timeline, pb.clock);
-  // The engine emits state every 30 game-seconds; at the current speed that's
-  // this many real ms apart, and matching the transition to it makes the
-  // stepped data read as continuous motion. Only while playing: scrubbing is
-  // direct manipulation, and a glide there would leave the dots trailing the
-  // cursor instead of tracking it.
+  // The win-prob head marker lands on discrete 30s samples, so it steps. Glide
+  // it over the real-time gap between those samples (capped so slow speeds
+  // don't smear), and only while playing — scrubbing is direct manipulation,
+  // which should track the cursor rather than trail it. Hero dots need none of
+  // this: positionsAt already interpolates them per frame.
   const tickMs = pb.playing ? Math.min(450, (30 / pb.speed) * 1000) : 0;
 
   return (
@@ -193,7 +193,6 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
             radiantLost={fallen.radiant}
             direLost={fallen.dire}
             heroes={heroDots}
-            tickMs={tickMs}
           />
         </div>
       </div>

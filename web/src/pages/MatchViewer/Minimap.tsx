@@ -47,16 +47,11 @@ export function Minimap({
   direLost,
   heroes = [],
   size = 210,
-  tickMs = 450,
 }: {
   radiantLost: FallenStructure[];
   direLost: FallenStructure[];
   heroes?: HeroDot[];
   size?: number;
-  // Real-time ms between position ticks at the current playback speed; hero
-  // dots chase their next position over exactly this long (linear), so the
-  // 30s-stepped data reads as continuous motion at any speed.
-  tickMs?: number;
 }) {
   const lost = { radiant: fallenKeys(radiantLost), dire: fallenKeys(direLost) };
   const ancientDown = {
@@ -143,16 +138,18 @@ export function Minimap({
         );
       })}
 
-      {/* the ten heroes, drawn last so they ride on top of everything. Each
-          dot lives in a translated <g> (CSS px == SVG user units here) so the
-          movement is a compositor-friendly transform, not a cx/cy relayout. */}
+      {/* The ten heroes, drawn last so they ride on top of everything. Each dot
+          lives in a translated <g> (CSS px == SVG user units here) so moving it
+          is a compositor-friendly transform, not a cx/cy relayout.
+
+          Deliberately NO css transition: positionsAt already interpolates
+          between position snapshots on every frame, so the coordinates arriving
+          here are continuous. A transition on top would make each dot chase a
+          moving target and trail it. */}
       {heroes.map((h) => (
         <g
           key={`${h.side}:${h.hero}`}
-          style={{
-            transform: `translate(${h.x}px, ${h.y}px)`,
-            transition: `transform ${tickMs}ms linear`,
-          }}
+          style={{ transform: `translate(${h.x}px, ${h.y}px)` }}
         >
           <circle
             r="2.1"
