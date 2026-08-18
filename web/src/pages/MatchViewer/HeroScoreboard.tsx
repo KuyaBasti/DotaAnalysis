@@ -4,13 +4,20 @@ const COLOR = { radiant: "var(--radiant)", dire: "var(--dire)" } as const;
 
 // Ten heroes, two columns, each hero's gold ticking up as the match plays —
 // the first slice of the FM-style match screen. Bars are relative to the
-// richest hero on screen so farm gaps read at a glance.
+// richest hero on screen so farm gaps read at a glance. Hovering or focusing a
+// row lights that hero up on the map and in the net-worth graph.
 export function HeroScoreboard({
   radiant,
   dire,
+  tags,
+  focused = null,
+  onFocus,
 }: {
   radiant: HeroScore[];
   dire: HeroScore[];
+  tags: Map<string, string>;
+  focused?: string | null;
+  onFocus?: (hero: string | null) => void;
 }) {
   if (radiant.length === 0 && dire.length === 0) return null;
   const richest = Math.max(
@@ -20,9 +27,12 @@ export function HeroScoreboard({
   );
 
   return (
-    <div style={{ display: "flex", gap: "1.5rem", margin: "0.75rem 0" }}>
-      <Column side="radiant" heroes={radiant} richest={richest} />
-      <Column side="dire" heroes={dire} richest={richest} />
+    <div
+      style={{ display: "flex", gap: "1.5rem", margin: "0.75rem 0" }}
+      onMouseLeave={() => onFocus?.(null)}
+    >
+      <Column side="radiant" heroes={radiant} richest={richest} tags={tags} focused={focused} onFocus={onFocus} />
+      <Column side="dire" heroes={dire} richest={richest} tags={tags} focused={focused} onFocus={onFocus} />
     </div>
   );
 }
@@ -31,75 +41,70 @@ function Column({
   side,
   heroes,
   richest,
+  tags,
+  focused,
+  onFocus,
 }: {
   side: "radiant" | "dire";
   heroes: HeroScore[];
   richest: number;
+  tags: Map<string, string>;
+  focused: string | null;
+  onFocus?: (hero: string | null) => void;
 }) {
-  const sorted = [...heroes].sort((a, b) => b.netWorth - a.netWorth);
+  // Draft order, NOT net worth. Sorting by gold re-ordered the rows every 30
+  // game-seconds — eight times a minute at 240x — so the hero you were
+  // watching kept jumping under your eyes.
   return (
     <div style={{ flex: 1 }}>
-      {sorted.map((h) => (
-        <div key={h.hero} style={{ marginBottom: 4 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "0.8rem",
-              lineHeight: 1.4,
-            }}
+      {heroes.map((h) => {
+        const isFocused = focused === h.hero;
+        const dim = focused !== null && !isFocused;
+        return (
+          <button
+            type="button"
+            key={h.hero}
+            className="hero-row"
+            aria-pressed={isFocused}
+            onMouseEnter={() => onFocus?.(h.hero)}
+            onFocus={() => onFocus?.(h.hero)}
+            onClick={() => onFocus?.(isFocused ? null : h.hero)}
+            style={{ opacity: dim ? 0.5 : 1 }}
           >
-            <span>
-              <span
-                style={{
-                  display: "inline-block",
-                  minWidth: 22,
-                  marginRight: 6,
-                  fontFamily: "ui-monospace, monospace",
-                  fontSize: "0.7rem",
-                  color: "var(--ink-3)",
-                }}
-              >
-                {h.level}
+            <div className="hero-row-line">
+              <span className="hero-row-name">
+                <span className="hchip" style={{ background: COLOR[side] }}>
+                  {tags.get(h.hero) ?? "??"}
+                </span>
+                <span className="hero-row-level num">{h.level}</span>
+                {h.hero}
               </span>
-              {h.hero}
-            </span>
-            <span>
-              <span
-                style={{
-                  fontFamily: "ui-monospace, monospace",
-                  fontSize: "0.7rem",
-                  color: "var(--ink-3)",
-                  marginRight: 10,
-                }}
-                title="kills / deaths / assists"
-              >
-                {h.kills}/{h.deaths}/{h.assists}
+              <span>
+                <span className="hero-row-kda num" title="kills / deaths / assists">
+                  {h.kills}/{h.deaths}/{h.assists}
+                </span>
+                <span className="hero-row-gold num">
+                  {Math.round(h.netWorth).toLocaleString()}
+                </span>
               </span>
-              <span style={{ fontFamily: "ui-monospace, monospace", color: "var(--ink-2)" }}>
-                {Math.round(h.netWorth).toLocaleString()}
-              </span>
-            </span>
-          </div>
-          <div className="meter" style={{ height: 3 }}>
-            <i
-              style={{
-                width: `${(h.netWorth / richest) * 100}%`,
-                background: COLOR[side],
-              }}
-            />
-          </div>
-          {h.items.length > 0 && (
-            <div
-              style={{ fontSize: "0.65rem", color: "var(--ink-3)", marginTop: 1 }}
-              title={h.items.join(", ")}
-            >
-              {h.items[h.items.length - 1]}
-              {h.items.length > 1 ? ` +${h.items.length - 1}` : ""}
             </div>
-          )}
-        </div>
-      ))}
+            <div className="meter" style={{ height: 3 }}>
+              <i
+                style={{
+                  width: `${(h.netWorth / richest) * 100}%`,
+                  background: COLOR[side],
+                }}
+              />
+            </div>
+            {h.items.length > 0 && (
+              <div className="hero-row-item" title={h.items.join(", ")}>
+                {h.items[h.items.length - 1]}
+                {h.items.length > 1 ? ` +${h.items.length - 1}` : ""}
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
