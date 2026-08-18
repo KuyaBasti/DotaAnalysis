@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSim, listSims } from "../../api/client";
 import type { SimResult } from "../../types";
 import { EventLog } from "./EventLog";
@@ -8,8 +8,12 @@ import { NetworthGraph } from "./NetworthGraph";
 import { PlaybackControls } from "./PlaybackControls";
 import { WinProbGraph } from "./WinProbGraph";
 import {
+  aegisAt,
+  casualtiesAt,
   fallenStructuresAt,
   heroScoresAt,
+  heroTags,
+  mapMarkersAt,
   mmss,
   positionsAt,
   scoreAt,
@@ -130,6 +134,13 @@ export function MatchViewer({
 function MatchPlayer({ sim }: { sim: SimResult }) {
   const duration = sim.summary.duration_seconds;
   const pb = usePlayback(duration);
+  // One hero can be "focused" from anywhere — scoreboard row, map token,
+  // net-worth label — and lights up everywhere at once. That cross-linking is
+  // what makes ten dots debuggable rather than decorative.
+  const [focused, setFocused] = useState<string | null>(null);
+  const [nwMode, setNwMode] = useState<"teams" | "heroes">("teams");
+  const [spread, setSpread] = useState(true);
+  const tags = useMemo(() => heroTags(sim.timeline), [sim.timeline]);
 
   const score = scoreAt(sim.timeline, pb.clock);
   const structures = structuresAt(sim.timeline, pb.clock);
@@ -143,6 +154,18 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
   const heroScores = heroScoresAt(sim.timeline, pb.clock);
   const fallen = fallenStructuresAt(sim.timeline, pb.clock);
   const heroDots = positionsAt(sim.timeline, pb.clock);
+  // Markers live in game time so scrubbing re-shows them exactly, but at high
+  // speed a fixed 90-second life flashes past — scale it with the clock rate.
+  const lifeScale = pb.playing ? Math.min(3, Math.max(1, pb.speed / 60)) : 1;
+  const markers = mapMarkersAt(sim.timeline, pb.clock, lifeScale);
+  const casualties = casualtiesAt(sim.timeline, pb.clock);
+  const aegis = aegisAt(sim.timeline, pb.clock);
+  // The win-prob head marker lands on discrete 30s samples, so it steps. Glide
+  // it over the real-time gap between those samples (capped so slow speeds
+  // don't smear), and only while playing — scrubbing is direct manipulation,
+  // which should track the cursor rather than trail it. Hero dots need none of
+  // this: positionsAt already interpolates them per frame.
+  const tickMs = pb.playing ? Math.min(450, (30 / pb.speed) * 1000) : 0;
 
   return (
     <>
@@ -178,33 +201,98 @@ function MatchPlayer({ sim }: { sim: SimResult }) {
           </div>
 
           <PlaybackControls pb={pb} duration={duration} />
-          <HeroScoreboard radiant={heroScores.radiant} dire={heroScores.dire} />
+          <HeroScoreboard
+            radiant={heroScores.radiant}
+            dire={heroScores.dire}
+            tags={tags}
+            focused={focused}
+            onFocus={setFocused}
+          />
         </div>
 
         <div className="card">
-          <h3>Map</h3>
+          <div className="card-head">
+            <h3>Map</h3>
+            <div className="seg seg-sm" role="group" aria-label="Dot placement">
+              <button
+                type="button"
+                className={spread ? "on" : ""}
+                onClick={() => setSpread(true)}
+                title="Nudge crowded dots apart so the labels stay readable"
+              >
+                Spread
+              </button>
+              <button
+                type="button"
+                className={spread ? "" : "on"}
+                onClick={() => setSpread(false)}
+                title="Draw the engine's literal coordinates"
+              >
+                Raw
+              </button>
+            </div>
+          </div>
           <Minimap
             radiantLost={fallen.radiant}
             direLost={fallen.dire}
             heroes={heroDots}
+            tags={tags}
+            markers={markers}
+            casualties={casualties}
+            focused={focused}
+            onFocus={setFocused}
+            spread={spread}
           />
+          {aegis && (
+            <p className="aegis-pill">
+              <span style={{ color: COLOR(aegis.side) }}>
+                {aegis.side === "radiant" ? "Radiant" : "Dire"}
+              </span>{" "}
+              hold the Aegis
+            </p>
+          )}
         </div>
       </div>
 
       <div className="viewer-cols" style={{ marginTop: 14 }}>
         <div className="card">
-          <h3>Net worth</h3>
-          <NetworthGraph timeline={sim.timeline} upTo={pb.clock} />
+          <div className="card-head">
+            <h3>Net worth</h3>
+            <div className="seg seg-sm" role="group" aria-label="Net worth view">
+              <button
+                type="button"
+                className={nwMode === "teams" ? "on" : ""}
+                onClick={() => setNwMode("teams")}
+              >
+                Teams
+              </button>
+              <button
+                type="button"
+                className={nwMode === "heroes" ? "on" : ""}
+                onClick={() => setNwMode("heroes")}
+              >
+                Heroes
+              </button>
+            </div>
+          </div>
+          <NetworthGraph
+            timeline={sim.timeline}
+            upTo={pb.clock}
+            mode={nwMode}
+            tags={tags}
+            focused={focused}
+            onFocus={setFocused}
+          />
         </div>
         <div className="card">
           <h3>Win probability</h3>
-          <WinProbGraph timeline={sim.timeline} upTo={pb.clock} />
+          <WinProbGraph timeline={sim.timeline} upTo={pb.clock} tickMs={tickMs} />
         </div>
       </div>
 
       <div className="card" style={{ marginTop: 14 }}>
         <h3>Match feed</h3>
-        <EventLog timeline={sim.timeline} upTo={pb.clock} />
+        <EventLog timeline={sim.timeline} upTo={pb.clock} tags={tags} />
       </div>
     </>
   );

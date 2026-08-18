@@ -3,6 +3,7 @@
 // the narration and "state as of time T" logic can be unit-tested directly.
 
 import type { TimelineEvent } from "../../types";
+import { ROSHAN_PIT, structurePoint } from "./mapGeometry";
 
 export type Side = "radiant" | "dire" | null;
 
@@ -299,4 +300,294 @@ export function describeEvent(e: TimelineEvent): Beat {
     default:
       return { text: e.type, side: null };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Hero identity
+// ---------------------------------------------------------------------------
+
+// The ten heroes in this match, by display name (the timeline carries display
+// names, not the snapshot's hero keys). Read off the first event that lists a
+// roster, so it is available before the clock has advanced.
+export function rosterOf(timeline: TimelineEvent[]): {
+  radiant: string[];
+  dire: string[];
+} {
+  for (const e of timeline) {
+    if (e.type !== "positions" && e.type !== "economy") continue;
+    const names = (v: unknown): string[] =>
+      Array.isArray(v)
+        ? v.map((h) => String((h as Record<string, unknown>).hero ?? "")).filter(Boolean)
+        : [];
+    const radiant = names(e.payload.radiant_heroes);
+    const dire = names(e.payload.dire_heroes);
+    if (radiant.length || dire.length) return { radiant, dire };
+  }
+  return { radiant: [], dire: [] };
+}
+
+// Candidate two-letter tags for a hero, best first: the initials of the first
+// two words ("Crystal Maiden" -> CM), then the first letter paired with each
+// later letter ("Lich" -> LI, LC, LH).
+function tagCandidates(name: string): string[] {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const out: string[] = [];
+  if (words.length >= 2 && words[0][0] && words[1][0]) {
+    out.push((words[0][0] + words[1][0]).toUpperCase());
+  }
+  const letters = name.replace(/[^A-Za-z]/g, "");
+  const first = (letters[0] ?? "?").toUpperCase();
+  for (let i = 1; i < letters.length; i++) {
+    out.push((first + letters[i]).toUpperCase());
+  }
+  return out;
+}
+
+// A short tag per hero, unique WITHIN this match's ten — the identity token
+// reused on the map dot, the scoreboard row, the net-worth label and the feed.
+// Assignment is greedy in roster order, so it is deterministic: the same match
+// always yields the same tags, and a Lich/Lion pair resolves to LI/LO.
+export function heroTags(timeline: TimelineEvent[]): Map<string, string> {
+  const { radiant, dire } = rosterOf(timeline);
+  const tags = new Map<string, string>();
+  const taken = new Set<string>();
+  for (const hero of [...radiant, ...dire]) {
+    if (tags.has(hero)) continue;
+    const pick =
+      tagCandidates(hero).find((c) => !taken.has(c)) ??
+      `${(hero[0] ?? "?").toUpperCase()}${taken.size}`;
+    taken.add(pick);
+    tags.set(hero, pick);
+  }
+  return tags;
+}
+
+// ---------------------------------------------------------------------------
+// Map placement
+// ---------------------------------------------------------------------------
+
+export interface PlacedDot extends HeroDot {
+  px: number; // drawn position, nudged out of a pile so labels stay readable
+  py: number;
+  nudged: boolean; // drawn far enough from the truth to deserve a leader line
+}
+
+const MERGE_RADIUS = 6.0; // closer than this and dots start pushing apart
+const MERGE_FLOOR = 1.0; // at or below this the push is at full strength
+const MAX_SHIFT = 4.0; // hard cap: a dot never lies by more than 4% of the map
+const NUDGE_VISIBLE = 1.5; // beyond this the drawn dot earns a leader line
+
+// Push crowded dots apart so ten labelled tokens stay readable, without ever
+// lying by much. The displacement is a CONTINUOUS function of how close the
+// nearest neighbour is, so dots ease apart as heroes converge rather than
+// popping; the bearing is fixed per slot, so it is deterministic (this is
+// presentational state and must stay rng-free, like the engine's own).
+export function spreadDots(dots: HeroDot[]): PlacedDot[] {
+  return dots.map((d, i) => {
+    let nearest = Infinity;
+    for (let j = 0; j < dots.length; j++) {
+      if (j === i) continue;
+      const o = dots[j];
+      const dist = Math.hypot(d.x - o.x, d.y - o.y);
+      if (dist < nearest) nearest = dist;
+    }
+    const crowding = clamp(
+      (MERGE_RADIUS - nearest) / (MERGE_RADIUS - MERGE_FLOOR),
+      0,
+      1,
+    );
+    const shift = crowding * MAX_SHIFT;
+    const angle = (i * 2 * Math.PI) / Math.max(dots.length, 1);
+    return {
+      ...d,
+      px: clamp(d.x + Math.cos(angle) * shift, 3, 97),
+      py: clamp(d.y + Math.sin(angle) * shift, 3, 97),
+      nudged: shift > NUDGE_VISIBLE,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Events on the map
+// ---------------------------------------------------------------------------
+
+export interface Casualty {
+  hero: string;
+  side: "radiant" | "dire";
+  t: number; // when they fell
+  x: number; // where they fell (the fight's own coordinates)
+  y: number;
+}
+
+// Heroes named as casualties in a fight within the last `windowSec` game
+// seconds — the exact names the feed narrates, so the log line and the dots
+// that hollow out are the same heroes.
+export function casualtiesAt(
+  timeline: TimelineEvent[],
+  clock: number,
+  windowSec = 40,
+): Map<string, Casualty> {
+  const out = new Map<string, Casualty>();
+  for (const e of timeline) {
+    if (e.t > clock) break;
+    if (e.type !== "fight" || e.t < clock - windowSec) continue;
+    const x = Number(e.payload.x ?? 50);
+    const y = Number(e.payload.y ?? 50);
+    for (const side of ["radiant", "dire"] as const) {
+      for (const hero of asNames(e.payload[`${side}_deaths`])) {
+        out.set(hero, { hero, side, t: e.t, x, y });
+      }
+    }
+  }
+  return out;
+}
+
+export interface MapMarker {
+  key: string;
+  kind: "fight" | "objective" | "roshan";
+  x: number;
+  y: number;
+  side: Side; // whose beat this was
+  t: number;
+  age: number; // game seconds since it fired
+  life: number; // how long it stays on the map
+  label: string; // describeEvent's own text, so map and feed can never drift
+  deaths: number;
+  emphasis: boolean; // first blood / comeback / the Ancient
+}
+
+const FIGHT_LIFE = 90;
+const OBJECTIVE_LIFE = 150;
+const ANCIENT_LIFE = 240;
+const ROSHAN_LIFE = 150;
+
+// Markers for the narrated beats, as of the clock. Pure in the clock, so
+// scrubbing backwards re-shows them exactly.
+export function mapMarkersAt(
+  timeline: TimelineEvent[],
+  clock: number,
+  lifeScale = 1,
+): MapMarker[] {
+  const out: MapMarker[] = [];
+  for (let i = 0; i < timeline.length; i++) {
+    const e = timeline[i];
+    if (e.t > clock) break;
+    const beat = describeEvent(e);
+    if (e.type === "fight") {
+      const life = FIGHT_LIFE * lifeScale;
+      if (e.t < clock - life) continue;
+      const deaths =
+        asNames(e.payload.radiant_deaths).length +
+        asNames(e.payload.dire_deaths).length;
+      out.push({
+        key: `fight:${i}`,
+        kind: "fight",
+        x: Number(e.payload.x ?? 50),
+        y: Number(e.payload.y ?? 50),
+        side: String(e.payload.winner) as Side,
+        t: e.t,
+        age: clock - e.t,
+        life,
+        label: beat.text,
+        deaths,
+        emphasis: Boolean(e.payload.first_blood || e.payload.comeback),
+      });
+    } else if (e.type === "objective") {
+      const structure = String(e.payload.structure);
+      const life = (structure === "ancient" ? ANCIENT_LIFE : OBJECTIVE_LIFE) * lifeScale;
+      if (e.t < clock - life) continue;
+      // The destroyer is named; the structure belongs to the other side.
+      const destroyer = String(e.payload.team) as "radiant" | "dire";
+      const victim = destroyer === "radiant" ? "dire" : "radiant";
+      const at = structurePoint(
+        victim,
+        structure,
+        e.payload.lane == null ? null : String(e.payload.lane),
+      );
+      if (!at) continue;
+      out.push({
+        key: `obj:${i}`,
+        kind: "objective",
+        x: at[0],
+        y: at[1],
+        side: destroyer,
+        t: e.t,
+        age: clock - e.t,
+        life,
+        label: beat.text,
+        deaths: 0,
+        emphasis: structure === "ancient",
+      });
+    } else if (e.type === "roshan") {
+      const life = ROSHAN_LIFE * lifeScale;
+      if (e.t < clock - life) continue;
+      out.push({
+        key: `rosh:${i}`,
+        kind: "roshan",
+        x: ROSHAN_PIT[0],
+        y: ROSHAN_PIT[1],
+        side: String(e.payload.team) as Side,
+        t: e.t,
+        age: clock - e.t,
+        life,
+        label: beat.text,
+        deaths: 0,
+        emphasis: true,
+      });
+    }
+  }
+  return out;
+}
+
+// Who holds the Aegis, if anyone. Possession is STATE, not a beat: it outlives
+// any marker, so the map shows it as a standing pill until it expires.
+const AEGIS_SECONDS = 300;
+
+export function aegisAt(
+  timeline: TimelineEvent[],
+  clock: number,
+): { side: "radiant" | "dire"; expiresAt: number } | null {
+  let held: { side: "radiant" | "dire"; expiresAt: number } | null = null;
+  for (const e of timeline) {
+    if (e.t > clock) break;
+    if (e.type !== "roshan") continue;
+    held = {
+      side: String(e.payload.team) as "radiant" | "dire",
+      expiresAt: e.t + AEGIS_SECONDS,
+    };
+  }
+  return held && held.expiresAt > clock ? held : null;
+}
+
+// ---------------------------------------------------------------------------
+// Per-hero net worth
+// ---------------------------------------------------------------------------
+
+export interface HeroSeries {
+  hero: string;
+  side: "radiant" | "dire";
+  slot: number; // draft order within the side; drives the dash pattern
+  points: { t: number; netWorth: number }[];
+}
+
+// One net-worth series per hero across the whole match — the Dota-replay view
+// the team totals can't give you (who on a losing side is actually farming).
+export function heroNetworthSeries(timeline: TimelineEvent[]): HeroSeries[] {
+  const byKey = new Map<string, HeroSeries>();
+  for (const e of timeline) {
+    if (e.type !== "economy") continue;
+    for (const side of ["radiant", "dire"] as const) {
+      const heroes = heroList(e.payload[`${side}_heroes`]);
+      heroes.forEach((h, slot) => {
+        const key = `${side}:${h.hero}`;
+        let series = byKey.get(key);
+        if (!series) {
+          series = { hero: h.hero, side, slot, points: [] };
+          byKey.set(key, series);
+        }
+        series.points.push({ t: e.t, netWorth: h.netWorth });
+      });
+    }
+  }
+  return [...byKey.values()];
 }

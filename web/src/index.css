@@ -199,9 +199,12 @@ select:focus, input:focus { border-color: var(--brand); }
   display: inline-flex; align-items: center; gap: 7px;
   padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer;
   border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
-  font-weight: 550; transition: background .12s, border-color .12s, opacity .12s;
+  font-weight: 550;
+  transition: background .12s, border-color .12s, opacity .12s, transform .12s ease-out;
 }
 .btn:hover:not(:disabled) { background: var(--surface-3); }
+/* Press feedback: the control acknowledges the click before anything loads. */
+.btn:active:not(:disabled) { transform: scale(0.97); }
 .btn:disabled { opacity: .45; cursor: default; }
 .btn.primary { background: var(--brand); border-color: var(--brand); color: #1a1206; }
 .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
@@ -379,7 +382,64 @@ tbody tr:hover td { background: var(--surface-2); }
 
 /* The viewer is a dashboard, not a document: scoreboard, map and graphs each
    get their own card and sit side by side rather than stacking full-width. */
-.viewer-top { display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start; }
+.viewer-top { display: grid; grid-template-columns: 1fr 380px; gap: 14px; align-items: start; }
+
+/* A card whose title shares its line with a control. */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.card-head h3 { margin: 0; }
+.seg-sm button { padding: 3px 8px; font-size: 11.5px; }
+
+/* The minimap scales with its card rather than a fixed pixel size: a hero
+   token carries a two-letter monogram, which needs the map big enough for the
+   glyph to be legible (measured: heroes sit a median 2.4 map-units apart). */
+.minimap {
+  display: block; width: 100%; aspect-ratio: 1 / 1;
+  max-width: 340px; min-width: 240px; margin: 0 auto;
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.aegis-pill {
+  margin: 8px 0 0; text-align: center; font-size: 12px; color: var(--ink-2);
+  border: 1px dashed var(--brand); border-radius: 99px; padding: 3px 8px;
+}
+
+/* Hero identity chip — the same two letters on the map token, the scoreboard
+   row, the net-worth label and the feed, so one hero reads as one thing. */
+.hchip {
+  display: inline-block; min-width: 21px; text-align: center;
+  font-family: var(--num); font-size: 10.5px; font-weight: 700;
+  letter-spacing: -.02em; color: var(--bg);
+  padding: 1px 4px; border-radius: 4px; margin-right: 6px;
+}
+.hchip-quiet { background: var(--surface-3); color: var(--ink-2); margin-right: 4px; }
+.feed-hero { white-space: nowrap; }
+
+/* Scoreboard rows are buttons: hovering or keyboard-focusing one lights that
+   hero up on the map and in the graph. */
+.hero-row {
+  display: block; width: 100%; text-align: left; margin-bottom: 4px;
+  padding: 2px 4px; border: 0; border-radius: 6px;
+  background: none; color: inherit; font: inherit; cursor: pointer;
+  transition: background .12s, opacity .12s;
+}
+.hero-row:hover, .hero-row[aria-pressed="true"] { background: var(--surface-2); }
+.hero-row:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.hero-row-line {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .8rem; line-height: 1.4;
+}
+.hero-row-name { display: inline-flex; align-items: center; }
+.hero-row-level { min-width: 18px; margin-right: 6px; font-size: .7rem; color: var(--ink-3); }
+.hero-row-kda { font-size: .7rem; color: var(--ink-3); margin-right: 10px; }
+.hero-row-gold { color: var(--ink-2); }
+.hero-row-item { font-size: .65rem; color: var(--ink-3); margin-top: 1px; }
+
+/* The feed scrolls instead of growing — a finished match has ~100 beats. */
+.feed {
+  list-style: none; padding: 0; margin: 0;
+  font-family: var(--num); font-size: .85rem;
+  max-height: 264px; overflow-y: auto;
+}
+.feed li { padding: 4px 6px; border-bottom: 1px solid var(--line-soft); }
 .viewer-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 
 @media (max-width: 980px) {
@@ -408,3 +468,19 @@ tbody tr:hover td { background: var(--surface-2); }
   font-variant-numeric: tabular-nums;
 }
 .tchip.dim { color: var(--ink-3); border-style: dashed; }
+
+/* ---------- reduced motion ---------- */
+/* Someone who asks their OS to reduce motion gets the same information with
+   none of the movement — the Match Viewer's gliding dots included. Durations
+   collapse to near-zero rather than being removed outright, so anything
+   waiting on a transitionend still fires. `!important` is what lets this beat
+   the viewer's inline transitions, whose timing is computed from playback
+   speed and so can't live in a stylesheet. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
