@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { TimelineEvent } from "../../types";
 import {
+  aegisAt,
+  casualtiesAt,
   clamp,
   describeEvent,
+  heroNetworthSeries,
+  heroTags,
+  mapMarkersAt,
+  spreadDots,
   eventsUpTo,
   fallenStructuresAt,
   heroScoresAt,
@@ -236,5 +242,162 @@ describe("describeEvent", () => {
       type: "objective",
       payload: { team: "radiant", structure: "tier-1 tower", lane: "mid" },
     }).text).toBe("Radiant destroy the mid tier-1 tower");
+  });
+});
+
+// --- hero identity, map placement, and the per-hero economy view ------------
+
+const ROSTER: TimelineEvent[] = [
+  {
+    t: 30,
+    type: "positions",
+    payload: {
+      radiant_heroes: [
+        { hero: "Juggernaut", x: 60, y: 80 },
+        { hero: "Crystal Maiden", x: 62, y: 82 },
+        { hero: "Lich", x: 20, y: 30 },
+      ],
+      dire_heroes: [
+        { hero: "Lion", x: 40, y: 20 },
+        { hero: "Phantom Assassin", x: 42, y: 22 },
+      ],
+    },
+  },
+  {
+    t: 30,
+    type: "economy",
+    payload: {
+      radiant_net_worth: 3000,
+      dire_net_worth: 2000,
+      radiant_heroes: [
+        { hero: "Juggernaut", net_worth: 1500, level: 5 },
+        { hero: "Crystal Maiden", net_worth: 900, level: 4 },
+        { hero: "Lich", net_worth: 600, level: 4 },
+      ],
+      dire_heroes: [
+        { hero: "Lion", net_worth: 1100, level: 4 },
+        { hero: "Phantom Assassin", net_worth: 900, level: 5 },
+      ],
+    },
+  },
+];
+
+describe("heroTags", () => {
+  it("gives every hero a unique two-letter tag, resolving collisions", () => {
+    const tags = heroTags(ROSTER);
+    expect(tags.get("Crystal Maiden")).toBe("CM"); // initials when multi-word
+    expect(tags.get("Phantom Assassin")).toBe("PA");
+    expect(tags.get("Juggernaut")).toBe("JU");
+    // Lich takes LI; Lion must fall through to its next candidate.
+    expect(tags.get("Lich")).toBe("LI");
+    expect(tags.get("Lion")).not.toBe("LI");
+    expect(new Set([...tags.values()]).size).toBe(tags.size);
+  });
+
+  it("is deterministic across calls", () => {
+    expect([...heroTags(ROSTER)]).toEqual([...heroTags(ROSTER)]);
+  });
+});
+
+describe("spreadDots", () => {
+  // Start well inside the map: dots are clamped to [3, 97], so a fixture that
+  // runs off the edge would measure the clamp instead of the declutter.
+  const pile = (n: number, gap: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      hero: `H${i}`,
+      side: (i % 2 === 0 ? "radiant" : "dire") as "radiant" | "dire",
+      x: 15 + i * gap,
+      y: 50,
+    }));
+
+  it("never moves a dot further than the 4-unit cap", () => {
+    for (const d of spreadDots(pile(10, 0))) {
+      expect(Math.hypot(d.px - d.x, d.py - d.y)).toBeLessThanOrEqual(4.0001);
+    }
+  });
+
+  it("leaves well-separated dots exactly where the engine put them", () => {
+    for (const d of spreadDots(pile(4, 20))) {
+      expect(d.px).toBeCloseTo(d.x, 6);
+      expect(d.py).toBeCloseTo(d.y, 6);
+      expect(d.nudged).toBe(false);
+    }
+  });
+
+  it("moves smoothly as heroes converge — no popping between frames", () => {
+    // Ten heroes collapse onto one point over 60 frames. A discontinuous
+    // declutter would jump; this asserts every frame is a small step.
+    let previous = spreadDots(pile(10, 3));
+    for (let frame = 1; frame <= 60; frame++) {
+      const gap = 3 * (1 - frame / 60);
+      const next = spreadDots(pile(10, gap));
+      next.forEach((d, i) => {
+        const jump = Math.hypot(d.px - previous[i].px, d.py - previous[i].py);
+        expect(jump).toBeLessThan(1.5);
+      });
+      previous = next;
+    }
+  });
+
+  it("is rng-free: the same input always places dots identically", () => {
+    expect(spreadDots(pile(10, 1))).toEqual(spreadDots(pile(10, 1)));
+  });
+});
+
+describe("casualtiesAt", () => {
+  it("names the fallen from the fight, at the fight's own coordinates", () => {
+    const tl: TimelineEvent[] = [
+      { t: 300, type: "fight", payload: { winner: "dire", x: 55, y: 45, radiant_deaths: ["Axe"], dire_deaths: [] } },
+    ];
+    const fallen = casualtiesAt(tl, 310);
+    expect(fallen.get("Axe")).toMatchObject({ side: "radiant", x: 55, y: 45, t: 300 });
+  });
+
+  it("forgets a death once its window has passed", () => {
+    const tl: TimelineEvent[] = [
+      { t: 300, type: "fight", payload: { winner: "dire", x: 55, y: 45, radiant_deaths: ["Axe"], dire_deaths: [] } },
+    ];
+    expect(casualtiesAt(tl, 500).size).toBe(0);
+    expect(casualtiesAt(tl, 250).size).toBe(0); // and never shows one early
+  });
+});
+
+describe("mapMarkersAt", () => {
+  it("marks fights where they happened and carries the feed's own wording", () => {
+    const markers = mapMarkersAt(TIMELINE, 380);
+    const fight = markers.find((m) => m.kind === "fight");
+    expect(fight?.label).toBe(describeEvent(TIMELINE[2]).text);
+    expect(fight?.deaths).toBe(1);
+  });
+
+  it("places an objective marker on the structure that fell", () => {
+    const markers = mapMarkersAt(TIMELINE, 500);
+    const obj = markers.find((m) => m.kind === "objective");
+    // Dire destroyed it, so it is a RADIANT structure that is now down.
+    expect(obj).toBeTruthy();
+    expect(obj!.side).toBe("dire");
+  });
+
+  it("expires markers, and never shows one before it fires", () => {
+    expect(mapMarkersAt(TIMELINE, 350).some((m) => m.kind === "fight")).toBe(false);
+    expect(mapMarkersAt(TIMELINE, 900).some((m) => m.kind === "fight")).toBe(false);
+  });
+});
+
+describe("aegisAt", () => {
+  it("holds while the aegis lives and lapses afterwards", () => {
+    expect(aegisAt(TIMELINE, 700)?.side).toBe("dire");
+    expect(aegisAt(TIMELINE, 1000)).toBeNull();
+    expect(aegisAt(TIMELINE, 100)).toBeNull();
+  });
+});
+
+describe("heroNetworthSeries", () => {
+  it("gives one series per hero, tagged with side and draft slot", () => {
+    const series = heroNetworthSeries(ROSTER);
+    expect(series).toHaveLength(5);
+    const jug = series.find((s) => s.hero === "Juggernaut");
+    expect(jug).toMatchObject({ side: "radiant", slot: 0 });
+    expect(jug!.points).toEqual([{ t: 30, netWorth: 1500 }]);
   });
 });
