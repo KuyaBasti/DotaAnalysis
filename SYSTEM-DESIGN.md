@@ -203,7 +203,8 @@ Longer rationale for the load-bearing calls lives in
 | Patch Explorer | Web | React · Vite | ✅ built | `web/src/pages/PatchExplorer.tsx` |
 | Draft Studio | Web | React · Vite | ✅ built | `web/src/pages/DraftStudio/` |
 | Match Viewer (playback) | Web | React · Vite | ✅ built | `web/src/pages/MatchViewer/` |
-| Minimap w/ moving heroes | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/Minimap.tsx` |
+| Minimap w/ labelled heroes + event markers | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/Minimap.tsx`, `mapGeometry.ts` |
+| Per-hero net worth (replay-style) | Web | React (SVG) | ✅ built | `web/src/pages/MatchViewer/NetworthGraph.tsx` |
 | Rust engine | Engine | Rust | ⬜ planned | `engine/` |
 | Job queue (batch Monte Carlo) | Backend | — | ⬜ planned | — *(on-demand aggregation is built; queue is for scale)* |
 | Per-rank models | ML + API + Web | Python · TS · React | ✅ built | `features/brackets.py`, `models/win_probability/`, `analysis.ts`, Draft Studio |
@@ -245,7 +246,7 @@ Stage 0 (design) → Stage 8 (launch). Full task lists and exit criteria in
 | 2 | Data foundation | ✅ snapshots + auto-harvesting 100k+ ranked corpus + parsed details |
 | 3 | Engine core | ✅ full watchable game (real economy, fights/K/D/A, Roshan, levels, item timings, 2-sided objectives, positions); ⬜ Rust port |
 | 4 | Orchestrator / API | 🟡 API + draft eval + simulate-a-draft + **Monte-Carlo aggregate**; ⬜ job queue (batch scale) |
-| 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap, win-prob, feed) |
+| 5 | Frontend | ✅ Draft Studio + Match Viewer playback (scoreboard, minimap with labelled heroes and event markers, per-hero net worth, win-prob, feed) |
 | 6 | ML &amp; calibration | ✅ feature store, calibration harness (Brier-gated), **per-bracket models + ratings + synergy/counter terms**, fight resolver calibrated on 11k real teamfights (affine gold-relative scale; the ML candidate was spiked and lost to it) |
 | 7 | Coach Lab / education | ✅ **explanation + next-pick suggestions + farm-timing windows** |
 | 8 | Beta &amp; launch | ⬜ not started (personal project — no ship planned yet) |

@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **87 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **89 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -395,6 +395,37 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**The viewer learns to say who.** Watching a sim, the owner reported the dots
+weren't moving. They were right, and the first fix was aimed at the wrong
+thing: `positionsAt` already interpolates every frame, so nothing was ever
+stepped — the heroes simply barely moved, a median 1.36 map-units per 30s tick
+(~3 px), under the threshold where the eye reads motion. Heroes now walk a slow
+deterministic circuit around their anchor (median 3.37 units), still pure in
+`(t, hero index)` so outcomes are untouched — seed 123 ends identically.
+
+Then the deeper version of the same complaint: the viewer didn't show *what
+the match was saying*. Three gaps, all data that was already in the timeline
+and simply never drawn. Fixed together, on a design chosen by a judged panel:
+every hero carries a **two-letter monogram** (`PA`, `CM`, `WD`) shared by the
+map token, the scoreboard row, the net-worth line and the feed text, unique
+within the match and deterministic — Lich and Lion in seed 123 resolve to
+`LI`/`LC`. Fights now leave a ring where they happened with the casualty
+count, the heroes the feed names **hollow out** with an X at the fight's
+coordinates, objectives mark the structure that fell, and Roshan raises a
+standing Aegis pill. Net worth gained a **Teams | Heroes** toggle: ten series
+with their own scale, side for colour, draft slot for dash, monograms riding
+each line's head so their vertical order is the farm leaderboard. Hovering a
+hero anywhere lights it up everywhere.
+
+Because heroes sit a median 2.4 map-units apart, ten labelled tokens had to be
+nudged apart to stay readable — and a debugging aid that quietly lies is worse
+than a cluttered one, so the displacement is capped at 4 units, any nudged dot
+draws a hairline back to its true position, and a **Spread | Raw** toggle
+shows the engine's literal coordinates. Reading those files turned up two
+bugs nobody had reported: the scoreboard re-sorted by net worth every 30
+game-seconds (so the hero you were tracking kept jumping), and the feed grew
+unbounded to ~100 rows.
 
 **The spike becomes an instrument.** The fight-scale fit was a pile of
 scratchpad scripts that would have evaporated with the session; now it's
