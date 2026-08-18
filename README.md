@@ -58,6 +58,15 @@ one game in the **Match Viewer**) or **📊 Analyze (200 sims)** — a Monte-Car
 win-probability distribution + duration spread, with a representative game to
 watch.
 
+In the **Match Viewer** every hero carries a two-letter tag — `PA`, `CM`, `WD`
+— shared by its map token, scoreboard row, net-worth line and the match feed,
+so one hero reads as one thing everywhere; hover any of them and it lights up
+in all four. The map draws what the feed narrates: fights ring where they
+happened with a casualty count, the heroes named in the log hollow out, towers
+mark as they fall, and Roshan raises an Aegis pill. Net worth toggles between
+**Teams** and **Heroes** — ten per-hero lines whose end labels, riding the play
+head, order themselves into the farm leaderboard.
+
 Under the win bar you get **why** and **what next**. *Why* is a per-hero
 breakdown of who is moving the draft, in percentage points versus an average
 pick in that slot — move the rank selector and Sniper goes from **+17.5 points**
