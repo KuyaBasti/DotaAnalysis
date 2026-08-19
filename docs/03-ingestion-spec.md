@@ -97,11 +97,16 @@ Robustness (an API this size hiccups constantly):
 - **429** (rate limit): honor `Retry-After` / back off; stop cleanly when the
   budget is exhausted — the run resumes later.
 - **5xx / transport errors** on a single match: skip it and keep going.
-- **Not-yet-parsed matches**: recorded in an unparsed-id ledger so they aren't
-  retried forever; already-fetched matches are skipped (resumable).
+- **Not-yet-parsed matches**: recorded in an age-aware ledger
+  (`{match_id: attempt_ts}`). A match tried while young is retried after a
+  2-day cooldown until it parses or ages past a 14-day grace (OpenDota parses
+  lazily, often days late); a match tried when already old is final.
+  Already-fetched matches are skipped (resumable).
 
-Only ~half of banked matches are parsed on OpenDota at a given time, so backfill
-is best-effort and incremental.
+The walk is **newest-first**, so a fresh patch's details start flowing
+immediately instead of queueing behind the pre-patch backlog. Only ~half of
+banked matches are parsed on OpenDota at a given time, so backfill is
+best-effort and incremental.
 
 **It runs on a cron** (`30 1,7,13,19`, `--max 500`), offset from the harvester
 so the two never share a minute — see

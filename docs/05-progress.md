@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **89 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **91 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -395,6 +395,21 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**The backfill learns about time.** Five days into 7.41e the parsed-details
+corpus had one new-patch match — and the first diagnosis (the unparsed ledger
+permanently writing off fresh matches) was wrong: measuring the real ledger
+showed all 3,503 entries were old backlog. The actual cause was ordering —
+the oldest-first walk had a 32k pre-patch Divine+ queue ahead of the first
+7.41e game, weeks of cron budget away. Fixed as a pair that only works
+together: the ledger became age-aware (young misses retry on a 2-day cooldown
+until they parse or age past 14 days; old misses stay final — the legacy list
+migrates by stamping entries at load, persisted immediately, since an
+in-memory migration would re-stamp forever), and the walk flipped to
+newest-first, which is only safe *because* of that ledger. Live smoke run: 15
+fetches → 8 parsed, all on 7.41e, 53% parse rate at the newest edge. The
+new-patch details corpus went from starving to ~250/run, moving the meta
+refresh's details leg from a month out to days.
 
 **The viewer learns to say who.** Watching a sim, the owner reported the dots
 weren't moving. They were right, and the first fix was aimed at the wrong

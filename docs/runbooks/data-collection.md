@@ -48,13 +48,21 @@ known-unparsed`. (Batch raised 200 → 500 after measuring the cron's real
 cadence: macOS `cron` skips slots that pass while the laptop sleeps — only
 ~43% of scheduled runs landed in the first days — so each run that does land
 carries a bigger batch. The client's 1 req/sec throttle makes a 500-fetch run
-~8 minutes, still far inside the :30 offset from the harvester.) The known-unparsed count only grows: OpenDota hasn't parsed
-those matches, and the ledger (`data/details/_unparsed.json`) stops them being
-refetched forever.
+~8 minutes, still far inside the :30 offset from the harvester.)
+
+The backfill walks **newest matches first** — everything downstream of
+`data/details/` measures the current meta, and the old oldest-first order once
+left a 32k pre-patch backlog queued ahead of a new patch's first game (weeks
+of budget before the new meta gained a single parsed match). The unparsed
+ledger (`data/details/_unparsed.json`) is **age-aware**: OpenDota parses
+lazily, often days late, so a match tried while young is retried after a
+2-day cooldown until it parses or ages past a 14-day grace; a match tried
+when already old is final. The known-unparsed count can therefore dip as
+young misses later parse and clear their entries.
 
 **If `stored` is 0 across several runs** the corpus has outrun what OpenDota has
 parsed — not an error, just nothing new to take. **If `fetched` is 0**, every
-banked match has already been tried.
+banked match is stored, final, or on retry cooldown.
 
 ## Why the parsed corpus matters
 
