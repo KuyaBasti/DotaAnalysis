@@ -4,12 +4,17 @@ Every cross-language contract lives in `schemas/` as JSON Schema (Draft-07) — 
 single source of truth shared by the Python engine, the TypeScript API, and the
 React web app. This doc explains each contract and the on-disk data layout.
 
-The four `/analysis/*` response contracts are **enforced in CI**
-(`api/tests/contracts.test.ts` validates the real route responses with ajv), so
+These contracts are **enforced end to end**. On the API side,
+`api/tests/contracts.test.ts` validates the real route responses with ajv, so
 API-vs-schema drift is a test failure rather than a silent divergence — the bug
-shape that once dropped the `bracket` field between web and API. The web's
-TypeScript types remain hand-written; generating them from these schemas is the
-remaining (tracked) step.
+shape that once dropped the `bracket` field between web and API. On the web
+side, the TypeScript types for every schema-backed response are **generated
+from these schemas** (`npm run generate:types` →
+`web/src/types/generated.ts`, checked in); a freshness test regenerates in
+memory and diffs against the file, so editing a schema without regenerating
+fails `npm test`. Nested shapes carry `title` annotations because that is
+what names the generated interfaces (`HeroContribution`, `TimingSide`,
+`SimSummary`, …) — keep titling new nested objects.
 
 Validate the schemas with:
 
