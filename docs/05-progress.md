@@ -6,7 +6,7 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **91 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **93 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
@@ -395,6 +395,21 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**The contract loop closes.** The last tracked debt from the contracts work:
+the web's TypeScript types were hand-written mirrors of `schemas/`, so the
+CI enforcement stopped at the API boundary. Now they are generated from the
+schemas (`npm run generate:types`, json-schema-to-typescript), checked in for
+zero editor plumbing, and guarded by a freshness test that regenerates in
+memory and diffs against the file — a schema edit without regeneration fails
+`npm test` (verified both mutation directions die). The work improved the
+contract itself: nested shapes gained the `title` annotations that name the
+generated interfaces, draft-timing's duplicated radiant/dire side collapsed
+into `definitions` + `$ref`, and sim-aggregate stopped under-promising —
+`duration_seconds`/`duration_histogram` are required, as the producer always
+behaved. The generated types are stricter than the hand-written ones they
+replaced (event-type unions, enum brackets, the objective counts the hand
+types dropped), and the only fallout was fixtures needing annotations.
 
 **The backfill learns about time.** Five days into 7.41e the parsed-details
 corpus had one new-patch match — and the first diagnosis (the unparsed ledger
