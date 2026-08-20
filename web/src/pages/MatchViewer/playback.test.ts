@@ -73,7 +73,7 @@ describe("structuresAt", () => {
 });
 
 describe("positionsAt", () => {
-  const tl = [
+  const tl: TimelineEvent[] = [
     { t: 30, type: "positions", payload: {
       radiant_heroes: [{ hero: "Axe", x: 10, y: 80 }],
       dire_heroes: [{ hero: "Lich", x: 90, y: 20 }],
@@ -100,7 +100,7 @@ describe("positionsAt", () => {
 });
 
 describe("fallenStructuresAt", () => {
-  const tl = [
+  const tl: TimelineEvent[] = [
     { t: 600, type: "objective", payload: { team: "dire", structure: "tier-1 tower", lane: "top" } },
     { t: 900, type: "objective", payload: { team: "radiant", structure: "barracks", lane: "bot" } },
     { t: 1200, type: "objective", payload: { team: "dire", structure: "ancient" } },
@@ -122,7 +122,7 @@ describe("fallenStructuresAt", () => {
 
 describe("heroScoresAt", () => {
   it("carries per-hero net worths from the latest economy tick", () => {
-    const tl = [
+    const tl: TimelineEvent[] = [
       { t: 30, type: "economy", payload: {
         radiant_net_worth: 300, dire_net_worth: 100,
         radiant_heroes: [{ hero: "Axe", net_worth: 200, level: 2 }, { hero: "Lion", net_worth: 100, level: 1 }],
@@ -144,7 +144,7 @@ describe("heroScoresAt", () => {
   });
 
   it("returns empty lists for sims without per-hero data", () => {
-    const tl = [
+    const tl: TimelineEvent[] = [
       { t: 30, type: "economy", payload: { radiant_net_worth: 100, dire_net_worth: 120 } },
     ];
     expect(heroScoresAt(tl, 60)).toEqual({ radiant: [], dire: [] });
