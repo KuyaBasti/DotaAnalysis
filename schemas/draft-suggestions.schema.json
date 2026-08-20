@@ -43,6 +43,7 @@
     "suggestions": {
       "type": "array",
       "items": {
+        "title": "HeroSuggestion",
         "type": "object",
         "required": [
           "hero",

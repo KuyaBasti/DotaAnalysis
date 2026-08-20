@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://draftmaster.dev/schemas/draft-timing.schema.json",
   "title": "DraftTiming",
-  "description": "Which lineup's gold engine the long game favours (Coach Lab). FARM timing, never win timing \u2014 the two measurably diverge. Built from outcome-balanced within-team gold shares in parsed real games. Served at POST /analysis/timing.",
+  "description": "Which lineup's gold engine the long game favours (Coach Lab). FARM timing, never win timing — the two measurably diverge. Built from outcome-balanced within-team gold shares in parsed real games. Served at POST /analysis/timing.",
   "type": "object",
   "required": [
     "patch_id",
@@ -25,144 +25,10 @@
       }
     },
     "radiant": {
-      "type": "object",
-      "required": [
-        "curve_rel",
-        "scaling_sum",
-        "measured",
-        "heroes"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "curve_rel": {
-          "type": "array",
-          "items": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "description": "Lineup's summed within-team share relative to its own minute-5 baseline; null where any measured hero lacks that minute."
-        },
-        "scaling_sum": {
-          "type": "number"
-        },
-        "measured": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5
-        },
-        "heroes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "hero",
-              "hero_id",
-              "scaling",
-              "n",
-              "gated"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "hero": {
-                "type": "string",
-                "pattern": "^[a-z0-9_]+$",
-                "description": "Stable hero key (npc_dota_hero_ stripped)."
-              },
-              "hero_id": {
-                "type": "integer"
-              },
-              "scaling": {
-                "type": [
-                  "number",
-                  "null"
-                ],
-                "description": "Share of TEAM gold this hero's slice moves, minute 5 -> 25 (outcome-balanced). Null = unmeasurable."
-              },
-              "n": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Scaling-bearing games behind the estimate."
-              },
-              "gated": {
-                "type": "boolean",
-                "description": "True once n clears the artifact's reliability gate."
-              }
-            }
-          }
-        }
-      }
+      "$ref": "#/definitions/TimingSide"
     },
     "dire": {
-      "type": "object",
-      "required": [
-        "curve_rel",
-        "scaling_sum",
-        "measured",
-        "heroes"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "curve_rel": {
-          "type": "array",
-          "items": {
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "description": "Lineup's summed within-team share relative to its own minute-5 baseline; null where any measured hero lacks that minute."
-        },
-        "scaling_sum": {
-          "type": "number"
-        },
-        "measured": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5
-        },
-        "heroes": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "hero",
-              "hero_id",
-              "scaling",
-              "n",
-              "gated"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "hero": {
-                "type": "string",
-                "pattern": "^[a-z0-9_]+$",
-                "description": "Stable hero key (npc_dota_hero_ stripped)."
-              },
-              "hero_id": {
-                "type": "integer"
-              },
-              "scaling": {
-                "type": [
-                  "number",
-                  "null"
-                ],
-                "description": "Share of TEAM gold this hero's slice moves, minute 5 -> 25 (outcome-balanced). Null = unmeasurable."
-              },
-              "n": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "Scaling-bearing games behind the estimate."
-              },
-              "gated": {
-                "type": "boolean",
-                "description": "True once n clears the artifact's reliability gate."
-              }
-            }
-          }
-        }
-      }
+      "$ref": "#/definitions/TimingSide"
     },
     "verdict": {
       "type": "string",
@@ -177,6 +43,83 @@
       "type": "number",
       "minimum": 0,
       "description": "|scaling_sum difference| in team-gold share (0.01 = 1pp)."
+    }
+  },
+  "definitions": {
+    "TimingSide": {
+      "title": "TimingSide",
+      "type": "object",
+      "required": [
+        "curve_rel",
+        "scaling_sum",
+        "measured",
+        "heroes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "curve_rel": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "description": "Lineup's summed within-team share relative to its own minute-5 baseline; null where any measured hero lacks that minute."
+        },
+        "scaling_sum": {
+          "type": "number"
+        },
+        "measured": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "heroes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TimingHero"
+          }
+        }
+      }
+    },
+    "TimingHero": {
+      "title": "TimingHero",
+      "type": "object",
+      "required": [
+        "hero",
+        "hero_id",
+        "scaling",
+        "n",
+        "gated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hero": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$",
+          "description": "Stable hero key (npc_dota_hero_ stripped)."
+        },
+        "hero_id": {
+          "type": "integer"
+        },
+        "scaling": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Share of TEAM gold this hero's slice moves, minute 5 -> 25 (outcome-balanced). Null = unmeasurable."
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Scaling-bearing games behind the estimate."
+        },
+        "gated": {
+          "type": "boolean",
+          "description": "True once n clears the artifact's reliability gate."
+        }
+      }
     }
   }
 }

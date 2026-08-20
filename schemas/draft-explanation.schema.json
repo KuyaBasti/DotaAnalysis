@@ -34,6 +34,7 @@
       "type": "array",
       "description": "Sorted by absolute swing, biggest mover first.",
       "items": {
+        "title": "HeroContribution",
         "type": "object",
         "required": [
           "hero",

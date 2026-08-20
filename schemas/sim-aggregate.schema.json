@@ -8,6 +8,8 @@
     "scenario",
     "runs",
     "radiant_win_rate",
+    "duration_seconds",
+    "duration_histogram",
     "representative_sim_id"
   ],
   "additionalProperties": false,
@@ -28,8 +30,15 @@
       "maximum": 1
     },
     "duration_seconds": {
+      "title": "DurationStats",
       "type": "object",
-      "description": "Game-length distribution across runs.",
+      "description": "Game-length distribution across runs. The producer (montecarlo) always emits every field; required matches that.",
+      "required": [
+        "mean",
+        "p25",
+        "median",
+        "p75"
+      ],
       "additionalProperties": false,
       "properties": {
         "mean": {
@@ -50,6 +59,7 @@
       "type": "array",
       "description": "Counts of games ending in each 5-minute bucket (for a chart).",
       "items": {
+        "title": "DurationBucket",
         "type": "object",
         "required": [
           "minute",

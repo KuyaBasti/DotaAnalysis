@@ -25,6 +25,7 @@
       "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
     },
     "summary": {
+      "title": "SimSummary",
       "type": "object",
       "required": [
         "winner",
