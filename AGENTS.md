@@ -27,6 +27,13 @@ remains the final source of truth.
 
 ## Workflow
 
+- **`/dm <mode>` routes the runbooks.** `health`, `refresh`, `patch-day`,
+  `review`, `spike`, `believability`, `docs-sweep` — the procedures live in
+  `.claude/skills/dm/SKILL.md`; resident subagents (calibration-judge,
+  leakage-auditor, frontend-critic, docs-sweeper) in `.claude/agents/`.
+- **Verify before merge.** Every vertical stops at localhost (or the
+  artifacts, when nothing is visual) for the owner's inspection; nothing is
+  PR'd or merged until they say so. Code PR first, docs PR second.
 - **One vertical per branch → PR → merge to `main`.** Branch names like
   `engine/objective-pacing`, `web/attr-groups`, `docs/refresh`.
 - **Incremental commits.** Smallest coherent change per commit — usually a single
