@@ -105,6 +105,7 @@ Generated artifacts land in `data/` (git-ignored). See
 - [docs/04-ml-engine.md](docs/04-ml-engine.md) — win-prob model, hero ratings, and the calibration harness
 - [docs/05-progress.md](docs/05-progress.md) — living log of what's shipped
 - [AGENTS.md](AGENTS.md) — always-loaded routing + conventions (`CLAUDE.md` aliases it)
+- [.claude/skills/dm/SKILL.md](.claude/skills/dm/SKILL.md) — `/dm` command center: one-word modes for the runbooks and multi-agent reviews
 - [docs/README.md](docs/README.md) — docs hub: read order and topical companions
 
 ## Status
