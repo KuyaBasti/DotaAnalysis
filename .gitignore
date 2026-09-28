@@ -36,3 +36,7 @@ artifacts/
 *.swp
 .idea/
 .vscode/
+
+# --- Third-party agent skills (installed locally; not ours to redistribute) ---
+.claude/skills/frontend-design/
+.claude/skills/emil-design-eng/
