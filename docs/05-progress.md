@@ -6,20 +6,20 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **93 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **95 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
-- **Calibration (n=2000):** Brier 0.296 (the win gate, best measured), duration
-  +0.8m of real, economy within ±1.3% of parsed real gold at min 10/20. The sim's
-  draft-edge→win curve now tracks the one measured on 59,410 real matches to
-  ~1pp.
-- **Data:** 127k matches banked / **59.4k ranked** in the feature store (every
-  bracket viable to train on). Parsed details (gold curves + purchase logs) sit
-  at a few hundred and are **now growing on their own cron** — that corpus is
-  the binding constraint on the rest of the roadmap.
+- **Calibration (n=2000, 7.41e baseline):** Brier 0.286 (the win gate),
+  duration +1.4m of real (7.41e games run shorter — real mean 32.6m, sim
+  34.0m), economy within ±1.6% of parsed real gold at min 10/20. The fight
+  scale, re-fit on 87k real teamfights, confirmed the shipped constants.
+- **Data:** 178k matches banked and in the feature store (per-bracket models
+  train on 31k–60k matches each). Parsed details at **11.8k games** — every
+  one of the 127 heroes clears the farm-timing reliability gate — growing on
+  their own crons, newest-first, with age-aware retries.
 - **Not shipped.** Personal project; no deploy.
 
 ## Stage status
@@ -395,6 +395,27 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**One-word workflows, and the first full meta turnover.** Two things landed
+together. The `/dm` command center (`.claude/skills/dm/SKILL.md`) turns the
+prose runbooks and the hand-written multi-agent prompts into modes — `health`,
+`refresh`, `patch-day`, `review`, `spike`, `believability`, `docs-sweep` —
+with four resident subagents (`.claude/agents/`) pre-briefed with the
+project's scars: the calibration judge's Brier-only doctrine, the leakage
+auditor's five traps, the frontend critic's house tokens and motion rules,
+the docs sweeper's four status surfaces. Then the refresh itself, the first
+time this project has measured a patch turnover end to end: features rebuilt
+on 178k matches, per-bracket models retrained on six times the data (the
+draft-matters-less-at-high-rank ordering held: AUC 0.671 → 0.649 → 0.608),
+trajectories from 11,784 games with **all 127 heroes clearing the gate** (78
+of 127 in July), calibration on the new meta green with **zero engine
+changes** — real games got shorter (32.6m) and the sim landed within +1.4m
+anyway, economy within 1.6% untouched, new Brier baseline 0.286 — and the
+fight scale re-fit on 87,299 fights, eight times its original corpus, came
+back within a hair of shipped (held-out 0.1912 vs 0.1913): no retune. The
+whole turnover produced regenerated artifacts and not one line of engine
+code, which is what a calibrated engine is supposed to do when the meta
+moves.
 
 **The contract loop closes.** The last tracked debt from the contracts work:
 the web's TypeScript types were hand-written mirrors of `schemas/`, so the
