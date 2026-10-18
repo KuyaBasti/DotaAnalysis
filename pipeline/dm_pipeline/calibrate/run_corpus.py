@@ -16,7 +16,12 @@ from typing import Any
 
 import polars as pl
 
-from dm_pipeline.calibrate.economy import CHECKPOINT_MINUTES, timeline_team_networth
+from dm_pipeline.calibrate.economy import (
+    CHECKPOINT_MINUTES,
+    LEAD_SPREAD_MINUTES,
+    timeline_team_lead,
+    timeline_team_networth,
+)
 from dm_pipeline.prototype.scenario import Scenario
 from dm_pipeline.prototype.sim_loop import simulate
 
@@ -77,6 +82,7 @@ def run_sim_corpus(
         radiant_wins = 0
         sim_durations: list[int] = []
         networth_at: dict[int, list[float]] = {m: [] for m in CHECKPOINT_MINUTES}
+        lead_at: dict[int, list[float]] = {m: [] for m in LEAD_SPREAD_MINUTES}
         for s in range(seeds):
             # Per-draft seeds: derive each sim's seed from the match id so a
             # single seed's quirks average out across drafts.
@@ -90,6 +96,10 @@ def run_sim_corpus(
                 nw = timeline_team_networth(timeline, minute)
                 if nw is not None:
                     networth_at[minute].append(nw)
+            for minute in LEAD_SPREAD_MINUTES:
+                lead = timeline_team_lead(timeline, minute)
+                if lead is not None:
+                    lead_at[minute].append(lead)
 
         records.append(
             {
@@ -104,6 +114,7 @@ def run_sim_corpus(
                     m: (sum(v) / len(v) if v else None)
                     for m, v in networth_at.items()
                 },
+                "sim_lead_at": lead_at,
             }
         )
     return records
