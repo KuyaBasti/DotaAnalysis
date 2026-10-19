@@ -65,7 +65,7 @@ remains the final source of truth.
   affects how a match is *shown* must be pure functions of game state, so adding
   them cannot change an outcome. Tests assert this — preserve it.
 - **Calibrate every engine change.** Run `dm-calibrate --sample 2000`: duration
-  within ±3 min, economy within ±5% of real (currently ±1%), and **Brier at or
+  within ±3 min, economy within ±5% of real (currently +1.6% / −3.8% at min 10 / 20), and **Brier at or
   below baseline**. The engine is tuned to **reality**, not to intuition —
   measure, don't guess.
 - **Win accuracy and per-hero `r` are not gates — they reward over-confidence.**

@@ -78,7 +78,7 @@ matches (AUC > 0.5 with margin). ✅ — logistic regression on hero presence
   cannot change any outcome (asserted in tests). ✅
 - **Calibrated** — against the real corpus, sim game-duration is within ±3 min of
   real (currently exact on the median) and team net worth is within ±5% of parsed
-  real curves at the 10- and 20-minute checkpoints (currently ±1%). ✅
+  real curves at the 10- and 20-minute checkpoints (currently +1.6% / −3.8% at min 10 / 20). ✅
 - ⬜ **Rust port** — the DES core reimplemented in `engine/`, timeline
   byte-compatible with the Python reference. *Not started.*
 
