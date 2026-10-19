@@ -69,10 +69,36 @@ _STRUCTURE_TOUGHNESS = {
     "ancient": 0.55,
 }
 
-# Roshan: the leading team contests it when up; the Aegis is a real net-worth swing.
-_ROSHAN_FIRST_SECONDS = 10 * 60  # worth contesting from ~10 min
-_ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill
-_ROSHAN_CHANCE = 0.15  # per-tick chance the leader takes an available Roshan
+# Roshan: real ranked teams leave him alone for most of the mid-game, then
+# fight over him; the Aegis is a real net-worth swing. Calibrated 2026-10-17
+# against 15,710 parsed ranked games: only 61% of games ever see a Roshan
+# (0.71 kills a game), the first falls at a median of 26.8 min (0.6% of games
+# by 15:00, 4.7% by 20:00, 49.6% by 30:00, 61.0% by 40:00), consecutive kills
+# come ~11.4 min apart, and the team ahead in gold takes it 87.6% of the time.
+# The old 10 min / 15%-per-tick Roshan fell at a median of 12 min, in ~84%
+# of games by 15:00 — an Aegis for every early leader that real teams rarely
+# have. A grid over first-window x chance on 1,200 real drafts picked 23 min
+# / 5%: 48.8% of games by 30:00, 63.4% by 40:00, a 27.0-min median first
+# kill, an 11.0-min gap, 0.78 kills a game. Duration rose ~0.5 min (dm-calibrate
+# 34.0 -> 34.5 vs real 32.6). (Nothing before 23:00, where real games take
+# 4.7% by 20:00 — a ramp would add that tail; not worth a second knob.)
+#
+# Coupled to duration — re-fit when duration is retuned: the target is the
+# share of ALL games with a Roshan by minute m, and sim games run longer than
+# real ones (alive at 35 min: 41.6% sim vs 26.7% real), so this chance is
+# ~25-30% below the real per-minute hazard for a game still in progress
+# (sim ~9.5%/min vs real 12-14%/min from minute 25). Fitting the hazard
+# instead (23 min / 6.5%) would give ~0.90 Roshans a game vs a real 0.71
+# while games run long.
+_ROSHAN_FIRST_SECONDS = 23 * 60
+_ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill (real gap ~11.4 min incl. the wait)
+_ROSHAN_CHANCE = 0.05  # per-tick chance an available Roshan is taken
+# Who takes him: the gold leader 87.6% of the time in real games (n=11,220).
+# A marginal over the REAL lead distribution — in real games the share rises
+# with the lead (58% under 2.5k, 85% at 5-7.5k, 98% past 15k), and sim leads
+# run 3-5x wider, so a flat share overstates big-deficit steals. A lead-
+# dependent share is the natural follow-up.
+_ROSHAN_LEADER_SHARE = 0.876
 _ROSHAN_REWARD = 2_500.0  # net-worth value of the Aegis + bounty
 
 _FIGHT_CHANCE = 0.36  # skirmish cadence: ~one fight per 1.4 min, like real mid-game (swings halved to keep the economy calibrated)
@@ -685,10 +711,11 @@ def _apply_draft_prior(
 
 
 def _roshan_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
-    """The leading team contests Roshan when it's up; the Aegis is a real swing.
+    """Roshan is contested once he's worth it; the Aegis is a real swing.
 
-    Roshan is worth taking from ~10 min and respawns ~9 min after each kill. The
-    net-worth leader claims it (chance per tick) and banks the Aegis + bounty.
+    From ~23 min (and ~9 min after each kill) an available Roshan falls at a
+    per-tick chance, usually to the team ahead in gold — but not always: real
+    trailing teams take about one in eight, mostly when the game is close.
     """
     if state.t < state.roshan_available_at:
         return
@@ -696,14 +723,15 @@ def _roshan_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
     if lead == 0 or not rng.chance(_ROSHAN_CHANCE):
         return
 
-    leader = state.radiant if lead > 0 else state.dire
-    _distribute(leader, _ROSHAN_REWARD)
+    leader, trailer = (state.radiant, state.dire) if lead > 0 else (state.dire, state.radiant)
+    taker = leader if rng.chance(_ROSHAN_LEADER_SHARE) else trailer
+    _distribute(taker, _ROSHAN_REWARD)
     state.roshan_available_at = state.t + _ROSHAN_RESPAWN_SECONDS
     timeline.emit(
         Event(
             t=state.t,
             type=EventType.ROSHAN,
-            payload={"team": leader.name, "reward": round(_ROSHAN_REWARD, 1)},
+            payload={"team": taker.name, "reward": round(_ROSHAN_REWARD, 1)},
         )
     )
 

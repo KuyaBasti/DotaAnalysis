@@ -18,6 +18,15 @@ from typing import Any
 from dm_pipeline import config
 
 CHECKPOINT_MINUTES = (10, 20)
+# Where the gold-lead spread is compared. A diagnostic, not a gate: matching
+# mean team gold says nothing about how far apart the two teams are, and the
+# engine's leads run 3-5x wider than real games' while the totals match within
+# 2% — invisible to every number this harness used to print. NOT quite like
+# for like: the sim lead is net worth, which fight losers are debited from,
+# while real gold_t is gold earned, which never drops; measured, that inflates
+# the ratio ~1.5x (earned-only sim leads run ~2-3.5x real). Real games that
+# end before minute 20 drop out of the minute-20 real sample (sims rarely do).
+LEAD_SPREAD_MINUTES = (10, 15, 20)
 
 
 def timeline_team_networth(timeline: Any, minute: int) -> float | None:
@@ -85,3 +94,73 @@ def economy_comparison(
             "ratio": round(sim_mean / real_mean, 3),
         }
     return checkpoints or None
+
+
+def timeline_team_lead(timeline: Any, minute: int) -> float | None:
+    """Radiant-minus-Dire net worth at ``minute`` from a sim timeline (None if too short)."""
+    t = minute * 60
+    for event in timeline.events:
+        if event.type.value == "economy" and event.t == t:
+            payload = event.payload
+            return payload["radiant_net_worth"] - payload["dire_net_worth"]
+    return None
+
+
+def real_abs_leads(
+    details_dir: Path | str | None = None,
+    minutes: tuple[int, ...] = LEAD_SPREAD_MINUTES,
+) -> dict[int, list[float]]:
+    """|Radiant - Dire| team gold (``gold_t`` sums) per minute, one value per parsed match."""
+    details_dir = Path(details_dir) if details_dir is not None else config.DETAILS_DIR
+    out: dict[int, list[float]] = {m: [] for m in minutes}
+    for path in glob.glob(str(details_dir / "*.json")):
+        if "_unparsed" in path:
+            continue
+        detail = json.loads(Path(path).read_text())
+        players = detail.get("players") or []
+        if len(players) != 10 or not players[0].get("gold_t"):
+            continue
+        radiant_team = [p for p in players if "player_slot" in p and p["player_slot"] < 128]
+        dire_team = [p for p in players if "player_slot" in p and p["player_slot"] >= 128]
+        if len(radiant_team) != 5 or len(dire_team) != 5:
+            continue  # a missing slot would sum 6v4 and fake a lead
+        for minute in minutes:
+            if not all(len(p.get("gold_t") or []) > minute for p in players):
+                continue
+            radiant = sum(p["gold_t"][minute] for p in radiant_team)
+            dire = sum(p["gold_t"][minute] for p in dire_team)
+            out[minute].append(abs(radiant - dire))
+    return {m: v for m, v in out.items() if v}
+
+
+def _quantile(values: list[float], q: float) -> float:
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, int(q * len(ordered)))]
+
+
+def lead_spread_comparison(
+    records: list[dict[str, Any]],
+    details_dir: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Median and 90th-percentile |gold lead|, sim vs real, per minute; None without data.
+
+    ``records`` are run_sim_corpus records carrying ``sim_lead_at`` (one value
+    per simulated game, not a per-draft mean — a spread needs the games).
+    """
+    real = real_abs_leads(details_dir)
+    if not real:
+        return None
+    out: dict[str, dict[str, float]] = {}
+    for minute, real_values in sorted(real.items()):
+        sims = [abs(v) for r in records for v in r.get("sim_lead_at", {}).get(minute, [])]
+        if not sims:
+            continue
+        sim_median, real_median = statistics.median(sims), statistics.median(real_values)
+        out[str(minute)] = {
+            "sim_median": round(sim_median, 1),
+            "real_median": round(real_median, 1),
+            "sim_p90": round(_quantile(sims, 0.9), 1),
+            "real_p90": round(_quantile(real_values, 0.9), 1),
+            "ratio": round(sim_median / real_median, 2) if real_median else None,
+        }
+    return out or None

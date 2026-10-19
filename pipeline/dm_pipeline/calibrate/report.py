@@ -19,7 +19,7 @@ from dm_pipeline.calibrate.compare import (
     duration_comparison,
     hero_winrate_correlation,
 )
-from dm_pipeline.calibrate.economy import economy_comparison
+from dm_pipeline.calibrate.economy import economy_comparison, lead_spread_comparison
 from dm_pipeline.calibrate.run_corpus import run_sim_corpus
 from dm_pipeline.features.build_dataset import hero_strength_ratings
 from dm_pipeline.prototype.scenario import load_heroes
@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> None:
     hero_corr = hero_winrate_correlation(records)
     duration = duration_comparison(records)
     economy = economy_comparison(records)
+    lead_spread = lead_spread_comparison(records)
 
     report = {
         "patch_id": args.patch_id,
@@ -70,6 +71,7 @@ def main(argv: list[str] | None = None) -> None:
         "hero_winrate_correlation": hero_corr,
         "duration": duration,
         "economy": economy,
+        "lead_spread": lead_spread,
     }
     config.CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
     out_path = config.CALIBRATION_DIR / f"report.{args.patch_id}.json"
@@ -96,6 +98,15 @@ def main(argv: list[str] | None = None) -> None:
                 for m, v in economy.items()
             )
             print(f"economy:  team net worth — {parts}")
+        if lead_spread:
+            parts = ", ".join(
+                f"min {m}: sim {v['sim_median']:,.0f} vs real {v['real_median']:,.0f} (x{v['ratio']})"
+                for m, v in lead_spread.items()
+            )
+            print(
+                f"leads:    median |gold lead|, sim net worth vs real gold earned "
+                f"(diagnostic, not a gate; ~1.5x inflated by fight debits) — {parts}"
+            )
 
 
 if __name__ == "__main__":
