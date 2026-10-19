@@ -113,3 +113,11 @@ def test_lead_spread_compares_medians_of_individual_games(tmp_path) -> None:
 
 def test_lead_spread_is_absent_without_real_data(tmp_path) -> None:
     assert lead_spread_comparison([{"sim_lead_at": {10: [1.0]}}], tmp_path) is None
+
+
+def test_a_match_with_a_missing_slot_is_skipped_not_summed_six_against_four(tmp_path) -> None:
+    _write_lopsided_match(tmp_path, 1, radiant_per_min=500, dire_per_min=500)  # dead even
+    bad = json.loads((tmp_path / "1.json").read_text())
+    del bad["players"][7]["player_slot"]
+    (tmp_path / "1.json").write_text(json.dumps(bad))
+    assert real_abs_leads(tmp_path) == {}
