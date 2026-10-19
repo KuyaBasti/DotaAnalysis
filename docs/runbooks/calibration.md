@@ -32,16 +32,18 @@ Reads the report at `data/calibration/report.<patch>.json`, and prints:
 win:      acc … vs favorite … (edge …), Brier …
 realism:  per-hero win-rate r = … (target >0.8, n=… heroes); duration sim …m vs real …m (gap …m)
 economy:  team net worth — min 10: sim … vs real … (x…), min 20: sim … vs real … (x…)
+leads:    median |gold lead|, sim net worth vs real gold earned (diagnostic, not a gate; …) — min 10: … (x…), …
 ```
 
-## Read the four metrics
+## Read the four metrics (and one diagnostic)
 
 | Line | Healthy | If it's off |
 |---|---|---|
-| **duration** gap | within ±3 min (currently ~0) | retune `_OBJECTIVE_BASE_CHANCE` (push pace) |
-| **economy** ratio | 0.95–1.05 (currently ~1.00) | the gold constants drifted — check the economy/fight swing constants |
+| **duration** gap | within ±3 min (currently +1.9) | retune `_OBJECTIVE_BASE_CHANCE` (push pace) — and then re-fit `_ROSHAN_CHANCE`, which is coupled to game length |
+| **economy** ratio | 0.95–1.05 (currently 1.016 / 0.962) | the gold constants drifted — check the economy/fight swing constants. Known flaw: sim net worth includes 600 starting gold per hero, real `gold_t` does not |
 | **win** edge | ≥ 0 vs the favorite baseline | more fights / draft signal; don't chase this at realism's expense |
 | **per-hero r** | higher is better (open target 0.8) | needs richer-than-draft signal — a research item, not a quick tune |
+| **leads** ratio | 1.0 would be real; currently ×5.2 / ×3.9 / ×3.1 | a realism gap, not a gate: sim teams pull apart from the horn. ~1.5× of the ratio is the line comparing net worth with gold earned |
 
 ## Tuning discipline
 
@@ -51,6 +53,13 @@ economy:  team net worth — min 10: sim … vs real … (x…), min 20: sim …
   the distribution, not the win metric.
 - Use `--no-ratings` to measure the **bare engine** (no data-derived hero strength)
   when you want to isolate a mechanic from the ratings.
+- **A/B against the real baseline, not a patched one.** Run the "before" from a
+  checkout of `main` (a `git worktree` keeps the working tree on your branch),
+  never by patching old constants onto the branch: if the branch adds a random
+  draw, the patched "before" runs a different random stream and the comparison
+  measures noise (the Roshan PR's first A/B reported a Brier gain that was
+  exactly that). The harness resolves Brier differences of about ±0.005 at
+  `--sample 2000`; anything smaller is a tie.
 - For economy checks you need parsed details: run
   `python -m dm_pipeline.harvest.backfill` first so `data/details/` has gold curves.
 
