@@ -6,16 +6,18 @@ re-run `dm-calibrate --sample 2000` after engine changes.
 
 ## Where things stand
 
-- **95 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
+- **97 PRs merged.** The core loop works end-to-end: **draft → predict → simulate
   → watch → analyze → understand → act**, all of it **at the rank bracket you
   play**, and every realism issue from the audits is closed.
 - **Engine:** a full, watchable ranked game — real (Divine-calibrated) economy,
   laning, teamfights with named casualties + K/D/A, Roshan, XP/levels, two-sided
   laned objectives → Ancient, and moving hero positions.
 - **Calibration (n=2000, 7.41e baseline):** Brier 0.286 (the win gate),
-  duration +1.4m of real (7.41e games run shorter — real mean 32.6m, sim
-  34.0m), economy within ±1.6% of parsed real gold at min 10/20. The fight
-  scale, re-fit on 87k real teamfights, confirmed the shipped constants.
+  duration +1.9m of real (real mean 32.6m, sim 34.5m), economy +1.6% / −3.8%
+  of parsed real gold at min 10 / 20. The fight scale, re-fit on 87k real
+  teamfights, confirmed the shipped constants. Roshan now arrives when real
+  teams take him (median first kill 27 min, real 26.8). New diagnostic: sim
+  gold leads run 3–5× real.
 - **Data:** 178k matches banked and in the feature store (per-bracket models
   train on 31k–60k matches each). Parsed details at **11.8k games** — every
   one of the 127 heroes clears the farm-timing reliability gate — growing on
@@ -395,6 +397,27 @@ messages that needed rewriting with full disclosure (one guard test genuinely
 failed under the new engine at its original seed count; the restacked message
 says so plainly). The old constant survives one epitaph: it was approximately
 right around minute 30, and nowhere else.
+
+**Roshan arrives when real teams take him.** A counterfactual-fork spike in
+the private lab — starting the engine from a real game's state — kept handing
+the gold leader an Aegis that real games at that minute did not have, and the
+trail led back to the engine: it took its first Roshan at a median of **12
+minutes**, in ~84% of games by 15:00, and always gave him to the leader. Real
+ranked games (15,710 parsed) take the first at a median of **26.8**, only 61%
+of games ever see one, and the gold leader takes 87.6%. A grid over the two
+knobs on 1,200 real drafts picked 23 minutes / 5% per tick (median 27.0, 48.8%
+of games by 30:00 vs 49.6% real), and the taker is now the leader 87.6% of the
+time. Against unmodified `main` it is a **realism fix that costs nothing**, not a
+prediction gain: Brier 0.28576 → 0.28580, a tie the harness cannot separate —
+the review caught the first A/B, which had patched the old constants onto the
+new code and so ran a different random stream, reporting a "gain" that was
+noise. Duration +0.5 min; minute-20 gold went from −0.5% to −3.8% of real,
+because the spurious pre-20 Aegis had been propping it up. The same PR gave
+`dm-calibrate` a lead-spread line, and it says plainly what nobody had
+measured: sim teams pull 3–5× further apart than real ones while total gold
+matches within 2%. The review also found the economy gate itself compares sim
+net worth including 600 starting gold per hero against real gold that excludes
+it — left as its own harness fix. PR #97.
 
 **One-word workflows, and the first full meta turnover.** Two things landed
 together. The `/dm` command center (`.claude/skills/dm/SKILL.md`) turns the
