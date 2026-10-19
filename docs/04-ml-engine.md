@@ -228,21 +228,35 @@ drafts** from the corpus and scores four things in one run
 | **Economy** | is team net worth right at min 10/20 vs **parsed real curves**? | ✅ within ±5% | `calibrate/economy.py` |
 | Win accuracy | does the sim pick the real winner? (capped by draft-only info) | ⚠️ diagnostic only | `calibrate/compare.py` |
 | Per-hero win-rate `r` | does the sim reproduce *which heroes win*? (Pearson vs real) | ⚠️ diagnostic only | `calibrate/compare.py` |
+| Lead spread | are the two teams as far apart as real teams? (median \|gold lead\| at 10/15/20) | ⚠️ diagnostic only | `calibrate/economy.py` |
 
-The last one is a permanent guardrail added after the economy was calibrated to
-`data/details`: it reports sim-vs-real team net worth so a future engine change
-can't silently drift the gold.
+The economy row is a permanent guardrail added after the economy was
+calibrated to `data/details`: it reports sim-vs-real team net worth so a future
+engine change can't silently drift the gold. The lead-spread row was added
+because matching mean team gold says nothing about how far apart the teams are:
+the engine's median gold lead runs **3–5× real** (×5.2 at minute 10, ×3.1 at
+20) while the totals match within 2%. Read it with its caveat — the sim side is
+net worth, which fight losers are debited from, and the real side is gold
+earned, which never drops; that inflates the ratio about 1.5×.
 
-Example output:
+**A known flaw in the economy gate, not yet fixed:** it compares the sim's team
+net worth, which *includes* each hero's 600 starting gold, against real
+`gold_t`, which *excludes* it. The "within ±5%" has therefore never been quite
+like for like (subtracting the start, minute 20 would read ~0.88–0.92). Fixing
+the definition, and re-baselining, is its own harness change.
+
+Example output (7.41e, after the Roshan recalibration, PR #97):
 
 ```
-win:      acc 0.514 vs favorite 0.567 (edge -0.052), Brier 0.296
-realism:  per-hero win-rate r = 0.454 (target >0.8, n=125 heroes); duration sim 35.1m vs real 34.2m (gap +0.8m)
-economy:  team net worth — min 10: sim 15,569 vs real 15,370 (x1.013), min 20: sim 38,643 vs real 38,803 (x0.996)
+win:      acc 0.543 vs favorite 0.577 (edge -0.033), Brier 0.286
+realism:  per-hero win-rate r = 0.659 (target >0.8, n=126 heroes); duration sim 34.5m vs real 32.6m (gap +1.9m)
+economy:  team net worth — min 10: sim 15,488 vs real 15,238 (x1.016), min 20: sim 37,147 vs real 38,608 (x0.962)
+leads:    median |gold lead|, sim net worth vs real gold earned (diagnostic, not a gate; ~1.5x inflated by fight debits) — min 10: sim 10,562 vs real 2,044 (x5.17), min 15: sim 16,500 vs real 4,208 (x3.92), min 20: sim 22,659 vs real 7,270 (x3.12)
 ```
 
-**Current state:** Brier 0.296 (best measured), duration +0.8m, economy ±1.3% —
-all three gates met.
+**Current state:** Brier 0.286, duration +1.9m, economy +1.6% / −3.8% at minutes
+10 / 20 — all three gates met. (Minute-20 gold sat at −0.5% until Roshan moved to
+real timing: the engine's spurious pre-20 Aegis bounty had been propping it up.)
 
 ### Rigor lessons (baked into the harness)
 
