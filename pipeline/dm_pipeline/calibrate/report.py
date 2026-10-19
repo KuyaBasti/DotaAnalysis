@@ -103,7 +103,10 @@ def main(argv: list[str] | None = None) -> None:
                 f"min {m}: sim {v['sim_median']:,.0f} vs real {v['real_median']:,.0f} (x{v['ratio']})"
                 for m, v in lead_spread.items()
             )
-            print(f"leads:    median |gold lead| (diagnostic, not a gate) — {parts}")
+            print(
+                f"leads:    median |gold lead|, sim net worth vs real gold earned "
+                f"(diagnostic, not a gate; ~1.5x inflated by fight debits) — {parts}"
+            )
 
 
 if __name__ == "__main__":

@@ -20,8 +20,12 @@ from dm_pipeline import config
 CHECKPOINT_MINUTES = (10, 20)
 # Where the gold-lead spread is compared. A diagnostic, not a gate: matching
 # mean team gold says nothing about how far apart the two teams are, and the
-# engine's leads once ran 4-6x wider than real games' while the totals matched
-# within 2% — invisible to every number this harness used to print.
+# engine's leads run 3-5x wider than real games' while the totals match within
+# 2% — invisible to every number this harness used to print. NOT quite like
+# for like: the sim lead is net worth, which fight losers are debited from,
+# while real gold_t is gold earned, which never drops; measured, that inflates
+# the ratio ~1.5x (earned-only sim leads run ~2-3.5x real). Real games that
+# end before minute 20 drop out of the minute-20 real sample (sims rarely do).
 LEAD_SPREAD_MINUTES = (10, 15, 20)
 
 
@@ -116,11 +120,15 @@ def real_abs_leads(
         players = detail.get("players") or []
         if len(players) != 10 or not players[0].get("gold_t"):
             continue
+        radiant_team = [p for p in players if "player_slot" in p and p["player_slot"] < 128]
+        dire_team = [p for p in players if "player_slot" in p and p["player_slot"] >= 128]
+        if len(radiant_team) != 5 or len(dire_team) != 5:
+            continue  # a missing slot would sum 6v4 and fake a lead
         for minute in minutes:
             if not all(len(p.get("gold_t") or []) > minute for p in players):
                 continue
-            radiant = sum(p["gold_t"][minute] for p in players if p.get("player_slot", 0) < 128)
-            dire = sum(p["gold_t"][minute] for p in players if p.get("player_slot", 0) >= 128)
+            radiant = sum(p["gold_t"][minute] for p in radiant_team)
+            dire = sum(p["gold_t"][minute] for p in dire_team)
             out[minute].append(abs(radiant - dire))
     return {m: v for m, v in out.items() if v}
 
