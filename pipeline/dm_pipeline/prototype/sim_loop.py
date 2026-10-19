@@ -75,17 +75,30 @@ _STRUCTURE_TOUGHNESS = {
 # (0.71 kills a game), the first falls at a median of 26.8 min (0.6% of games
 # by 15:00, 4.7% by 20:00, 49.6% by 30:00, 61.0% by 40:00), consecutive kills
 # come ~11.4 min apart, and the team ahead in gold takes it 87.6% of the time.
-# The old 10 min / 15%-per-tick Roshan fell at a median of 12 min, in 85% of
-# games by 15:00 — an Aegis for every early leader that real teams rarely
+# The old 10 min / 15%-per-tick Roshan fell at a median of 12 min, in ~84%
+# of games by 15:00 — an Aegis for every early leader that real teams rarely
 # have. A grid over first-window x chance on 1,200 real drafts picked 23 min
-# / 5%: 48.8% by 30:00, 63.4% by 40:00, a 27.0-min median first kill, an
-# 11.0-min gap, 0.78 kills a game, duration unchanged. (Nothing before 23:00,
-# where real games take 4.7% by 20:00 — a ramp would add that tail; not worth
-# a second knob.)
+# / 5%: 48.8% of games by 30:00, 63.4% by 40:00, a 27.0-min median first
+# kill, an 11.0-min gap, 0.78 kills a game. Duration rose ~0.5 min (dm-calibrate
+# 34.0 -> 34.5 vs real 32.6). (Nothing before 23:00, where real games take
+# 4.7% by 20:00 — a ramp would add that tail; not worth a second knob.)
+#
+# Coupled to duration — re-fit when duration is retuned: the target is the
+# share of ALL games with a Roshan by minute m, and sim games run longer than
+# real ones (alive at 35 min: 41.6% sim vs 26.7% real), so this chance is
+# ~25-30% below the real per-minute hazard for a game still in progress
+# (sim ~9.5%/min vs real 12-14%/min from minute 25). Fitting the hazard
+# instead (23 min / 6.5%) would give ~0.90 Roshans a game vs a real 0.71
+# while games run long.
 _ROSHAN_FIRST_SECONDS = 23 * 60
 _ROSHAN_RESPAWN_SECONDS = 9 * 60  # respawn window after a kill (real gap ~11.4 min incl. the wait)
 _ROSHAN_CHANCE = 0.05  # per-tick chance an available Roshan is taken
-_ROSHAN_LEADER_SHARE = 0.876  # who takes him: the gold leader 87.6% of the time (real, n=11,220)
+# Who takes him: the gold leader 87.6% of the time in real games (n=11,220).
+# A marginal over the REAL lead distribution — in real games the share rises
+# with the lead (58% under 2.5k, 85% at 5-7.5k, 98% past 15k), and sim leads
+# run 3-5x wider, so a flat share overstates big-deficit steals. A lead-
+# dependent share is the natural follow-up.
+_ROSHAN_LEADER_SHARE = 0.876
 _ROSHAN_REWARD = 2_500.0  # net-worth value of the Aegis + bounty
 
 _FIGHT_CHANCE = 0.36  # skirmish cadence: ~one fight per 1.4 min, like real mid-game (swings halved to keep the economy calibrated)
@@ -702,7 +715,7 @@ def _roshan_tick(state: GameState, rng: SeededRng, timeline: Timeline) -> None:
 
     From ~23 min (and ~9 min after each kill) an available Roshan falls at a
     per-tick chance, usually to the team ahead in gold — but not always: real
-    trailing teams take about one in eight, often as a comeback play.
+    trailing teams take about one in eight, mostly when the game is close.
     """
     if state.t < state.roshan_available_at:
         return
